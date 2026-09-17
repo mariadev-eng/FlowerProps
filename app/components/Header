@@ -1,0 +1,62 @@
+"use client";
+
+import Link from "next/link";
+import { useUser } from "@/hooks/useUser";
+
+export default function Header() {
+  const { user, loading } = useUser();
+
+  return (
+    <header className="site-header">
+      <div className="header-content">
+        <Link href="/" className="brand" aria-label="FLOWER">
+          {/* Troque pelo seu logo */}
+          <img
+            src="/logo-flower.png"
+            alt="FLOWER"
+            className="brand-logo"
+          />
+        </Link>
+
+        <nav className="desktop-nav">
+          <Link href="/">Início</Link>
+          <Link href="/#categorias">Categorias</Link>
+          <Link href="/#produtos">Flores</Link>
+          <Link href="/#assinatura">Assinatura</Link>
+          <Link href="/#sobre">Sobre</Link>
+        </nav>
+
+        <div className="header-actions">
+          <button type="button" aria-label="Buscar">
+            ⌕
+          </button>
+
+          <Link
+            href="/conta"
+            className="account-button"
+            aria-label={user ? "Minha conta" : "Entrar ou criar conta"}
+          >
+            {loading ? (
+              "·"
+            ) : user ? (
+              // Usuário logado — mostra inicial do nome
+              <span className="user-initial">
+                {(user.user_metadata?.name as string)?.charAt(0)?.toUpperCase() ||
+                  user.email?.charAt(0).toUpperCase() ||
+                  "U"}
+              </span>
+            ) : (
+              // Deslogado — mostra ícone de cadastro
+              "⌂"
+            )}
+          </Link>
+
+          <button type="button" className="cart-button" aria-label="Carrinho">
+            ⌂
+            <span className="cart-count">0</span>
+          </button>
+        </div>
+      </div>
+    </header>
+  );
+}
