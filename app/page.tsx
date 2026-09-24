@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import ProductCard from "./components/ProductCard";
 import Cart from "./components/Cart";
 import { supabase } from "../lib/supabase";
+import Link from "next/link";
 
 type Product = {
   id: number;
@@ -626,9 +627,12 @@ export default function Home() {
             </div>
           </div>
 
-          <a href="#" className="button button-light">
-            Criar minha assinatura
-          </a>
+          <Link
+  href="/assinaturas"
+  className="button button-light"
+>
+  Criar minha assinatura
+</Link>
         </div>
       </section>
 

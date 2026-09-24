@@ -3648,3 +3648,200 @@ body:has(.cart-drawer.active) {
   font-weight: 600;
   letter-spacing: 0;
 }
+/* =========================================================
+   PÁGINA DE ASSINATURAS
+   ========================================================= */
+
+.subscriptions-page {
+  min-height: 100vh;
+  background: var(--cream);
+}
+
+.subscriptions-intro {
+  text-align: center;
+  padding-top: 80px;
+  padding-bottom: 30px;
+}
+
+.subscriptions-intro h1 {
+  max-width: 720px;
+  margin: 18px auto 0;
+  font-family: var(--serif);
+  font-size: clamp(46px, 6vw, 80px);
+  font-weight: 500;
+  line-height: 0.95;
+  letter-spacing: -0.035em;
+  color: var(--green-dark);
+}
+
+.subscriptions-intro h1 em {
+  color: var(--green);
+  font-style: italic;
+  font-weight: 400;
+}
+
+.subscriptions-intro p {
+  max-width: 560px;
+  margin: 28px auto 0;
+  color: var(--text-light);
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.subscriptions-grid {
+  padding-top: 60px;
+  padding-bottom: 120px;
+}
+
+.subscriptions-loading,
+.subscriptions-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-light);
+}
+
+.subscriptions-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 28px;
+}
+
+.subscription-card {
+  display: flex;
+  flex-direction: column;
+  background: white;
+  border: 1px solid var(--border);
+  overflow: hidden;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.subscription-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 60px rgba(41, 59, 49, 0.1);
+}
+
+.subscription-card-image {
+  width: 100%;
+  height: 280px;
+  overflow: hidden;
+  background: #eef0e9;
+}
+
+.subscription-card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s ease;
+}
+
+.subscription-card:hover .subscription-card-image img {
+  transform: scale(1.04);
+}
+
+.subscription-card-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  padding: 30px 28px 32px;
+}
+
+.subscription-card-content .eyebrow {
+  margin-bottom: 12px;
+  color: var(--green);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+}
+
+.subscription-card-content h2 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 40px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--green-dark);
+}
+
+.subscription-card-content > p {
+  margin: 16px 0 0;
+  color: var(--text-light);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.subscription-card-price {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.subscription-card-price strong {
+  font-family: var(--serif);
+  font-size: 36px;
+  font-weight: 500;
+  color: var(--green-dark);
+}
+
+.subscription-card-price span {
+  color: var(--text-light);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.subscription-card .button {
+  margin-top: 24px;
+  width: 100%;
+}
+
+.button-primary.dark {
+  background: var(--green-dark);
+  color: white;
+}
+
+.button-primary.dark:hover {
+  background: var(--green);
+}
+
+/* RESPONSIVO */
+@media (max-width: 1000px) {
+  .subscriptions-cards {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .subscriptions-cards {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .subscription-card-image {
+    height: 240px;
+  }
+
+  .subscriptions-intro {
+    padding-top: 50px;
+  }
+
+  .subscriptions-intro h1 {
+    font-size: 44px;
+  }
+}
+/* =========================================================
+   NOTA DE ASSINATURA NO CARRINHO
+   ========================================================= */
+
+.cart-subscription-note {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 5px 10px;
+  background: var(--green-pale);
+  color: var(--green-dark);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}

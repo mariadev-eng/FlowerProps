@@ -1,9 +1,13 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { initMercadoPago, CardPayment } from "@mercadopago/sdk-react";
 import { supabase } from "@/lib/supabase";
+
+initMercadoPago(process.env.NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY!, {
+  locale: "pt-BR",
+});
 
 type CartItem = {
   id: number;
@@ -33,21 +37,25 @@ export default function PaymentPage() {
   const router = useRouter();
 
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [customerData, setCustomerData] =
-    useState<CustomerData | null>(null);
+  const [customerData, setCustomerData] = useState<CustomerData | null>(null);
 
-  const [paymentMethod, setPaymentMethod] =
-    useState<"pix" | "card">("pix");
+  const [paymentMethod, setPaymentMethod] = useState<"pix" | "card">("pix");
 
-  const [isFinishing, setIsFinishing] =
-    useState(false);
+  const [isFinishing, setIsFinishing] = useState(false);
+  const [isProcessingCard, setIsProcessingCard] = useState(false);
+  const [error, setError] = useState("");
+
+  // Dados do Pix (quando gerado)
+  const [pixData, setPixData] = useState<{
+    qrCode: string;
+    qrCodeBase64: string;
+    paymentId: number;
+    orderId: number;
+  } | null>(null);
 
   useEffect(() => {
-    const savedCart =
-      localStorage.getItem("flower-cart");
-
-    const savedCheckout =
-      localStorage.getItem("flower-checkout");
+    const savedCart = localStorage.getItem("flower-cart");
+    const savedCheckout = localStorage.getItem("flower-checkout");
 
     if (savedCart) {
       try {
@@ -67,15 +75,12 @@ export default function PaymentPage() {
   }, []);
 
   const subtotal = cartItems.reduce(
-    (total, item) =>
-      total + item.price * item.quantity,
+    (total, item) => total + item.price * item.quantity,
     0
   );
 
   const deliveryFee =
-    customerData?.deliveryMethod === "delivery"
-      ? DELIVERY_FEE
-      : 0;
+    customerData?.deliveryMethod === "delivery" ? DELIVERY_FEE : 0;
 
   const total = subtotal + deliveryFee;
 
@@ -90,206 +95,268 @@ export default function PaymentPage() {
     router.push("/revisao");
   }
 
-  async function finishOrder() {
-    if (cartItems.length === 0) {
-      alert("Seu carrinho está vazio.");
-      return;
+  // ==========================================
+  // 1. SALVAR PEDIDO NO SUPABASE (pending)
+  // ==========================================
+
+  async function saveOrderToSupabase(paymentMethodType: string) {
+    if (!customerData) {
+      throw new Error("Dados do cliente não encontrados.");
     }
 
+    const { data: order, error: orderError } = await supabase
+      .from("orders")
+      .insert({
+        customer_name: customerData.name,
+        customer_phone: customerData.phone,
+        customer_email: customerData.email,
+        delivery_method: customerData.deliveryMethod,
+        cep: customerData.cep,
+        street: customerData.street,
+        number: customerData.number,
+        complement: customerData.complement,
+        neighborhood: customerData.neighborhood,
+        city: customerData.city,
+        observation: customerData.observation,
+        subtotal,
+        delivery_fee: deliveryFee,
+        total,
+        payment_method: paymentMethodType,
+        payment_status: "pending",
+        order_status: "pending",
+      })
+      .select()
+      .single();
+
+    if (orderError) {
+      console.error("ERRO AO CRIAR PEDIDO:", orderError);
+      throw new Error(orderError.message || "Erro ao criar pedido.");
+    }
+const orderItems = cartItems.map((item: any) => ({
+  order_id: order.id,
+  product_id: item.type === "subscription" ? null : item.id,
+  product_name: item.name,
+  product_price: item.price,
+  quantity: item.quantity,
+  subtotal: item.price * item.quantity,
+  item_type: item.type === "subscription" ? "subscription" : "product",
+}));
+
+    const { error: itemsError } = await supabase
+      .from("order_items")
+      .insert(orderItems);
+
+    if (itemsError) {
+      console.error("ERRO AO CRIAR ITENS:", itemsError);
+      throw new Error("Erro ao salvar produtos do pedido.");
+    }
+
+    return order.id;
+  }
+
+  // ==========================================
+  // 2. PAGAMENTO COM CARTÃO (chamado pelo CardPayment)
+  // ==========================================
+
+  async function handleCardSubmit(formData: any) {
+    setIsProcessingCard(true);
+    setError("");
+
     if (!customerData) {
-      alert("Os dados do cliente não foram encontrados.");
+      setError("Dados do cliente não encontrados.");
+      setIsProcessingCard(false);
       return;
     }
 
     try {
-      setIsFinishing(true);
+      // 1. Cria o pedido no Supabase ANTES de processar o pagamento
+      const orderId = await saveOrderToSupabase("card");
 
-      // ==========================================
-      // 1. CRIAR O PEDIDO EM "orders"
-      // ==========================================
+      // 2. Processa o pagamento no Mercado Pago
+      const response = await fetch("/api/mercado-pago/process", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token: formData.token,
+          payment_method_id: formData.payment_method_id,
+          installments: formData.installments,
+          transaction_amount: total,
+          payer: {
+            email: customerData.email,
+            first_name: customerData.name.split(" ")[0],
+            last_name: customerData.name.split(" ").slice(1).join(" "),
+          },
+          description: `Pedido FLOWER PROPS #${orderId}`,
+          external_reference: `FLOWER-${orderId}`,
+        }),
+      });
 
-      const { data: order, error: orderError } =
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Erro ao processar pagamento.");
+      }
+
+      // 3. Se aprovado, atualiza o pedido
+      if (result.status === "approved") {
         await supabase
           .from("orders")
-          .insert({
-            customer_name: customerData.name,
-            customer_phone: customerData.phone,
-            customer_email: customerData.email,
-
-            delivery_method:
-              customerData.deliveryMethod,
-
-            cep: customerData.cep,
-            street: customerData.street,
-            number: customerData.number,
-            complement: customerData.complement,
-            neighborhood: customerData.neighborhood,
-            city: customerData.city,
-
-            observation:
-              customerData.observation,
-
-            subtotal: subtotal,
-            delivery_fee: deliveryFee,
-            total: total,
-
-            payment_method: paymentMethod,
-
-            payment_status: "pending",
-            order_status: "pending",
+          .update({
+            payment_status: "paid",
+            order_status: "confirmed",
+            payment_id: String(result.id),
           })
-          .select()
-          .single();
+          .eq("id", orderId);
 
-      if (orderError) {
-        console.error("ERRO AO CRIAR PEDIDO");
-        console.error(
-          "message:",
-          orderError.message
-        );
-        console.error(
-          "details:",
-          orderError.details
-        );
-        console.error(
-          "hint:",
-          orderError.hint
-        );
-        console.error(
-          "code:",
-          orderError.code
-        );
+        localStorage.setItem("flower-order-id", String(orderId));
+        localStorage.removeItem("flower-cart");
 
-        throw new Error(
-          orderError.message ||
-            "Não foi possível criar o pedido."
-        );
-      }
-
-      // ==========================================
-      // 2. CRIAR OS ITENS EM "order_items"
-      // ==========================================
-
-      const orderItems = cartItems.map((item) => ({
-        order_id: order.id,
-        product_id: item.id,
-        product_name: item.name,
-        product_price: item.price,
-        quantity: item.quantity,
-        subtotal:
-          item.price * item.quantity,
-      }));
-
-      const { error: itemsError } =
+        router.push("/pedido-confirmado");
+      } else if (result.status === "in_process" || result.status === "pending") {
         await supabase
-          .from("order_items")
-          .insert(orderItems);
+          .from("orders")
+          .update({
+            payment_status: "pending",
+            payment_id: String(result.id),
+          })
+          .eq("id", orderId);
 
-      if (itemsError) {
-        console.error(
-          "ERRO AO CRIAR ITENS DO PEDIDO"
+        setError(
+          "Pagamento em análise. Você receberá uma confirmação em breve."
         );
-        console.error(
-          "message:",
-          itemsError.message
-        );
-        console.error(
-          "details:",
-          itemsError.details
-        );
-        console.error(
-          "hint:",
-          itemsError.hint
-        );
-        console.error(
-          "code:",
-          itemsError.code
-        );
+        setIsProcessingCard(false);
+      } else {
+        await supabase
+          .from("orders")
+          .update({
+            payment_status: "rejected",
+            payment_id: String(result.id),
+          })
+          .eq("id", orderId);
 
-        throw new Error(
-          itemsError.message ||
-            "O pedido foi criado, mas não foi possível registrar os produtos."
+        setError(
+          "Pagamento não aprovado. Verifique os dados do cartão e tente novamente."
         );
+        setIsProcessingCard(false);
+      }
+    } catch (err: any) {
+      console.error("Erro no cartão:", err);
+      setError(err?.message || "Erro ao processar pagamento.");
+      setIsProcessingCard(false);
+    }
+  }
+
+  // ==========================================
+  // 3. PAGAMENTO COM PIX
+  // ==========================================
+
+  async function handlePixPayment() {
+    setIsFinishing(true);
+    setError("");
+
+    if (!customerData) {
+      setError("Dados do cliente não encontrados.");
+      setIsFinishing(false);
+      return;
+    }
+
+    try {
+      // 1. Salva o pedido
+      const orderId = await saveOrderToSupabase("pix");
+
+      // 2. Chama o Mercado Pago pra gerar o Pix
+      const response = await fetch("/api/mercado-pago/process", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          payment_method_id: "pix",
+          transaction_amount: total,
+          payer: {
+            email: customerData.email,
+            first_name: customerData.name.split(" ")[0],
+            last_name: customerData.name.split(" ").slice(1).join(" "),
+          },
+          description: `Pedido FLOWER PROPS #${orderId}`,
+          external_reference: `FLOWER-${orderId}`,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Erro ao gerar Pix.");
       }
 
-      // ==========================================
-      // 3. SALVAR O ID DO PEDIDO
-      // ==========================================
+      // 3. Salva dados do QR Code
+      setPixData({
+        qrCode: result.qr_code,
+        qrCodeBase64: result.qr_code_base64,
+        paymentId: result.id,
+        orderId,
+      });
 
-      localStorage.setItem(
-        "flower-order-id",
-        String(order.id)
-      );
+      // 4. Salva o ID do pedido
+      localStorage.setItem("flower-order-id", String(orderId));
 
-      // ==========================================
-      // 4. LIMPAR O CARRINHO
-      // ==========================================
-
-      localStorage.removeItem("flower-cart");
-
-      // ==========================================
-      // 5. IR PARA PEDIDO CONFIRMADO
-      // ==========================================
-
-      router.push("/pedido-confirmado");
-
-    } catch (error) {
-      console.error(
-        "ERRO AO FINALIZAR PEDIDO:",
-        error
-      );
-
-      alert(
-        error instanceof Error
-          ? error.message
-          : "Não foi possível finalizar o pedido."
-      );
-
+      setIsFinishing(false);
+    } catch (err: any) {
+      console.error("Erro no Pix:", err);
+      setError(err?.message || "Erro ao gerar Pix. Tente novamente.");
       setIsFinishing(false);
     }
   }
 
+  // ==========================================
+  // 4. FINALIZAR (chamado pelo botão)
+  // ==========================================
+
+  async function finishOrder() {
+    if (cartItems.length === 0) {
+      setError("Seu carrinho está vazio.");
+      return;
+    }
+
+    if (!customerData) {
+      setError("Dados do cliente não encontrados.");
+      return;
+    }
+
+    if (paymentMethod === "pix") {
+      await handlePixPayment();
+    }
+  }
+
+  // ==========================================
+  // 5. COPIAR CÓDIGO PIX
+  // ==========================================
+
+  function copyPixCode() {
+    if (!pixData) return;
+
+    navigator.clipboard.writeText(pixData.qrCode);
+    alert("Código Pix copiado! Cole no seu app do banco.");
+  }
+
   return (
     <main className="payment-page">
-
-      {/* =========================
-          HEADER
-      ========================== */}
-
+      {/* HEADER */}
       <header className="payment-header">
-
         <div className="payment-header-inner">
-
-          <a
-            href="/"
-            className="payment-logo"
-          >
+          <a href="/" className="payment-logo">
             FLOWER
             <span>PROPS</span>
           </a>
 
-          <div className="payment-header-title">
-            Pagamento
-          </div>
+          <div className="payment-header-title">Pagamento</div>
 
-          <button
-            type="button"
-            onClick={goBack}
-            className="payment-back"
-          >
+          <button type="button" onClick={goBack} className="payment-back">
             ← Voltar à revisão
           </button>
-
         </div>
-
       </header>
 
-      {/* =========================
-          ETAPAS
-      ========================== */}
-
+      {/* ETAPAS */}
       <div className="payment-steps">
-
         <div className="payment-step completed">
           <span>✓</span>
           <p>Carrinho</p>
@@ -315,26 +382,13 @@ export default function PaymentPage() {
           <span>4</span>
           <p>Pagamento</p>
         </div>
-
       </div>
 
-      {/* =========================
-          CONTEÚDO
-      ========================== */}
-
+      {/* CONTEÚDO */}
       <div className="payment-container">
-
-        {/* =========================
-            PRINCIPAL
-        ========================== */}
-
         <section className="payment-main">
-
           <div className="payment-intro">
-
-            <span className="payment-eyebrow">
-              FINALIZAÇÃO
-            </span>
+            <span className="payment-eyebrow">FINALIZAÇÃO</span>
 
             <h1>
               Escolha como
@@ -342,400 +396,285 @@ export default function PaymentPage() {
               <em>pagar.</em>
             </h1>
 
-            <p>
-              Selecione a forma de pagamento
-              para concluir seu pedido.
-            </p>
-
+            <p>Selecione a forma de pagamento para concluir seu pedido.</p>
           </div>
 
-          {/* =========================
-              MÉTODOS DE PAGAMENTO
-          ========================== */}
+          {/* ERRO */}
+          {error && (
+            <div className="account-message error" style={{ marginBottom: 20 }}>
+              {error}
+            </div>
+          )}
 
-          <section className="payment-card">
+          {/* MÉTODOS */}
+          {!pixData && (
+            <section className="payment-card">
+              <div className="payment-card-heading">
+                <span>01</span>
 
-            <div className="payment-card-heading">
-
-              <span>01</span>
-
-              <div>
-                <h2>
-                  Forma de pagamento
-                </h2>
-
-                <p>
-                  Escolha uma opção
-                </p>
+                <div>
+                  <h2>Forma de pagamento</h2>
+                  <p>Escolha uma opção</p>
+                </div>
               </div>
 
-            </div>
+              <div className="payment-methods">
+                {/* PIX */}
+                <button
+                  type="button"
+                  className={`payment-method ${
+                    paymentMethod === "pix" ? "selected" : ""
+                  }`}
+                  onClick={() => setPaymentMethod("pix")}
+                >
+                  <div className="payment-method-icon">PIX</div>
 
-            <div className="payment-methods">
+                  <div className="payment-method-content">
+                    <strong>Pix</strong>
+                    <span>Pagamento instantâneo</span>
+                  </div>
 
-              {/* PIX */}
+                  <div className="payment-radio">
+                    {paymentMethod === "pix" && "✓"}
+                  </div>
+                </button>
 
-              <button
-                type="button"
-                className={`payment-method ${
-                  paymentMethod === "pix"
-                    ? "selected"
-                    : ""
-                }`}
-                onClick={() =>
-                  setPaymentMethod("pix")
-                }
-              >
+                {/* CARTÃO */}
+                <button
+                  type="button"
+                  className={`payment-method ${
+                    paymentMethod === "card" ? "selected" : ""
+                  }`}
+                  onClick={() => setPaymentMethod("card")}
+                >
+                  <div className="payment-method-icon card-icon">CARD</div>
 
-                <div className="payment-method-icon">
-                  PIX
-                </div>
+                  <div className="payment-method-content">
+                    <strong>Cartão</strong>
+                    <span>Crédito ou débito</span>
+                  </div>
 
-                <div className="payment-method-content">
+                  <div className="payment-radio">
+                    {paymentMethod === "card" && "✓"}
+                  </div>
+                </button>
+              </div>
+            </section>
+          )}
 
-                  <strong>
-                    Pix
-                  </strong>
-
-                  <span>
-                    Pagamento instantâneo
-                  </span>
-
-                </div>
-
-                <div className="payment-radio">
-
-                  {paymentMethod === "pix" && "✓"}
-
-                </div>
-
-              </button>
-
-              {/* CARTÃO */}
-
-              <button
-                type="button"
-                className={`payment-method ${
-                  paymentMethod === "card"
-                    ? "selected"
-                    : ""
-                }`}
-                onClick={() =>
-                  setPaymentMethod("card")
-                }
-              >
-
-                <div className="payment-method-icon card-icon">
-                  CARD
-                </div>
-
-                <div className="payment-method-content">
-
-                  <strong>
-                    Cartão
-                  </strong>
-
-                  <span>
-                    Crédito ou débito
-                  </span>
-
-                </div>
-
-                <div className="payment-radio">
-
-                  {paymentMethod === "card" && "✓"}
-
-                </div>
-
-              </button>
-
-            </div>
-
-          </section>
-
-          {/* =========================
-              PIX
-          ========================== */}
-
-          {paymentMethod === "pix" && (
-
+          {/* PIX — INSTRUÇÕES */}
+          {paymentMethod === "pix" && !pixData && (
             <section className="payment-card payment-instructions">
-
               <div className="payment-card-heading">
-
                 <span>02</span>
 
                 <div>
-
-                  <h2>
-                    Pagamento via Pix
-                  </h2>
-
-                  <p>
-                    Você receberá o código Pix
-                    após confirmar o pedido.
-                  </p>
-
+                  <h2>Pagamento via Pix</h2>
+                  <p>Você receberá o QR Code após confirmar o pedido.</p>
                 </div>
-
               </div>
 
               <div className="pix-information">
-
-                <div className="pix-symbol">
-                  PIX
-                </div>
+                <div className="pix-symbol">PIX</div>
 
                 <div>
-
-                  <strong>
-                    Simples, rápido e seguro
-                  </strong>
-
+                  <strong>Simples, rápido e seguro</strong>
                   <p>
-                    Após finalizar, seu pedido
-                    será preparado para pagamento
-                    via Pix.
+                    Após finalizar, o QR Code será gerado pra você escanear.
                   </p>
-
                 </div>
-
               </div>
-
             </section>
-
           )}
 
-          {/* =========================
-              CARTÃO
-          ========================== */}
-
-          {paymentMethod === "card" && (
-
+          {/* PIX — QR CODE GERADO */}
+          {pixData && (
             <section className="payment-card payment-instructions">
-
               <div className="payment-card-heading">
-
                 <span>02</span>
 
                 <div>
-
-                  <h2>
-                    Pagamento com cartão
-                  </h2>
-
+                  <h2>Escaneie o QR Code</h2>
                   <p>
-                    O pagamento será realizado
-                    de forma segura.
+                    Abra o app do seu banco e escaneie o código abaixo.
                   </p>
-
                 </div>
-
               </div>
-
-              <div className="card-information">
-
-                <span>💳</span>
-
-                <div>
-
-                  <strong>
-                    Pagamento seguro
-                  </strong>
-
-                  <p>
-                    Os dados do seu cartão serão
-                    processados de forma segura.
-                  </p>
-
-                </div>
-
-              </div>
-
-            </section>
-
-          )}
-
-          {/* =========================
-              FINALIZAR
-          ========================== */}
-
-          <button
-            type="button"
-            className="finish-payment-button"
-            onClick={finishOrder}
-            disabled={isFinishing}
-          >
-
-            {isFinishing
-              ? "Criando pedido..."
-              : "Finalizar pedido"}
-
-            {!isFinishing && (
-              <span>
-                →
-              </span>
-            )}
-
-          </button>
-
-          <p className="payment-note">
-
-            Ao finalizar, você confirma seu pedido
-            com a FLOWER PROPS.
-
-          </p>
-
-        </section>
-
-        {/* =========================
-            RESUMO
-        ========================== */}
-
-        <aside className="payment-summary">
-
-          <div className="payment-summary-heading">
-
-            <span>
-              RESUMO
-            </span>
-
-            <h2>
-              Seu pedido
-            </h2>
-
-          </div>
-
-          {/* PRODUTOS */}
-
-          <div className="payment-summary-products">
-
-            {cartItems.map((item) => (
 
               <div
-                className="payment-summary-product"
-                key={item.id}
+                className="pix-qrcode-container"
+                style={{
+                  textAlign: "center",
+                  padding: "30px 0",
+                }}
               >
+                <img
+                  src={`data:image/png;base64,${pixData.qrCodeBase64}`}
+                  alt="QR Code Pix"
+                  style={{
+                    maxWidth: 260,
+                    margin: "0 auto 20px",
+                    display: "block",
+                  }}
+                />
 
+                <button
+                  type="button"
+                  className="button button-primary dark"
+                  onClick={copyPixCode}
+                  style={{ marginTop: 10 }}
+                >
+                  Copiar código Pix
+                </button>
+
+                <p
+                  style={{
+                    marginTop: 20,
+                    fontSize: 12,
+                    color: "#68735a",
+                    lineHeight: 1.6,
+                  }}
+                >
+                  Após o pagamento, seu pedido será confirmado automaticamente.
+                </p>
+              </div>
+            </section>
+          )}
+
+          {/* CARTÃO — FORMULÁRIO MERCADO PAGO */}
+          {paymentMethod === "card" && (
+            <section className="payment-card payment-instructions">
+              <div className="payment-card-heading">
+                <span>02</span>
+
+                <div>
+                  <h2>Dados do cartão</h2>
+                  <p>Preencha os dados com segurança.</p>
+                </div>
+              </div>
+
+              {isProcessingCard ? (
+                <div style={{ padding: "40px 0", textAlign: "center" }}>
+                  <p>Processando pagamento... Aguarde.</p>
+                </div>
+              ) : (
+                <CardPayment
+                  initialization={{ amount: total }}
+                  onSubmit={handleCardSubmit}
+                  customization={{
+                    visual: {
+                      style: {
+                        theme: "default",
+                      },
+                    },
+                  }}
+                />
+              )}
+            </section>
+          )}
+
+          {/* BOTÃO FINALIZAR — SÓ PRA PIX */}
+          {paymentMethod === "pix" && !pixData && (
+            <>
+              <button
+                type="button"
+                className="finish-payment-button"
+                onClick={finishOrder}
+                disabled={isFinishing}
+              >
+                {isFinishing ? "Gerando Pix..." : "Finalizar pedido"}
+                {!isFinishing && <span>→</span>}
+              </button>
+
+              <p className="payment-note">
+                Ao finalizar, você confirma seu pedido com a FLOWER PROPS.
+              </p>
+            </>
+          )}
+
+          {/* BOTÃO FINALIZAR — DEPOIS DO PIX GERADO */}
+          {pixData && (
+            <button
+              type="button"
+              className="finish-payment-button"
+              onClick={() => {
+                localStorage.removeItem("flower-cart");
+                router.push("/pedido-confirmado");
+              }}
+            >
+              Já paguei, continuar
+              <span>→</span>
+            </button>
+          )}
+        </section>
+
+        {/* RESUMO */}
+        <aside className="payment-summary">
+          <div className="payment-summary-heading">
+            <span>RESUMO</span>
+            <h2>Seu pedido</h2>
+          </div>
+
+          <div className="payment-summary-products">
+            {cartItems.map((item) => (
+              <div className="payment-summary-product" key={item.id}>
                 <div className="payment-summary-image">
-
-                  <img
-                    src={item.image}
-                    alt={item.name}
-                  />
-
-                  <span>
-                    {item.quantity}
-                  </span>
-
+                  <img src={item.image} alt={item.name} />
+                  <span>{item.quantity}</span>
                 </div>
 
                 <div>
-
-                  <strong>
-                    {item.name}
-                  </strong>
-
-                  <p>
-                    {formatPrice(item.price)}
-                  </p>
-
+                  <strong>{item.name}</strong>
+                  <p>{formatPrice(item.price)}</p>
                 </div>
-
               </div>
-
             ))}
-
           </div>
 
-          {/* VALORES */}
-
           <div className="payment-values">
-
             <div>
-
-              <span>
-                Produtos
-              </span>
-
-              <strong>
-                {formatPrice(subtotal)}
-              </strong>
-
+              <span>Produtos</span>
+              <strong>{formatPrice(subtotal)}</strong>
             </div>
 
             <div>
-
               <span>
-                {customerData?.deliveryMethod ===
-                "pickup"
+                {customerData?.deliveryMethod === "pickup"
                   ? "Retirada no ateliê"
                   : "Entrega"}
               </span>
 
               <strong>
-
-                {deliveryFee === 0
-                  ? "Grátis"
-                  : formatPrice(
-                      deliveryFee
-                    )}
-
+                {deliveryFee === 0 ? "Grátis" : formatPrice(deliveryFee)}
               </strong>
-
             </div>
-
           </div>
-
-          {/* TOTAL */}
 
           <div className="payment-total">
-
-            <span>
-              Total
-            </span>
-
-            <strong>
-              {formatPrice(total)}
-            </strong>
-
+            <span>Total</span>
+            <strong>{formatPrice(total)}</strong>
           </div>
-
-          {/* RECEBIMENTO */}
 
           <div className="payment-summary-receiving">
-
-            <span>
-              RECEBIMENTO
-            </span>
-
+            <span>RECEBIMENTO</span>
             <strong>
-
-              {customerData?.deliveryMethod ===
-              "pickup"
+              {customerData?.deliveryMethod === "pickup"
                 ? "Retirada no ateliê"
                 : "Entrega"}
-
             </strong>
-
           </div>
 
-          {/* VOLTAR */}
-
-          <button
-            type="button"
-            className="payment-summary-back"
-            onClick={goBack}
-          >
-
-            ← Voltar à revisão
-
-          </button>
-
+          {!pixData && (
+            <button
+              type="button"
+              className="payment-summary-back"
+              onClick={goBack}
+            >
+              ← Voltar à revisão
+            </button>
+          )}
         </aside>
-
       </div>
-
     </main>
   );
 }

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useRouter } from "next/navigation";
@@ -15,6 +14,7 @@ type Product = {
 
 type CartItem = Product & {
   quantity: number;
+  type?: string;
 };
 
 type CartProps = {
@@ -57,7 +57,7 @@ export default function Cart({
     if (items.length === 0) return;
 
     onClose();
-    router.push("/revisao");
+    router.push("/checkout");
   }
 
   return (
@@ -74,18 +74,13 @@ export default function Cart({
       >
         <div className="cart-header">
           <div>
-            <span className="eyebrow">
-              SEU PEDIDO
-            </span>
+            <span className="eyebrow">SEU PEDIDO</span>
 
-            <h2>
-              Carrinho
-            </h2>
+            <h2>Carrinho</h2>
 
             {totalItems > 0 && (
               <span className="cart-items-count">
-                {totalItems}{" "}
-                {totalItems === 1 ? "item" : "itens"}
+                {totalItems} {totalItems === 1 ? "item" : "itens"}
               </span>
             )}
           </div>
@@ -102,13 +97,9 @@ export default function Cart({
 
         {items.length === 0 ? (
           <div className="cart-empty">
-            <div className="cart-empty-icon">
-              ♡
-            </div>
+            <div className="cart-empty-icon">♡</div>
 
-            <h3>
-              Seu carrinho está vazio
-            </h3>
+            <h3>Seu carrinho está vazio</h3>
 
             <p>
               Escolha suas flores favoritas e elas aparecerão aqui.
@@ -126,10 +117,7 @@ export default function Cart({
           <>
             <div className="cart-items">
               {items.map((item) => (
-                <div
-                  className="cart-item"
-                  key={item.id}
-                >
+                <div className="cart-item" key={item.id}>
                   <div className="cart-item-image">
                     <img
                       src={
@@ -144,55 +132,51 @@ export default function Cart({
                     <div className="cart-item-top">
                       <div>
                         <span className="cart-category">
-                          FLOWER
+                          {item.type === "subscription"
+                            ? "ASSINATURA"
+                            : "FLOWER"}
                         </span>
 
-                        <h3>
-                          {item.name}
-                        </h3>
+                        <h3>{item.name}</h3>
                       </div>
 
                       <button
                         type="button"
                         className="remove-item"
-                        onClick={() =>
-                          onRemove(item.id)
-                        }
+                        onClick={() => onRemove(item.id)}
                         aria-label={`Remover ${item.name}`}
                       >
                         ×
                       </button>
                     </div>
 
-                    <strong>
-                      {formatPrice(item.price)}
-                    </strong>
+                    <strong>{formatPrice(item.price)}</strong>
 
-                    <div className="quantity">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onDecrease(item.id)
-                        }
-                        aria-label={`Diminuir quantidade de ${item.name}`}
-                      >
-                        −
-                      </button>
-
-                      <span>
-                        {item.quantity}
+                    {item.type === "subscription" ? (
+                      <span className="cart-subscription-note">
+                        Assinatura mensal
                       </span>
+                    ) : (
+                      <div className="quantity">
+                        <button
+                          type="button"
+                          onClick={() => onDecrease(item.id)}
+                          aria-label={`Diminuir quantidade de ${item.name}`}
+                        >
+                          −
+                        </button>
 
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onIncrease(item.id)
-                        }
-                        aria-label={`Aumentar quantidade de ${item.name}`}
-                      >
-                        +
-                      </button>
-                    </div>
+                        <span>{item.quantity}</span>
+
+                        <button
+                          type="button"
+                          onClick={() => onIncrease(item.id)}
+                          aria-label={`Aumentar quantidade de ${item.name}`}
+                        >
+                          +
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -201,13 +185,8 @@ export default function Cart({
             <div className="cart-footer">
               <div className="cart-summary">
                 <div>
-                  <span>
-                    Total
-                  </span>
-
-                  <strong>
-                    {formatPrice(total)}
-                  </strong>
+                  <span>Total</span>
+                  <strong>{formatPrice(total)}</strong>
                 </div>
 
                 <p>
@@ -220,13 +199,8 @@ export default function Cart({
                 className="button cart-checkout"
                 onClick={handleCheckout}
               >
-                <span>
-                  Finalizar pedido
-                </span>
-
-                <span>
-                  →
-                </span>
+                <span>Finalizar pedido</span>
+                <span>→</span>
               </button>
             </div>
           </>
@@ -235,4 +209,3 @@ export default function Cart({
     </>
   );
 }
-

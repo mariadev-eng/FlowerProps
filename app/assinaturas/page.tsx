@@ -1,0 +1,240 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { UserRound } from "lucide-react";
+import { supabase } from "../../lib/supabase";
+
+type Subscription = {
+  id: number;
+  name: string;
+  description: string;
+  price: number;
+  frequency: string;
+  deliveries_per_month: number;
+  image: string | null;
+  available: boolean;
+  display_order: number;
+};
+
+const fallbackImage =
+  "https://images.unsplash.com/photo-1490750967868-88aa4486c946?auto=format&fit=crop&w=900&q=85";
+
+export default function AssinaturasPage() {
+  const router = useRouter();
+
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadSubscriptions() {
+      const { data, error } = await supabase
+        .from("subscriptions")
+        .select("*")
+        .eq("available", true)
+        .order("display_order", { ascending: true });
+
+      if (error) {
+        console.error("Erro ao carregar assinaturas:", error);
+        setSubscriptions([]);
+      } else {
+        setSubscriptions(data ?? []);
+      }
+
+      setLoading(false);
+    }
+
+    loadSubscriptions();
+  }, []);
+
+  function handleSubscribe(subscription: Subscription) {
+    // 1. Pega o carrinho atual
+    const savedCart = localStorage.getItem("flower-cart");
+    const cart = savedCart ? JSON.parse(savedCart) : [];
+
+    // 2. Cria o item de assinatura
+    const subscriptionItem = {
+      id: 100000 + subscription.id, // ID único pra não colidir com produtos
+      name: `Assinatura ${subscription.name}`,
+      description: subscription.description,
+      price: subscription.price,
+      image: subscription.image || fallbackImage,
+      category_id: 5,
+      available: true,
+      quantity: 1,
+      type: "subscription",
+      frequency: subscription.frequency,
+      deliveries_per_month: subscription.deliveries_per_month,
+    };
+
+    // 3. Verifica se já tem essa assinatura no carrinho
+    const existingIndex = cart.findIndex(
+      (item: any) => item.id === subscriptionItem.id
+    );
+
+    let newCart;
+
+    if (existingIndex >= 0) {
+      // Já tem — não duplica
+      newCart = cart;
+    } else {
+      // Adiciona
+      newCart = [...cart, subscriptionItem];
+    }
+
+    // 4. Salva no flower-cart
+    localStorage.setItem("flower-cart", JSON.stringify(newCart));
+
+    // 5. Vai pro checkout
+    router.push("/checkout");
+  }
+
+  function formatPrice(value: number) {
+    return value.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    });
+  }
+
+  return (
+    <main className="subscriptions-page">
+      <header className="site-header">
+        <div className="header-content">
+          <Link
+            href="/"
+            className="brand"
+            aria-label="FLOWER - Buquês & Acessórios"
+          >
+            <img
+              src="/images/logoflowerprops.png"
+              alt="FLOWER Buquês & Acessórios"
+              className="brand-logo"
+            />
+          </Link>
+
+          <nav className="desktop-nav">
+            <Link href="/">Início</Link>
+            <Link href="/#produtos">Buquês</Link>
+            <Link href="/#categorias">Categorias</Link>
+            <Link href="/#assinaturas">Assinaturas</Link>
+            <Link href="/#sobre">Sobre nós</Link>
+          </nav>
+
+          <div className="header-actions">
+            <button
+              type="button"
+              aria-label="Minha conta"
+              onClick={() => router.push("/conta")}
+            >
+              <UserRound size={20} strokeWidth={1.5} />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <section className="subscriptions-intro section">
+        <span className="eyebrow">FLOWER EM CASA</span>
+
+        <h1>
+          Escolha seu
+          <br />
+          <em>plano de assinatura.</em>
+        </h1>
+
+        <p>
+          Receba flores frescas, selecionadas especialmente para cada
+          entrega. Sem escolher as flores — a gente monta a composição da
+          semana pra você.
+        </p>
+      </section>
+
+      <section className="subscriptions-grid section">
+        {loading ? (
+          <div className="subscriptions-loading">
+            <p>Carregando planos...</p>
+          </div>
+        ) : subscriptions.length === 0 ? (
+          <div className="subscriptions-empty">
+            <p>Nenhum plano disponível no momento.</p>
+            <Link href="/" className="button button-outline dark">
+              Voltar para a home
+            </Link>
+          </div>
+        ) : (
+          <div className="subscriptions-cards">
+            {subscriptions.map((sub) => (
+              <div key={sub.id} className="subscription-card">
+                <div className="subscription-card-image">
+                  <img
+                    src={sub.image || fallbackImage}
+                    alt={sub.name}
+                  />
+                </div>
+
+                <div className="subscription-card-content">
+                  <span className="eyebrow">
+                    {sub.deliveries_per_month}{" "}
+                    {sub.deliveries_per_month === 1
+                      ? "entrega por mês"
+                      : "entregas por mês"}
+                  </span>
+
+                  <h2>{sub.name}</h2>
+
+                  <p>{sub.description}</p>
+
+                  <div className="subscription-card-price">
+                    <strong>{formatPrice(sub.price)}</strong>
+                    <span>por mês</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="button button-primary dark"
+                    onClick={() => handleSubscribe(sub)}
+                  >
+                    Assinar {sub.name}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <footer className="footer">
+        <div className="footer-brand">
+          <img
+            src="/images/logoflowerprops.png"
+            alt="FLOWER Buquês & Acessórios"
+            className="footer-logo"
+          />
+        </div>
+
+        <div className="footer-links">
+          <a
+            href="https://instagram.com/_flowerprops_"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Instagram
+          </a>
+
+          <a
+            href="https://wa.me/5522992298475"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            WhatsApp
+          </a>
+
+          <a href="#">Contato</a>
+          <a href="#">Política de privacidade</a>
+        </div>
+
+        <p>© 2026 FLOWER. Todos os direitos reservados.</p>
+      </footer>
+    </main>
+  );
+}
