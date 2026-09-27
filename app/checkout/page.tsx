@@ -25,78 +25,52 @@ type FormData = {
   observation: string;
 };
 
-type FormErrors = Partial<
-  Record<keyof FormData, string>
->;
+type FormErrors = Partial<Record<keyof FormData, string>>;
 
 const DELIVERY_FEE = 15;
 
 export default function CheckoutPage() {
   const router = useRouter();
 
-  const [cartItems, setCartItems] =
-    useState<CartItem[]>([]);
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
-  const [deliveryMethod, setDeliveryMethod] =
-    useState<"delivery" | "pickup">(
-      "delivery"
-    );
+  const [deliveryMethod, setDeliveryMethod] = useState<"delivery" | "pickup">(
+    "delivery"
+  );
 
-  const [formData, setFormData] =
-    useState<FormData>({
-      name: "",
-      phone: "",
-      email: "",
-      cep: "",
-      street: "",
-      number: "",
-      complement: "",
-      neighborhood: "",
-      city: "",
-      state: "",
-      observation: "",
-    });
+  const [formData, setFormData] = useState<FormData>({
+    name: "",
+    phone: "",
+    email: "",
+    cep: "",
+    street: "",
+    number: "",
+    complement: "",
+    neighborhood: "",
+    city: "",
+    state: "",
+    observation: "",
+  });
 
-  const [errors, setErrors] =
-    useState<FormErrors>({});
-
-  const [showErrors, setShowErrors] =
-    useState(false);
-
-  const [isSearchingCep, setIsSearchingCep] =
-    useState(false);
-
-  /*
-   * ================================
-   * CARREGAR CARRINHO E CHECKOUT
-   * ================================
-   */
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [showErrors, setShowErrors] = useState(false);
+  const [isSearchingCep, setIsSearchingCep] = useState(false);
 
   useEffect(() => {
-    const savedCart =
-      localStorage.getItem("flower-cart");
-
-    const savedCheckout =
-      localStorage.getItem(
-        "flower-checkout"
-      );
+    const savedCart = localStorage.getItem("flower-cart");
+    const savedCheckout = localStorage.getItem("flower-checkout");
 
     if (savedCart) {
       try {
-        setCartItems(
-          JSON.parse(savedCart)
-        );
+        setCartItems(JSON.parse(savedCart));
       } catch {
-        localStorage.removeItem(
-          "flower-cart"
-        );
+        localStorage.removeItem("flower-cart");
       }
     }
 
     if (savedCheckout) {
       try {
-        const savedData =
-          JSON.parse(savedCheckout);
+        const savedData = JSON.parse(savedCheckout);
 
         setFormData({
           name: savedData.name || "",
@@ -105,143 +79,66 @@ export default function CheckoutPage() {
           cep: savedData.cep || "",
           street: savedData.street || "",
           number: savedData.number || "",
-          complement:
-            savedData.complement || "",
-          neighborhood:
-            savedData.neighborhood || "",
+          complement: savedData.complement || "",
+          neighborhood: savedData.neighborhood || "",
           city: savedData.city || "",
           state: savedData.state || "",
-          observation:
-            savedData.observation || "",
+          observation: savedData.observation || "",
         });
 
-        if (
-          savedData.deliveryMethod ===
-          "pickup"
-        ) {
+        if (savedData.deliveryMethod === "pickup") {
           setDeliveryMethod("pickup");
         }
       } catch {
-        localStorage.removeItem(
-          "flower-checkout"
-        );
+        localStorage.removeItem("flower-checkout");
       }
     }
   }, []);
 
-  /*
-   * ================================
-   * VALORES
-   * ================================
-   */
-
   const subtotal = cartItems.reduce(
-    (total, item) =>
-      total +
-      item.price * item.quantity,
+    (total, item) => total + item.price * item.quantity,
     0
   );
 
-  const deliveryFee =
-    deliveryMethod === "delivery"
-      ? DELIVERY_FEE
-      : 0;
+  const deliveryFee = deliveryMethod === "delivery" ? DELIVERY_FEE : 0;
 
-  const total =
-    subtotal + deliveryFee;
+  const total = subtotal + deliveryFee;
 
-  const totalItems =
-    cartItems.reduce(
-      (total, item) =>
-        total + item.quantity,
-      0
-    );
-
-  /*
-   * ================================
-   * FORMATAÇÃO DE PREÇO
-   * ================================
-   */
+  const totalItems = cartItems.reduce((total, item) => total + item.quantity, 0);
 
   function formatPrice(value: number) {
-    return value.toLocaleString(
-      "pt-BR",
-      {
-        style: "currency",
-        currency: "BRL",
-      }
-    );
+    return value.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    });
   }
 
-  /*
-   * ================================
-   * FORMATAÇÃO DO TELEFONE
-   *
-   * 2299114046
-   * ↓
-   * (22) 9911-4046
-   * ================================
-   */
-
   function formatPhone(value: string) {
-    const numbers =
-      value.replace(/\D/g, "").slice(0, 10);
+    const numbers = value.replace(/\D/g, "").slice(0, 10);
 
     if (numbers.length <= 2) {
-      return numbers.length
-        ? `(${numbers}`
-        : "";
+      return numbers.length ? `(${numbers}` : "";
     }
 
     if (numbers.length <= 6) {
-      return `(${numbers.slice(
-        0,
-        2
-      )}) ${numbers.slice(2)}`;
+      return `(${numbers.slice(0, 2)}) ${numbers.slice(2)}`;
     }
 
-    return `(${numbers.slice(
-      0,
-      2
-    )}) ${numbers.slice(
-      2,
-      6
-    )}-${numbers.slice(6)}`;
+    return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 6)}-${numbers.slice(6)}`;
   }
 
-  /*
-   * ================================
-   * FORMATAÇÃO DO CEP
-   *
-   * 27900100
-   * ↓
-   * 27900-100
-   * ================================
-   */
-
   function formatCep(value: string) {
-    const numbers =
-      value.replace(/\D/g, "").slice(0, 8);
+    const numbers = value.replace(/\D/g, "").slice(0, 8);
 
     if (numbers.length <= 5) {
       return numbers;
     }
 
-    return `${numbers.slice(
-      0,
-      5
-    )}-${numbers.slice(5)}`;
+    return `${numbers.slice(0, 5)}-${numbers.slice(5)}`;
   }
 
-  /*
-   * ================================
-   * BUSCAR CEP
-   * ================================
-   */
-
   async function searchCep(cep: string) {
-    const cleanCep =
-      cep.replace(/\D/g, "");
+    const cleanCep = cep.replace(/\D/g, "");
 
     if (cleanCep.length !== 8) {
       return;
@@ -260,9 +157,7 @@ export default function CheckoutPage() {
       );
 
       if (!response.ok) {
-        throw new Error(
-          "Erro ao consultar CEP."
-        );
+        throw new Error("Erro ao consultar CEP.");
       }
 
       const data = await response.json();
@@ -286,47 +181,24 @@ export default function CheckoutPage() {
 
       setFormData((current) => ({
         ...current,
-
-        street:
-          data.logradouro || "",
-
-        neighborhood:
-          data.bairro || "",
-
-        city:
-          data.localidade || "",
-
-        state:
-          data.uf || "",
+        street: data.logradouro || "",
+        neighborhood: data.bairro || "",
+        city: data.localidade || "",
+        state: data.uf || "",
       }));
-
     } catch (error) {
-      console.error(
-        "Erro ao buscar CEP:",
-        error
-      );
+      console.error("Erro ao buscar CEP:", error);
 
       setErrors((current) => ({
         ...current,
-        cep:
-          "Não foi possível consultar o CEP. Tente novamente.",
+        cep: "Não foi possível consultar o CEP. Tente novamente.",
       }));
-
     } finally {
       setIsSearchingCep(false);
     }
   }
 
-  /*
-   * ================================
-   * ALTERAR CAMPO
-   * ================================
-   */
-
-  function handleChange(
-    field: keyof FormData,
-    value: string
-  ) {
+  function handleChange(field: keyof FormData, value: string) {
     setFormData((current) => ({
       ...current,
       [field]: value,
@@ -340,43 +212,18 @@ export default function CheckoutPage() {
     }
   }
 
-  /*
-   * ================================
-   * ALTERAR TELEFONE
-   * ================================
-   */
+  function handlePhoneChange(value: string) {
+    const formatted = formatPhone(value);
 
-  function handlePhoneChange(
-    value: string
-  ) {
-    const formatted =
-      formatPhone(value);
-
-    handleChange(
-      "phone",
-      formatted
-    );
+    handleChange("phone", formatted);
   }
 
-  /*
-   * ================================
-   * ALTERAR CEP
-   * ================================
-   */
+  function handleCepChange(value: string) {
+    const formatted = formatCep(value);
 
-  function handleCepChange(
-    value: string
-  ) {
-    const formatted =
-      formatCep(value);
+    handleChange("cep", formatted);
 
-    handleChange(
-      "cep",
-      formatted
-    );
-
-    const cleanCep =
-      formatted.replace(/\D/g, "");
+    const cleanCep = formatted.replace(/\D/g, "");
 
     if (cleanCep.length === 8) {
       searchCep(cleanCep);
@@ -391,105 +238,60 @@ export default function CheckoutPage() {
     }
   }
 
-  /*
-   * ================================
-   * VALIDAR FORMULÁRIO
-   * ================================
-   */
-
   function validateForm() {
     const newErrors: FormErrors = {};
 
-    const phoneNumbers =
-      formData.phone.replace(
-        /\D/g,
-        ""
-      );
-
-    const cepNumbers =
-      formData.cep.replace(
-        /\D/g,
-        ""
-      );
+    const phoneNumbers = formData.phone.replace(/\D/g, "");
+    const cepNumbers = formData.cep.replace(/\D/g, "");
 
     if (!formData.name.trim()) {
-      newErrors.name =
-        "Informe seu nome.";
+      newErrors.name = "Informe seu nome.";
     }
 
     if (!formData.phone.trim()) {
-      newErrors.phone =
-        "Informe seu telefone.";
-    } else if (
-      phoneNumbers.length !== 10
-    ) {
-      newErrors.phone =
-        "Informe um telefone válido.";
+      newErrors.phone = "Informe seu telefone.";
+    } else if (phoneNumbers.length !== 10) {
+      newErrors.phone = "Informe um telefone válido.";
     }
 
     if (!formData.email.trim()) {
-      newErrors.email =
-        "Informe seu e-mail.";
-    } else if (
-      !formData.email.includes("@")
-    ) {
-      newErrors.email =
-        "Informe um e-mail válido.";
+      newErrors.email = "Informe seu e-mail.";
+    } else if (!formData.email.includes("@")) {
+      newErrors.email = "Informe um e-mail válido.";
     }
 
-    if (
-      deliveryMethod === "delivery"
-    ) {
+    if (deliveryMethod === "delivery") {
       if (!formData.cep.trim()) {
-        newErrors.cep =
-          "Informe seu CEP.";
-      } else if (
-        cepNumbers.length !== 8
-      ) {
-        newErrors.cep =
-          "Informe um CEP válido.";
+        newErrors.cep = "Informe seu CEP.";
+      } else if (cepNumbers.length !== 8) {
+        newErrors.cep = "Informe um CEP válido.";
       }
 
       if (!formData.street.trim()) {
-        newErrors.street =
-          "Informe sua rua.";
+        newErrors.street = "Informe sua rua.";
       }
 
       if (!formData.number.trim()) {
-        newErrors.number =
-          "Informe o número.";
+        newErrors.number = "Informe o número.";
       }
 
-      if (
-        !formData.neighborhood.trim()
-      ) {
-        newErrors.neighborhood =
-          "Informe seu bairro.";
+      if (!formData.neighborhood.trim()) {
+        newErrors.neighborhood = "Informe seu bairro.";
       }
 
       if (!formData.city.trim()) {
-        newErrors.city =
-          "Informe sua cidade.";
+        newErrors.city = "Informe sua cidade.";
       }
     }
 
     setErrors(newErrors);
     setShowErrors(true);
 
-    return (
-      Object.keys(newErrors).length === 0
-    );
+    return Object.keys(newErrors).length === 0;
   }
 
-  /*
-   * ================================
-   * CONTINUAR
-   * ================================
-   */
-
   function handleContinue() {
-    const isValid =
-      validateForm();
+    const isValid = validateForm();
 
     if (!isValid) {
       return;
@@ -500,786 +302,376 @@ export default function CheckoutPage() {
       deliveryMethod,
     };
 
-    localStorage.setItem(
-      "flower-checkout",
-      JSON.stringify(
-        checkoutData
-      )
-    );
+    localStorage.setItem("flower-checkout", JSON.stringify(checkoutData));
 
     router.push("/revisao");
   }
 
   return (
     <main className="checkout-page">
-
-      {/* =========================
-          HEADER
-      ========================== */}
-
+      {/* HEADER */}
       <header className="checkout-header">
+        <div className="checkout-header-inner">
+          <a href="/" className="checkout-logo">
+            FLOWER
+          </a>
 
-        <a
-          href="/"
-          className="checkout-logo"
-        >
-          FLOWER
-        </a>
+          <span className="checkout-header-title">
+            Finalização do pedido
+          </span>
 
-        <span>
-          Finalização do pedido
-        </span>
-
-        <a
-          href="/"
-          className="checkout-back"
-        >
-          ← Voltar ao ateliê
-        </a>
-
+          <a href="/" className="checkout-back">
+            ← Voltar ao ateliê
+          </a>
+        </div>
       </header>
 
       <div className="checkout-container">
-
-        {/* =========================
-            PRINCIPAL
-        ========================== */}
-
+        {/* PRINCIPAL */}
         <div className="checkout-main">
-
           <div className="checkout-title">
+            <span className="eyebrow">FLOWER PROPS</span>
 
-            <span className="eyebrow">
-              FLOWER PROPS
-            </span>
+            <h1>Como podemos entregar suas flores?</h1>
 
-            <h1>
-              Como podemos entregar
-              suas flores?
-            </h1>
-
-            <p>
-              Preencha seus dados para
-              continuarmos com seu pedido.
-            </p>
-
+            <p>Preencha seus dados para continuarmos com seu pedido.</p>
           </div>
 
-          {/* =========================
-              DADOS
-          ========================== */}
-
+          {/* DADOS */}
           <section className="checkout-section">
-
             <div className="checkout-section-title">
-
-              <span>
-                01
-              </span>
+              <span>01</span>
 
               <div>
-
-                <h2>
-                  Seus dados
-                </h2>
-
-                <p>
-                  Precisamos dessas informações
-                  para o pedido.
-                </p>
-
+                <h2>Seus dados</h2>
+                <p>Precisamos dessas informações para o pedido.</p>
               </div>
-
             </div>
 
             <div className="checkout-form">
-
               <label>
-
                 Nome completo
-
                 <input
                   type="text"
-                  value={
-                    formData.name
-                  }
-                  onChange={(event) =>
-                    handleChange(
-                      "name",
-                      event.target.value
-                    )
-                  }
+                  value={formData.name}
+                  onChange={(event) => handleChange("name", event.target.value)}
                   placeholder="Digite seu nome"
-                  className={
-                    showErrors &&
-                    errors.name
-                      ? "input-error"
-                      : ""
-                  }
+                  className={showErrors && errors.name ? "input-error" : ""}
                 />
-
-                {showErrors &&
-                  errors.name && (
-                    <small className="field-error">
-                      {errors.name}
-                    </small>
-                  )}
-
+                {showErrors && errors.name && (
+                  <small className="field-error">{errors.name}</small>
+                )}
               </label>
 
               <div className="form-row">
-
                 <label>
-
                   Telefone
-
                   <input
                     type="tel"
-                    value={
-                      formData.phone
-                    }
-                    onChange={(event) =>
-                      handlePhoneChange(
-                        event.target.value
-                      )
-                    }
-                    placeholder="(00) 0000-0000"
+                    value={formData.phone}
+                    onChange={(event) => handlePhoneChange(event.target.value)}
+                    placeholder="(00) 00000-0000"
                     inputMode="numeric"
                     maxLength={15}
-                    className={
-                      showErrors &&
-                      errors.phone
-                        ? "input-error"
-                        : ""
-                    }
+                    className={showErrors && errors.phone ? "input-error" : ""}
                   />
-
-                  {showErrors &&
-                    errors.phone && (
-                      <small className="field-error">
-                        {errors.phone}
-                      </small>
-                    )}
-
+                  {showErrors && errors.phone && (
+                    <small className="field-error">{errors.phone}</small>
+                  )}
                 </label>
 
                 <label>
-
                   E-mail
-
                   <input
                     type="email"
-                    value={
-                      formData.email
-                    }
-                    onChange={(event) =>
-                      handleChange(
-                        "email",
-                        event.target.value
-                      )
-                    }
+                    value={formData.email}
+                    onChange={(event) => handleChange("email", event.target.value)}
                     placeholder="seuemail@email.com"
-                    className={
-                      showErrors &&
-                      errors.email
-                        ? "input-error"
-                        : ""
-                    }
+                    className={showErrors && errors.email ? "input-error" : ""}
                   />
-
-                  {showErrors &&
-                    errors.email && (
-                      <small className="field-error">
-                        {errors.email}
-                      </small>
-                    )}
-
+                  {showErrors && errors.email && (
+                    <small className="field-error">{errors.email}</small>
+                  )}
                 </label>
-
               </div>
-
             </div>
-
           </section>
 
-          {/* =========================
-              RECEBIMENTO
-          ========================== */}
-
+          {/* RECEBIMENTO */}
           <section className="checkout-section">
-
             <div className="checkout-section-title">
-
-              <span>
-                02
-              </span>
+              <span>02</span>
 
               <div>
-
-                <h2>
-                  Forma de recebimento
-                </h2>
-
-                <p>
-                  Escolha como deseja receber
-                  seu pedido.
-                </p>
-
+                <h2>Forma de recebimento</h2>
+                <p>Escolha como deseja receber seu pedido.</p>
               </div>
-
             </div>
 
             <div className="delivery-options">
-
               <button
                 type="button"
                 className={
-                  deliveryMethod ===
-                  "delivery"
+                  deliveryMethod === "delivery"
                     ? "delivery-option active"
                     : "delivery-option"
                 }
-                onClick={() =>
-                  setDeliveryMethod(
-                    "delivery"
-                  )
-                }
+                onClick={() => setDeliveryMethod("delivery")}
               >
-
                 <div>
-
-                  <strong>
-                    Receber em casa
-                  </strong>
-
-                  <span>
-                    Entrega local por
-                    R$ 15,00.
-                  </span>
-
+                  <strong>Receber em casa</strong>
+                  <span>Entrega local por R$ 15,00.</span>
                 </div>
 
                 <span className="radio" />
-
               </button>
 
               <button
                 type="button"
                 className={
-                  deliveryMethod ===
-                  "pickup"
+                  deliveryMethod === "pickup"
                     ? "delivery-option active"
                     : "delivery-option"
                 }
-                onClick={() =>
-                  setDeliveryMethod(
-                    "pickup"
-                  )
-                }
+                onClick={() => setDeliveryMethod("pickup")}
               >
-
                 <div>
-
-                  <strong>
-                    Retirar no ateliê
-                  </strong>
-
-                  <span>
-                    Retirada no ateliê
-                    FLOWER.
-                  </span>
-
+                  <strong>Retirar no ateliê</strong>
+                  <span>Retirada no ateliê FLOWER.</span>
                 </div>
 
                 <span className="radio" />
-
               </button>
-
             </div>
-
           </section>
 
-          {/* =========================
-              ENDEREÇO
-          ========================== */}
-
-          {deliveryMethod ===
-            "delivery" && (
-
+          {/* ENDEREÇO */}
+          {deliveryMethod === "delivery" && (
             <section className="checkout-section">
-
               <div className="checkout-section-title">
-
-                <span>
-                  03
-                </span>
+                <span>03</span>
 
                 <div>
-
-                  <h2>
-                    Endereço de entrega
-                  </h2>
-
-                  <p>
-                    Onde devemos entregar
-                    suas flores?
-                  </p>
-
+                  <h2>Endereço de entrega</h2>
+                  <p>Onde devemos entregar suas flores?</p>
                 </div>
-
               </div>
 
               <div className="checkout-form">
-
                 <div className="form-row">
-
                   <label>
-
                     CEP
-
                     <input
                       type="text"
-                      value={
-                        formData.cep
-                      }
-                      onChange={(event) =>
-                        handleCepChange(
-                          event.target.value
-                        )
-                      }
+                      value={formData.cep}
+                      onChange={(event) => handleCepChange(event.target.value)}
                       placeholder="00000-000"
                       inputMode="numeric"
                       maxLength={9}
-                      className={
-                        showErrors &&
-                        errors.cep
-                          ? "input-error"
-                          : ""
-                      }
+                      className={showErrors && errors.cep ? "input-error" : ""}
                     />
-
                     {isSearchingCep && (
-                      <small className="field-help">
-                        Buscando endereço...
-                      </small>
+                      <small className="field-help">Buscando endereço...</small>
                     )}
-
-                    {showErrors &&
-                      errors.cep && (
-                        <small className="field-error">
-                          {errors.cep}
-                        </small>
-                      )}
-
+                    {showErrors && errors.cep && (
+                      <small className="field-error">{errors.cep}</small>
+                    )}
                   </label>
 
                   <label>
-
                     Número
-
                     <input
                       type="text"
-                      value={
-                        formData.number
-                      }
-                      onChange={(event) =>
-                        handleChange(
-                          "number",
-                          event.target.value
-                        )
-                      }
+                      value={formData.number}
+                      onChange={(event) => handleChange("number", event.target.value)}
                       placeholder="000"
-                      className={
-                        showErrors &&
-                        errors.number
-                          ? "input-error"
-                          : ""
-                      }
+                      className={showErrors && errors.number ? "input-error" : ""}
                     />
-
-                    {showErrors &&
-                      errors.number && (
-                        <small className="field-error">
-                          {errors.number}
-                        </small>
-                      )}
-
+                    {showErrors && errors.number && (
+                      <small className="field-error">{errors.number}</small>
+                    )}
                   </label>
-
                 </div>
 
                 <label>
-
                   Rua
-
                   <input
                     type="text"
-                    value={
-                      formData.street
-                    }
-                    onChange={(event) =>
-                      handleChange(
-                        "street",
-                        event.target.value
-                      )
-                    }
+                    value={formData.street}
+                    onChange={(event) => handleChange("street", event.target.value)}
                     placeholder="Nome da rua"
-                    className={
-                      showErrors &&
-                      errors.street
-                        ? "input-error"
-                        : ""
-                    }
+                    className={showErrors && errors.street ? "input-error" : ""}
                   />
-
-                  {showErrors &&
-                    errors.street && (
-                      <small className="field-error">
-                        {errors.street}
-                      </small>
-                    )}
-
+                  {showErrors && errors.street && (
+                    <small className="field-error">{errors.street}</small>
+                  )}
                 </label>
 
                 <label>
-
                   Complemento
-
                   <input
                     type="text"
-                    value={
-                      formData.complement
-                    }
+                    value={formData.complement}
                     onChange={(event) =>
-                      handleChange(
-                        "complement",
-                        event.target.value
-                      )
+                      handleChange("complement", event.target.value)
                     }
                     placeholder="Apartamento, bloco, referência..."
                   />
-
                 </label>
 
                 <div className="form-row">
-
                   <label>
-
                     Bairro
-
                     <input
                       type="text"
-                      value={
-                        formData.neighborhood
-                      }
+                      value={formData.neighborhood}
                       onChange={(event) =>
-                        handleChange(
-                          "neighborhood",
-                          event.target.value
-                        )
+                        handleChange("neighborhood", event.target.value)
                       }
                       placeholder="Seu bairro"
                       className={
-                        showErrors &&
-                        errors.neighborhood
-                          ? "input-error"
-                          : ""
+                        showErrors && errors.neighborhood ? "input-error" : ""
                       }
                     />
-
-                    {showErrors &&
-                      errors.neighborhood && (
-                        <small className="field-error">
-                          {
-                            errors.neighborhood
-                          }
-                        </small>
-                      )}
-
+                    {showErrors && errors.neighborhood && (
+                      <small className="field-error">
+                        {errors.neighborhood}
+                      </small>
+                    )}
                   </label>
 
                   <label>
-
                     Cidade
-
                     <input
                       type="text"
-                      value={
-                        formData.city
-                      }
-                      onChange={(event) =>
-                        handleChange(
-                          "city",
-                          event.target.value
-                        )
-                      }
+                      value={formData.city}
+                      onChange={(event) => handleChange("city", event.target.value)}
                       placeholder="Sua cidade"
-                      className={
-                        showErrors &&
-                        errors.city
-                          ? "input-error"
-                          : ""
-                      }
+                      className={showErrors && errors.city ? "input-error" : ""}
                     />
-
-                    {showErrors &&
-                      errors.city && (
-                        <small className="field-error">
-                          {errors.city}
-                        </small>
-                      )}
-
+                    {showErrors && errors.city && (
+                      <small className="field-error">{errors.city}</small>
+                    )}
                   </label>
-
                 </div>
 
                 <label>
-
                   Estado
-
                   <input
                     type="text"
-                    value={
-                      formData.state
-                    }
+                    value={formData.state}
                     readOnly
                     placeholder="Estado"
                   />
-
                 </label>
-
               </div>
-
             </section>
-
           )}
 
-          {/* =========================
-              OBSERVAÇÕES
-          ========================== */}
-
+          {/* OBSERVAÇÕES */}
           <section className="checkout-section">
-
             <div className="checkout-section-title">
-
-              <span>
-                {deliveryMethod ===
-                "delivery"
-                  ? "04"
-                  : "03"}
-              </span>
+              <span>{deliveryMethod === "delivery" ? "04" : "03"}</span>
 
               <div>
-
-                <h2>
-                  Observações
-                </h2>
-
-                <p>
-                  Alguma informação especial
-                  sobre seu pedido?
-                </p>
-
+                <h2>Observações</h2>
+                <p>Alguma informação especial sobre seu pedido?</p>
               </div>
-
             </div>
 
             <textarea
               className="checkout-textarea"
-              value={
-                formData.observation
-              }
+              value={formData.observation}
               onChange={(event) =>
-                handleChange(
-                  "observation",
-                  event.target.value
-                )
+                handleChange("observation", event.target.value)
               }
               placeholder="Ex.: entregar na portaria, tocar a campainha..."
             />
-
           </section>
 
-          {/* =========================
-              CONTINUAR
-          ========================== */}
-
+          {/* CONTINUAR */}
           <button
             type="button"
             className="checkout-continue"
             onClick={handleContinue}
           >
-
             Continuar para revisão
-
-            <span>
-              →
-            </span>
-
+            <span>→</span>
           </button>
-
         </div>
 
-        {/* =========================
-            RESUMO
-        ========================== */}
-
+        {/* RESUMO */}
         <aside className="checkout-summary">
-
           <div className="summary-header">
+            <span className="eyebrow">SEU PEDIDO</span>
 
-            <span className="eyebrow">
-              SEU PEDIDO
-            </span>
-
-            <h2>
-              Resumo
-            </h2>
-
+            <h2>Resumo</h2>
           </div>
 
-          {cartItems.length ===
-          0 ? (
-
+          {cartItems.length === 0 ? (
             <div className="summary-product">
-
               <div className="summary-product-image">
-
-                <span>
-                  ♡
-                </span>
-
+                <span>♡</span>
               </div>
 
               <div>
-
-                <strong>
-                  Seu carrinho está vazio
-                </strong>
-
-                <span>
-                  Volte ao ateliê para
-                  escolher suas flores.
-                </span>
-
+                <strong>Seu carrinho está vazio</strong>
+                <span>Volte ao ateliê para escolher suas flores.</span>
               </div>
-
             </div>
-
           ) : (
-
             <div className="checkout-products">
-
-              {cartItems.map(
-                (item) => (
-
-                  <div
-                    className="checkout-product"
-                    key={item.id}
-                  >
-
-                    <div className="checkout-product-image">
-
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                      />
-
-                      <span>
-                        {item.quantity}
-                      </span>
-
-                    </div>
-
-                    <div className="checkout-product-info">
-
-                      <strong>
-                        {item.name}
-                      </strong>
-
-                      <span>
-                        {item.quantity}{" "}
-                        {item.quantity === 1
-                          ? "unidade"
-                          : "unidades"}
-                      </span>
-
-                    </div>
-
-                    <strong>
-                      {formatPrice(
-                        item.price *
-                          item.quantity
-                      )}
-                    </strong>
-
+              {cartItems.map((item) => (
+                <div className="checkout-product" key={item.id}>
+                  <div className="checkout-product-image">
+                    <img src={item.image} alt={item.name} />
+                    <span>{item.quantity}</span>
                   </div>
 
-                )
-              )}
+                  <div className="checkout-product-info">
+                    <strong>{item.name}</strong>
+                    <span>
+                      {item.quantity}{" "}
+                      {item.quantity === 1 ? "unidade" : "unidades"}
+                    </span>
+                  </div>
 
+                  <strong>
+                    {formatPrice(item.price * item.quantity)}
+                  </strong>
+                </div>
+              ))}
             </div>
-
           )}
 
           <div className="summary-line">
-
             <span>
-              Subtotal ({totalItems}{" "}
-              {totalItems === 1
-                ? "item"
-                : "itens"})
+              Subtotal ({totalItems} {totalItems === 1 ? "item" : "itens"})
             </span>
 
-            <strong>
-              {formatPrice(subtotal)}
-            </strong>
-
+            <strong>{formatPrice(subtotal)}</strong>
           </div>
 
           <div className="summary-line">
-
             <span>
-              {deliveryMethod ===
-              "delivery"
-                ? "Entrega"
-                : "Retirada no ateliê"}
+              {deliveryMethod === "delivery" ? "Entrega" : "Retirada no ateliê"}
             </span>
 
             <strong>
-
-              {deliveryFee === 0
-                ? "Grátis"
-                : formatPrice(
-                    deliveryFee
-                  )}
-
+              {deliveryFee === 0 ? "Grátis" : formatPrice(deliveryFee)}
             </strong>
-
           </div>
 
           <div className="summary-total">
-
-            <span>
-              Total
-            </span>
-
-            <strong>
-              {formatPrice(total)}
-            </strong>
-
+            <span>Total</span>
+            <strong>{formatPrice(total)}</strong>
           </div>
 
           <p className="summary-security">
-            Seus dados serão utilizados
-            somente para processar seu
-            pedido.
+            Seus dados serão utilizados somente para processar seu pedido.
           </p>
-
         </aside>
-
       </div>
-
     </main>
   );
 }

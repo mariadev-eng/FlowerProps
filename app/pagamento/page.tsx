@@ -15,6 +15,7 @@ type CartItem = {
   price: number;
   image: string;
   quantity: number;
+  type?: string;
 };
 
 type CustomerData = {
@@ -45,7 +46,6 @@ export default function PaymentPage() {
   const [isProcessingCard, setIsProcessingCard] = useState(false);
   const [error, setError] = useState("");
 
-  // Dados do Pix (quando gerado)
   const [pixData, setPixData] = useState<{
     qrCode: string;
     qrCodeBase64: string;
@@ -95,10 +95,6 @@ export default function PaymentPage() {
     router.push("/revisao");
   }
 
-  // ==========================================
-  // 1. SALVAR PEDIDO NO SUPABASE (pending)
-  // ==========================================
-
   async function saveOrderToSupabase(paymentMethodType: string) {
     if (!customerData) {
       throw new Error("Dados do cliente não encontrados.");
@@ -132,15 +128,16 @@ export default function PaymentPage() {
       console.error("ERRO AO CRIAR PEDIDO:", orderError);
       throw new Error(orderError.message || "Erro ao criar pedido.");
     }
-const orderItems = cartItems.map((item: any) => ({
-  order_id: order.id,
-  product_id: item.type === "subscription" ? null : item.id,
-  product_name: item.name,
-  product_price: item.price,
-  quantity: item.quantity,
-  subtotal: item.price * item.quantity,
-  item_type: item.type === "subscription" ? "subscription" : "product",
-}));
+
+    const orderItems = cartItems.map((item: any) => ({
+      order_id: order.id,
+      product_id: item.type === "subscription" ? null : item.id,
+      product_name: item.name,
+      product_price: item.price,
+      quantity: item.quantity,
+      subtotal: item.price * item.quantity,
+      item_type: item.type === "subscription" ? "subscription" : "product",
+    }));
 
     const { error: itemsError } = await supabase
       .from("order_items")
@@ -154,10 +151,6 @@ const orderItems = cartItems.map((item: any) => ({
     return order.id;
   }
 
-  // ==========================================
-  // 2. PAGAMENTO COM CARTÃO (chamado pelo CardPayment)
-  // ==========================================
-
   async function handleCardSubmit(formData: any) {
     setIsProcessingCard(true);
     setError("");
@@ -169,10 +162,8 @@ const orderItems = cartItems.map((item: any) => ({
     }
 
     try {
-      // 1. Cria o pedido no Supabase ANTES de processar o pagamento
       const orderId = await saveOrderToSupabase("card");
 
-      // 2. Processa o pagamento no Mercado Pago
       const response = await fetch("/api/mercado-pago/process", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -197,7 +188,6 @@ const orderItems = cartItems.map((item: any) => ({
         throw new Error(result.error || "Erro ao processar pagamento.");
       }
 
-      // 3. Se aprovado, atualiza o pedido
       if (result.status === "approved") {
         await supabase
           .from("orders")
@@ -246,10 +236,6 @@ const orderItems = cartItems.map((item: any) => ({
     }
   }
 
-  // ==========================================
-  // 3. PAGAMENTO COM PIX
-  // ==========================================
-
   async function handlePixPayment() {
     setIsFinishing(true);
     setError("");
@@ -261,10 +247,8 @@ const orderItems = cartItems.map((item: any) => ({
     }
 
     try {
-      // 1. Salva o pedido
       const orderId = await saveOrderToSupabase("pix");
 
-      // 2. Chama o Mercado Pago pra gerar o Pix
       const response = await fetch("/api/mercado-pago/process", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -287,7 +271,6 @@ const orderItems = cartItems.map((item: any) => ({
         throw new Error(result.error || "Erro ao gerar Pix.");
       }
 
-      // 3. Salva dados do QR Code
       setPixData({
         qrCode: result.qr_code,
         qrCodeBase64: result.qr_code_base64,
@@ -295,7 +278,6 @@ const orderItems = cartItems.map((item: any) => ({
         orderId,
       });
 
-      // 4. Salva o ID do pedido
       localStorage.setItem("flower-order-id", String(orderId));
 
       setIsFinishing(false);
@@ -305,10 +287,6 @@ const orderItems = cartItems.map((item: any) => ({
       setIsFinishing(false);
     }
   }
-
-  // ==========================================
-  // 4. FINALIZAR (chamado pelo botão)
-  // ==========================================
 
   async function finishOrder() {
     if (cartItems.length === 0) {
@@ -326,10 +304,6 @@ const orderItems = cartItems.map((item: any) => ({
     }
   }
 
-  // ==========================================
-  // 5. COPIAR CÓDIGO PIX
-  // ==========================================
-
   function copyPixCode() {
     if (!pixData) return;
 
@@ -339,7 +313,7 @@ const orderItems = cartItems.map((item: any) => ({
 
   return (
     <main className="payment-page">
-      {/* HEADER */}
+      {/* HEADER PADRONIZADO */}
       <header className="payment-header">
         <div className="payment-header-inner">
           <a href="/" className="payment-logo">
@@ -399,14 +373,12 @@ const orderItems = cartItems.map((item: any) => ({
             <p>Selecione a forma de pagamento para concluir seu pedido.</p>
           </div>
 
-          {/* ERRO */}
           {error && (
             <div className="account-message error" style={{ marginBottom: 20 }}>
               {error}
             </div>
           )}
 
-          {/* MÉTODOS */}
           {!pixData && (
             <section className="payment-card">
               <div className="payment-card-heading">
@@ -419,7 +391,6 @@ const orderItems = cartItems.map((item: any) => ({
               </div>
 
               <div className="payment-methods">
-                {/* PIX */}
                 <button
                   type="button"
                   className={`payment-method ${
@@ -439,7 +410,6 @@ const orderItems = cartItems.map((item: any) => ({
                   </div>
                 </button>
 
-                {/* CARTÃO */}
                 <button
                   type="button"
                   className={`payment-method ${
@@ -462,7 +432,6 @@ const orderItems = cartItems.map((item: any) => ({
             </section>
           )}
 
-          {/* PIX — INSTRUÇÕES */}
           {paymentMethod === "pix" && !pixData && (
             <section className="payment-card payment-instructions">
               <div className="payment-card-heading">
@@ -487,7 +456,6 @@ const orderItems = cartItems.map((item: any) => ({
             </section>
           )}
 
-          {/* PIX — QR CODE GERADO */}
           {pixData && (
             <section className="payment-card payment-instructions">
               <div className="payment-card-heading">
@@ -495,18 +463,13 @@ const orderItems = cartItems.map((item: any) => ({
 
                 <div>
                   <h2>Escaneie o QR Code</h2>
-                  <p>
-                    Abra o app do seu banco e escaneie o código abaixo.
-                  </p>
+                  <p>Abra o app do seu banco e escaneie o código abaixo.</p>
                 </div>
               </div>
 
               <div
                 className="pix-qrcode-container"
-                style={{
-                  textAlign: "center",
-                  padding: "30px 0",
-                }}
+                style={{ textAlign: "center", padding: "30px 0" }}
               >
                 <img
                   src={`data:image/png;base64,${pixData.qrCodeBase64}`}
@@ -541,7 +504,6 @@ const orderItems = cartItems.map((item: any) => ({
             </section>
           )}
 
-          {/* CARTÃO — FORMULÁRIO MERCADO PAGO */}
           {paymentMethod === "card" && (
             <section className="payment-card payment-instructions">
               <div className="payment-card-heading">
@@ -573,7 +535,6 @@ const orderItems = cartItems.map((item: any) => ({
             </section>
           )}
 
-          {/* BOTÃO FINALIZAR — SÓ PRA PIX */}
           {paymentMethod === "pix" && !pixData && (
             <>
               <button
@@ -592,7 +553,6 @@ const orderItems = cartItems.map((item: any) => ({
             </>
           )}
 
-          {/* BOTÃO FINALIZAR — DEPOIS DO PIX GERADO */}
           {pixData && (
             <button
               type="button"
@@ -608,7 +568,6 @@ const orderItems = cartItems.map((item: any) => ({
           )}
         </section>
 
-        {/* RESUMO */}
         <aside className="payment-summary">
           <div className="payment-summary-heading">
             <span>RESUMO</span>

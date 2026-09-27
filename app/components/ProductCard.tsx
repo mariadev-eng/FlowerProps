@@ -1,4 +1,3 @@
-
 "use client";
 
 type Product = {
@@ -16,79 +15,54 @@ type ProductCardProps = {
   onAddToCart: (product: Product) => void;
 };
 
-export default function ProductCard({
-  product,
-  onAddToCart,
-}: ProductCardProps) {
-  const image =
-    product.image ||
-    "https://images.unsplash.com/photo-1490750967868-88aa4486c946?auto=format&fit=crop&w=800&q=85";
+export default function ProductCard({ product, onAddToCart }: ProductCardProps) {
+  function formatPrice(value: number) {
+    return value.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    });
+  }
 
   return (
-    <article
-  className="product-card"
-  id={`product-${product.id}`}
->
-      <div className="product-image-wrapper">
+    <div className="product-card" id={`product-${product.id}`}>
+      <div className="product-image">
         <img
-          src={image}
+          src={product.image || "/images/placeholder.png"}
           alt={product.name}
-          className="product-image"
+          className="product-image-img"
         />
 
-        {!product.available && (
-          <span className="product-unavailable">
-            Indisponível
-          </span>
-        )}
+        <span className="product-vertical-label">
+          FLOWER · {product.name}
+        </span>
+
+        <button
+          type="button"
+          className="favorite"
+          aria-label={`Favoritar ${product.name}`}
+        >
+          ♡
+        </button>
       </div>
 
       <div className="product-info">
-        <span className="product-category">
-          {getCategoryName(product.category_id)}
-        </span>
+        <span>{product.description}</span>
 
         <h3>{product.name}</h3>
 
-        <p>{product.description}</p>
-
         <div className="product-bottom">
-          <strong>
-            {product.price.toLocaleString("pt-BR", {
-              style: "currency",
-              currency: "BRL",
-            })}
-          </strong>
+          <strong>{formatPrice(product.price)}</strong>
 
           <button
             type="button"
+            className="add-button"
             onClick={() => onAddToCart(product)}
-            disabled={!product.available}
-            className="product-add-button"
+            aria-label={`Adicionar ${product.name} ao carrinho`}
           >
-            Adicionar
+            +
           </button>
         </div>
       </div>
-    </article>
+    </div>
   );
-}
-
-function getCategoryName(categoryId: number) {
-  switch (categoryId) {
-    case 1:
-      return "Buquês";
-
-    case 2:
-      return "Presentes";
-
-    case 3:
-      return "Rosas";
-
-    case 4:
-      return "Acessórios";
-
-    default:
-      return "FLOWER";
-  }
 }
