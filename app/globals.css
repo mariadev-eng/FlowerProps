@@ -495,14 +495,13 @@ em {
 }
 
 .category-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 18px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
 }
 
 .category-card {
   position: relative;
-  height: 390px;
+  height: 550px;
   min-width: 0;
   overflow: hidden;
   background: #dfe3d8;
