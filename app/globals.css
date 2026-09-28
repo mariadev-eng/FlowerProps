@@ -686,7 +686,7 @@ em {
 
 .subscription-image {
   min-height: 670px;
-  background-image: url("https://stqpsaaxejtjhkbyapys.supabase.co/storage/v1/object/public/banners/capahome.jpeg");
+  background-image: url("https://stqpsaaxejtjhkbyapys.supabase.co/storage/v1/object/public/banners/assinaturafloral.jpeg");
   background-size: cover;
   background-position: center;
 }
@@ -3996,6 +3996,7 @@ body:has(.cart-drawer.active) {
     grid-column: 1;
     width: auto;
     justify-content: flex-start;
+    margin-left: -10px;
   }
 
   .footer-logo {
