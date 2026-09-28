@@ -4024,3 +4024,32 @@ body:has(.cart-drawer.active) {
     padding-top: 15px;
   }
 }
+/* =========================================================
+   CATEGORIAS — CARROSSEL MOBILE
+   ========================================================= */
+
+@media (max-width: 700px) {
+  .category-grid {
+    display: flex;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    gap: 12px;
+    padding-bottom: 12px;
+    margin: 0 -20px;              /* ← estica até as bordas */
+    padding-left: 20px;
+    padding-right: 20px;
+    -webkit-overflow-scrolling: touch;   /* ← scroll suave no iOS */
+    scrollbar-width: none;         /* ← esconde barra (Firefox) */
+  }
+
+  .category-grid::-webkit-scrollbar {
+    display: none;                 /* ← esconde barra (Chrome/Safari) */
+  }
+
+  .category-card {
+    flex: 0 0 75%;                 /* ← cada card ocupa 75% da tela */
+    scroll-snap-align: start;      /* ← "trava" cada card no lugar */
+    height: 380px;
+  }
+}
