@@ -119,6 +119,58 @@ export default function Home() {
 
     loadProducts();
   }, []);
+    // ================================
+  // AUTOPLAY DAS CATEGORIAS (MOBILE)
+  // ================================
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const initAutoplay = () => {
+      if (window.innerWidth > 700) return;
+
+      const grid = document.querySelector(".category-grid");
+      if (!grid) return;
+
+      const cards = grid.querySelectorAll(".category-card");
+      const totalCards = cards.length;
+      if (totalCards === 0) return;
+
+      let currentIndex = 0;
+      let interval: NodeJS.Timeout | null = null;
+
+      const startAutoplay = () => {
+        interval = setInterval(() => {
+          currentIndex = (currentIndex + 1) % totalCards;
+          const card = cards[currentIndex] as HTMLElement;
+          if (card) {
+            card.scrollIntoView({
+              behavior: "smooth",
+              block: "nearest",
+              inline: "center",
+            });
+          }
+        }, 4000);
+      };
+
+      const stopAutoplay = () => {
+        if (interval) clearInterval(interval);
+        interval = null;
+      };
+
+      startAutoplay();
+
+      grid.addEventListener("touchstart", stopAutoplay);
+      grid.addEventListener("touchend", () => {
+        setTimeout(startAutoplay, 5000);
+      });
+    };
+
+    // Aguarda os cards renderizarem
+    const timeout = setTimeout(initAutoplay, 500);
+
+    return () => clearTimeout(timeout);
+  }, [products]);
 
   // ================================
   // RECUPERAR CARRINHO
