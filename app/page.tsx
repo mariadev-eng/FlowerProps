@@ -28,21 +28,21 @@ const categories = [
     name: "Buquês",
     description: "Para surpreender",
     image:
-      "https://images.unsplash.com/photo-1523438885200-e635ba2c371e?auto=format&fit=crop&w=900&q=85",
+      "https://stqpsaaxejtjhkbyapys.supabase.co/storage/v1/object/public/banners/buquehero.jpeg",
   },
   {
     id: 2,
     name: "Presentes",
     description: "Flores + carinho",
     image:
-      "https://images.unsplash.com/photo-1526047932273-341f2a7631f9?auto=format&fit=crop&w=900&q=85",
+      "https://stqpsaaxejtjhkbyapys.supabase.co/storage/v1/object/public/banners/presentehero.jpeg",
   },
   {
     id: 4,
     name: "Acessórios",
     description: "Detalhes que encantam",
     image:
-      "https://images.unsplash.com/photo-1495231916356-a86217efff12?auto=format&fit=crop&w=900&q=85",
+      "https://stqpsaaxejtjhkbyapys.supabase.co/storage/v1/object/public/banners/acessorioshero.jpeg",
   },
 ];
 
