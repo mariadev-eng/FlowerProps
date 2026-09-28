@@ -31,13 +31,6 @@ const categories = [
       "https://images.unsplash.com/photo-1523438885200-e635ba2c371e?auto=format&fit=crop&w=900&q=85",
   },
   {
-    id: 3,
-    name: "Rosas",
-    description: "Clássicas e especiais",
-    image:
-      "https://images.unsplash.com/photo-1490750967868-88aa4486c946?auto=format&fit=crop&w=900&q=85",
-  },
-  {
     id: 2,
     name: "Presentes",
     description: "Flores + carinho",
