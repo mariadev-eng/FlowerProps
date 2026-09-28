@@ -18,6 +18,8 @@ type Subscription = {
   display_order: number;
 };
 
+type DeliveryDay = "saturday" | "sunday";
+
 const fallbackImage =
   "https://images.unsplash.com/photo-1490750967868-88aa4486c946?auto=format&fit=crop&w=900&q=85";
 
@@ -26,6 +28,11 @@ export default function AssinaturasPage() {
 
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // 🎯 Dia escolhido POR plano (cada card tem seu seletor)
+  const [selectedDays, setSelectedDays] = useState<
+    Record<number, DeliveryDay | null>
+  >({});
 
   useEffect(() => {
     async function loadSubscriptions() {
@@ -48,46 +55,41 @@ export default function AssinaturasPage() {
     loadSubscriptions();
   }, []);
 
+  function handleSelectDay(subscriptionId: number, day: DeliveryDay) {
+    setSelectedDays((current) => ({
+      ...current,
+      [subscriptionId]: day,
+    }));
+  }
+
   function handleSubscribe(subscription: Subscription) {
-    // 1. Pega o carrinho atual
-    const savedCart = localStorage.getItem("flower-cart");
-    const cart = savedCart ? JSON.parse(savedCart) : [];
+    const selectedDay = selectedDays[subscription.id];
 
-    // 2. Cria o item de assinatura
-    const subscriptionItem = {
-      id: 100000 + subscription.id, // ID único pra não colidir com produtos
-      name: `Assinatura ${subscription.name}`,
-      description: subscription.description,
-      price: subscription.price,
-      image: subscription.image || fallbackImage,
-      category_id: 5,
-      available: true,
-      quantity: 1,
-      type: "subscription",
-      frequency: subscription.frequency,
-      deliveries_per_month: subscription.deliveries_per_month,
-    };
-
-    // 3. Verifica se já tem essa assinatura no carrinho
-    const existingIndex = cart.findIndex(
-      (item: any) => item.id === subscriptionItem.id
-    );
-
-    let newCart;
-
-    if (existingIndex >= 0) {
-      // Já tem — não duplica
-      newCart = cart;
-    } else {
-      // Adiciona
-      newCart = [...cart, subscriptionItem];
+    // Valida se escolheu o dia
+    if (!selectedDay) {
+      alert("Escolha o dia da entrega (sábado ou domingo) antes de assinar.");
+      return;
     }
 
-    // 4. Salva no flower-cart
-    localStorage.setItem("flower-cart", JSON.stringify(newCart));
+    // 🎯 Salva a assinatura em local SEPARADO (não no carrinho)
+    const subscriptionCheckout = {
+      id: subscription.id,
+      name: subscription.name,
+      description: subscription.description,
+      price: subscription.price,
+      frequency: subscription.frequency,
+      deliveries_per_month: subscription.deliveries_per_month,
+      image: subscription.image || fallbackImage,
+      delivery_day: selectedDay,
+    };
 
-    // 5. Vai pro checkout
-    router.push("/checkout");
+    localStorage.setItem(
+      "flower-subscription-checkout",
+      JSON.stringify(subscriptionCheckout)
+    );
+
+    // 🎯 Vai pro FLUXO SEPARADO de assinatura
+    router.push("/assinatura/checkout");
   }
 
   function formatPrice(value: number) {
@@ -101,11 +103,7 @@ export default function AssinaturasPage() {
     <main className="subscriptions-page">
       <header className="site-header">
         <div className="header-content">
-          <Link
-            href="/"
-            className="brand"
-            aria-label="FLOWER - Buquês & Acessórios"
-          >
+          <Link href="/" className="brand" aria-label="FLOWER">
             <img
               src="/images/logoflowerprops.png"
               alt="FLOWER Buquês & Acessórios"
@@ -143,9 +141,9 @@ export default function AssinaturasPage() {
         </h1>
 
         <p>
-          Receba flores frescas, selecionadas especialmente para cada
-          entrega. Sem escolher as flores — a gente monta a composição da
-          semana pra você.
+          Receba flores frescas, selecionadas especialmente para cada entrega.
+          Sem escolher as flores — a gente monta a composição da semana pra
+          você.
         </p>
       </section>
 
@@ -166,10 +164,7 @@ export default function AssinaturasPage() {
             {subscriptions.map((sub) => (
               <div key={sub.id} className="subscription-card">
                 <div className="subscription-card-image">
-                  <img
-                    src={sub.image || fallbackImage}
-                    alt={sub.name}
-                  />
+                  <img src={sub.image || fallbackImage} alt={sub.name} />
                 </div>
 
                 <div className="subscription-card-content">
@@ -187,6 +182,37 @@ export default function AssinaturasPage() {
                   <div className="subscription-card-price">
                     <strong>{formatPrice(sub.price)}</strong>
                     <span>por mês</span>
+                  </div>
+
+                  {/* 🎯 SELETOR DE DIA */}
+                  <div className="subscription-delivery-day">
+                    <span className="subscription-delivery-label">
+                      Escolha o dia da entrega:
+                    </span>
+
+                    <div className="subscription-day-options">
+                      <button
+                        type="button"
+                        className={`subscription-day-option ${
+                          selectedDays[sub.id] === "saturday" ? "active" : ""
+                        }`}
+                        onClick={() => handleSelectDay(sub.id, "saturday")}
+                      >
+                        <span className="subscription-day-radio" />
+                        <span>Sábado</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        className={`subscription-day-option ${
+                          selectedDays[sub.id] === "sunday" ? "active" : ""
+                        }`}
+                        onClick={() => handleSelectDay(sub.id, "sunday")}
+                      >
+                        <span className="subscription-day-radio" />
+                        <span>Domingo</span>
+                      </button>
+                    </div>
                   </div>
 
                   <button

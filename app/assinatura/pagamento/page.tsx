@@ -1,22 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { initMercadoPago, CardPayment } from "@mercadopago/sdk-react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "../../../lib/supabase";
 
 initMercadoPago(process.env.NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY!, {
   locale: "pt-BR",
 });
 
-type CartItem = {
+type SubscriptionData = {
   id: number;
   name: string;
+  description: string;
   price: number;
-  image: string;
-  quantity: number;
-  type?: string;
-  delivery_day?: string;
+  frequency: string;
+  deliveries_per_month: number;
+  image: string | null;
+  delivery_day: "saturday" | "sunday";
 };
 
 type CustomerData = {
@@ -29,21 +31,25 @@ type CustomerData = {
   complement: string;
   neighborhood: string;
   city: string;
-  observation: string;
-  deliveryMethod: "delivery" | "pickup";
+  state: string;
 };
 
-const DELIVERY_FEE = 15;
+type DeliveryMethod = "delivery" | "pickup";
 
-export default function PaymentPage() {
+type CheckoutData = {
+  subscription: SubscriptionData;
+  customer: CustomerData;
+  deliveryMethod: DeliveryMethod;
+};
+
+export default function AssinaturaPagamentoPage() {
   const router = useRouter();
 
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [customerData, setCustomerData] = useState<CustomerData | null>(null);
+  const [checkoutData, setCheckoutData] = useState<CheckoutData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [paymentMethod, setPaymentMethod] = useState<"pix" | "card">("pix");
-
-  const [isFinishing, setIsFinishing] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [isProcessingCard, setIsProcessingCard] = useState(false);
   const [error, setError] = useState("");
 
@@ -51,77 +57,68 @@ export default function PaymentPage() {
     qrCode: string;
     qrCodeBase64: string;
     paymentId: number;
-    orderId: number;
+    subscriptionOrderId: number;
   } | null>(null);
 
+  // ==========================================
+  // CARREGA DADOS DO CHECKOUT
+  // ==========================================
+
   useEffect(() => {
-    const savedCart = localStorage.getItem("flower-cart");
-    const savedCheckout = localStorage.getItem("flower-checkout");
+    const saved = localStorage.getItem("flower-subscription-customer");
 
-    if (savedCart) {
-      try {
-        setCartItems(JSON.parse(savedCart));
-      } catch {
-        localStorage.removeItem("flower-cart");
-      }
+    if (!saved) {
+      router.push("/assinaturas");
+      return;
     }
 
-    if (savedCheckout) {
-      try {
-        setCustomerData(JSON.parse(savedCheckout));
-      } catch {
-        localStorage.removeItem("flower-checkout");
-      }
+    try {
+      setCheckoutData(JSON.parse(saved));
+    } catch {
+      router.push("/assinaturas");
     }
-  }, []);
 
-  const subtotal = cartItems.reduce(
-    (total, item) => total + item.price * item.quantity,
-    0
-  );
+    setIsLoading(false);
+  }, [router]);
 
-  const deliveryFee =
-    customerData?.deliveryMethod === "delivery" ? DELIVERY_FEE : 0;
+  // ==========================================
+  // SALVA PEDIDO NO SUPABASE (pending)
+  // ==========================================
 
-  const total = subtotal + deliveryFee;
-
-  function formatPrice(value: number) {
-    return value.toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    });
-  }
-
-  function goBack() {
-    router.push("/revisao");
-  }
-
-  async function saveOrderToSupabase(paymentMethodType: string) {
-    if (!customerData) {
-      throw new Error("Dados do cliente não encontrados.");
+  async function saveSubscriptionOrder(paymentMethodType: string) {
+    if (!checkoutData) {
+      throw new Error("Dados do checkout não encontrados.");
     }
+
+    const { subscription, customer, deliveryMethod } = checkoutData;
+
+    // Pega user_id se logado
+    const { data: { user } } = await supabase.auth.getUser();
 
     const { data: order, error: orderError } = await supabase
-      .from("orders")
+      .from("subscription_orders")
       .insert({
-        customer_name: customerData.name,
-        customer_phone: customerData.phone,
-        customer_email: customerData.email,
-        delivery_method: customerData.deliveryMethod,
-         delivery_day: cartItems.find((item: any) => item.delivery_day)?.delivery_day || null,
-        cep: customerData.cep,
-        street: customerData.street,
-        number: customerData.number,
-        complement: customerData.complement,
-        neighborhood: customerData.neighborhood,
-        city: customerData.city,
-        observation: customerData.observation,
-        subtotal,
-        delivery_fee: deliveryFee,
-        total,
+        user_id: user?.id || null,
+        plan_name: subscription.name,
+        plan_frequency: subscription.frequency,
+        plan_price: subscription.price,
+        deliveries_per_month: subscription.deliveries_per_month,
+        delivery_day: subscription.delivery_day,
+        customer_name: customer.name,
+        customer_phone: customer.phone,
+        customer_email: customer.email,
+        delivery_method: deliveryMethod,
+        cep: deliveryMethod === "delivery" ? customer.cep : null,
+        street: deliveryMethod === "delivery" ? customer.street : null,
+        number: deliveryMethod === "delivery" ? customer.number : null,
+        complement:
+          deliveryMethod === "delivery" ? customer.complement : null,
+        neighborhood:
+          deliveryMethod === "delivery" ? customer.neighborhood : null,
+        city: deliveryMethod === "delivery" ? customer.city : null,
+        state: deliveryMethod === "delivery" ? customer.state : null,
         payment_method: paymentMethodType,
         payment_status: "pending",
-        order_status: "pending",
       })
       .select()
       .single();
@@ -131,40 +128,26 @@ export default function PaymentPage() {
       throw new Error(orderError.message || "Erro ao criar pedido.");
     }
 
-    const orderItems = cartItems.map((item: any) => ({
-      order_id: order.id,
-      product_id: item.type === "subscription" ? null : item.id,
-      product_name: item.name,
-      product_price: item.price,
-      quantity: item.quantity,
-      subtotal: item.price * item.quantity,
-      item_type: item.type === "subscription" ? "subscription" : "product",
-    }));
-
-    const { error: itemsError } = await supabase
-      .from("order_items")
-      .insert(orderItems);
-
-    if (itemsError) {
-      console.error("ERRO AO CRIAR ITENS:", itemsError);
-      throw new Error("Erro ao salvar produtos do pedido.");
-    }
-
     return order.id;
   }
+
+  // ==========================================
+  // PAGAMENTO COM CARTÃO
+  // ==========================================
 
   async function handleCardSubmit(formData: any) {
     setIsProcessingCard(true);
     setError("");
 
-    if (!customerData) {
-      setError("Dados do cliente não encontrados.");
+    if (!checkoutData) {
+      setError("Dados do checkout não encontrados.");
       setIsProcessingCard(false);
       return;
     }
 
     try {
-      const orderId = await saveOrderToSupabase("card");
+      const orderId = await saveSubscriptionOrder("card");
+      const { customer, subscription } = checkoutData;
 
       const response = await fetch("/api/mercado-pago/process", {
         method: "POST",
@@ -173,14 +156,14 @@ export default function PaymentPage() {
           token: formData.token,
           payment_method_id: formData.payment_method_id,
           installments: formData.installments,
-          transaction_amount: total,
+          transaction_amount: subscription.price,
           payer: {
-            email: customerData.email,
-            first_name: customerData.name.split(" ")[0],
-            last_name: customerData.name.split(" ").slice(1).join(" "),
+            email: customer.email,
+            first_name: customer.name.split(" ")[0],
+            last_name: customer.name.split(" ").slice(1).join(" "),
           },
-          description: `Pedido FLOWER PROPS #${orderId}`,
-          external_reference: `FLOWER-${orderId}`,
+          description: `Assinatura ${subscription.name} — FLOWER`,
+          external_reference: `SUBSCRIPTION-${orderId}`,
         }),
       });
 
@@ -192,34 +175,32 @@ export default function PaymentPage() {
 
       if (result.status === "approved") {
         await supabase
-          .from("orders")
+          .from("subscription_orders")
           .update({
             payment_status: "paid",
-            order_status: "confirmed",
             payment_id: String(result.id),
           })
           .eq("id", orderId);
 
-        localStorage.setItem("flower-order-id", String(orderId));
-        localStorage.removeItem("flower-cart");
+        localStorage.setItem("flower-subscription-order-id", String(orderId));
+        localStorage.removeItem("flower-subscription-checkout");
+        localStorage.removeItem("flower-subscription-customer");
 
-        router.push("/pedido-confirmado");
+        router.push("/assinatura/confirmada");
       } else if (result.status === "in_process" || result.status === "pending") {
         await supabase
-          .from("orders")
+          .from("subscription_orders")
           .update({
             payment_status: "pending",
             payment_id: String(result.id),
           })
           .eq("id", orderId);
 
-        setError(
-          "Pagamento em análise. Você receberá uma confirmação em breve."
-        );
+        setError("Pagamento em análise. Você receberá confirmação em breve.");
         setIsProcessingCard(false);
       } else {
         await supabase
-          .from("orders")
+          .from("subscription_orders")
           .update({
             payment_status: "rejected",
             payment_id: String(result.id),
@@ -238,32 +219,37 @@ export default function PaymentPage() {
     }
   }
 
+  // ==========================================
+  // PAGAMENTO COM PIX
+  // ==========================================
+
   async function handlePixPayment() {
-    setIsFinishing(true);
+    setIsProcessing(true);
     setError("");
 
-    if (!customerData) {
-      setError("Dados do cliente não encontrados.");
-      setIsFinishing(false);
+    if (!checkoutData) {
+      setError("Dados do checkout não encontrados.");
+      setIsProcessing(false);
       return;
     }
 
     try {
-      const orderId = await saveOrderToSupabase("pix");
+      const orderId = await saveSubscriptionOrder("pix");
+      const { customer, subscription } = checkoutData;
 
       const response = await fetch("/api/mercado-pago/process", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           payment_method_id: "pix",
-          transaction_amount: total,
+          transaction_amount: subscription.price,
           payer: {
-            email: customerData.email,
-            first_name: customerData.name.split(" ")[0],
-            last_name: customerData.name.split(" ").slice(1).join(" "),
+            email: customer.email,
+            first_name: customer.name.split(" ")[0],
+            last_name: customer.name.split(" ").slice(1).join(" "),
           },
-          description: `Pedido FLOWER PROPS #${orderId}`,
-          external_reference: `FLOWER-${orderId}`,
+          description: `Assinatura ${subscription.name} — FLOWER`,
+          external_reference: `SUBSCRIPTION-${orderId}`,
         }),
       });
 
@@ -277,106 +263,88 @@ export default function PaymentPage() {
         qrCode: result.qr_code,
         qrCodeBase64: result.qr_code_base64,
         paymentId: result.id,
-        orderId,
+        subscriptionOrderId: orderId,
       });
 
-      localStorage.setItem("flower-order-id", String(orderId));
+      localStorage.setItem("flower-subscription-order-id", String(orderId));
 
-      setIsFinishing(false);
+      setIsProcessing(false);
     } catch (err: any) {
       console.error("Erro no Pix:", err);
       setError(err?.message || "Erro ao gerar Pix. Tente novamente.");
-      setIsFinishing(false);
-    }
-  }
-
-  async function finishOrder() {
-    if (cartItems.length === 0) {
-      setError("Seu carrinho está vazio.");
-      return;
-    }
-
-    if (!customerData) {
-      setError("Dados do cliente não encontrados.");
-      return;
-    }
-
-    if (paymentMethod === "pix") {
-      await handlePixPayment();
+      setIsProcessing(false);
     }
   }
 
   function copyPixCode() {
     if (!pixData) return;
-
     navigator.clipboard.writeText(pixData.qrCode);
     alert("Código Pix copiado! Cole no seu app do banco.");
   }
 
+  function formatPrice(value: number) {
+    return value.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    });
+  }
+
+  // ==========================================
+  // LOADING
+  // ==========================================
+
+  if (isLoading || !checkoutData) {
+    return (
+      <main className="payment-page">
+        <div className="checkout-container">
+          <p>Carregando...</p>
+        </div>
+      </main>
+    );
+  }
+
+  const { subscription, deliveryMethod } = checkoutData;
+
+  // ==========================================
+  // RENDER
+  // ==========================================
+
   return (
     <main className="payment-page">
-      {/* HEADER PADRONIZADO */}
       <header className="payment-header">
         <div className="payment-header-inner">
-          <a href="/" className="payment-logo">
+          <Link href="/" className="payment-logo">
             FLOWER
             <span>PROPS</span>
-          </a>
+          </Link>
 
-          <div className="payment-header-title">Pagamento</div>
+          <div className="payment-header-title">
+            Assinatura — Pagamento
+          </div>
 
-          <button type="button" onClick={goBack} className="payment-back">
-            ← Voltar à revisão
-          </button>
+          <Link href="/assinatura/checkout" className="payment-back">
+            ← Voltar
+          </Link>
         </div>
       </header>
 
-      {/* ETAPAS */}
-      <div className="payment-steps">
-        <div className="payment-step completed">
-          <span>✓</span>
-          <p>Carrinho</p>
-        </div>
-
-        <div className="payment-line completed" />
-
-        <div className="payment-step completed">
-          <span>✓</span>
-          <p>Dados</p>
-        </div>
-
-        <div className="payment-line completed" />
-
-        <div className="payment-step completed">
-          <span>✓</span>
-          <p>Revisão</p>
-        </div>
-
-        <div className="payment-line active" />
-
-        <div className="payment-step current">
-          <span>4</span>
-          <p>Pagamento</p>
-        </div>
-      </div>
-
-      {/* CONTEÚDO */}
       <div className="payment-container">
         <section className="payment-main">
           <div className="payment-intro">
             <span className="payment-eyebrow">FINALIZAÇÃO</span>
-
             <h1>
-              Escolha como
+              Como você quer
               <br />
-              <em>pagar.</em>
+              <em>pagar?</em>
             </h1>
-
-            <p>Selecione a forma de pagamento para concluir seu pedido.</p>
+            <p>Escolha a forma de pagamento para ativar sua assinatura.</p>
           </div>
 
           {error && (
-            <div className="account-message error" style={{ marginBottom: 20 }}>
+            <div
+              className="account-message error"
+              style={{ marginBottom: 20 }}
+            >
               {error}
             </div>
           )}
@@ -385,7 +353,6 @@ export default function PaymentPage() {
             <section className="payment-card">
               <div className="payment-card-heading">
                 <span>01</span>
-
                 <div>
                   <h2>Forma de pagamento</h2>
                   <p>Escolha uma opção</p>
@@ -401,12 +368,10 @@ export default function PaymentPage() {
                   onClick={() => setPaymentMethod("pix")}
                 >
                   <div className="payment-method-icon">PIX</div>
-
                   <div className="payment-method-content">
                     <strong>Pix</strong>
                     <span>Pagamento instantâneo</span>
                   </div>
-
                   <div className="payment-radio">
                     {paymentMethod === "pix" && "✓"}
                   </div>
@@ -420,12 +385,10 @@ export default function PaymentPage() {
                   onClick={() => setPaymentMethod("card")}
                 >
                   <div className="payment-method-icon card-icon">CARD</div>
-
                   <div className="payment-method-content">
                     <strong>Cartão</strong>
                     <span>Crédito ou débito</span>
                   </div>
-
                   <div className="payment-radio">
                     {paymentMethod === "card" && "✓"}
                   </div>
@@ -434,45 +397,39 @@ export default function PaymentPage() {
             </section>
           )}
 
+          {/* PIX — INSTRUÇÕES */}
           {paymentMethod === "pix" && !pixData && (
             <section className="payment-card payment-instructions">
               <div className="payment-card-heading">
                 <span>02</span>
-
                 <div>
                   <h2>Pagamento via Pix</h2>
-                  <p>Você receberá o QR Code após confirmar o pedido.</p>
+                  <p>Você receberá o QR Code após confirmar.</p>
                 </div>
               </div>
 
               <div className="pix-information">
                 <div className="pix-symbol">PIX</div>
-
                 <div>
                   <strong>Simples, rápido e seguro</strong>
-                  <p>
-                    Após finalizar, o QR Code será gerado pra você escanear.
-                  </p>
+                  <p>Após finalizar, o QR Code será gerado pra você.</p>
                 </div>
               </div>
             </section>
           )}
 
+          {/* PIX — QR CODE */}
           {pixData && (
             <section className="payment-card payment-instructions">
               <div className="payment-card-heading">
                 <span>02</span>
-
                 <div>
                   <h2>Escaneie o QR Code</h2>
-                  <p>Abra o app do seu banco e escaneie o código abaixo.</p>
+                  <p>Abra o app do seu banco e escaneie abaixo.</p>
                 </div>
               </div>
 
-              <div
-                className="pix-qrcode-container"
-                style={{ textAlign: "center", padding: "30px 0" }}
-              >
+              <div style={{ textAlign: "center", padding: "30px 0" }}>
                 <img
                   src={`data:image/png;base64,${pixData.qrCodeBase64}`}
                   alt="QR Code Pix"
@@ -500,17 +457,17 @@ export default function PaymentPage() {
                     lineHeight: 1.6,
                   }}
                 >
-                  Após o pagamento, seu pedido será confirmado automaticamente.
+                  Após o pagamento, sua assinatura será ativada automaticamente.
                 </p>
               </div>
             </section>
           )}
 
+          {/* CARTÃO */}
           {paymentMethod === "card" && (
             <section className="payment-card payment-instructions">
               <div className="payment-card-heading">
                 <span>02</span>
-
                 <div>
                   <h2>Dados do cartão</h2>
                   <p>Preencha os dados com segurança.</p>
@@ -523,7 +480,7 @@ export default function PaymentPage() {
                 </div>
               ) : (
                 <CardPayment
-                  initialization={{ amount: total }}
+                  initialization={{ amount: subscription.price }}
                   onSubmit={handleCardSubmit}
                   customization={{
                     visual: {
@@ -537,32 +494,31 @@ export default function PaymentPage() {
             </section>
           )}
 
+          {/* BOTÃO FINALIZAR (PIX) */}
           {paymentMethod === "pix" && !pixData && (
             <>
               <button
                 type="button"
                 className="finish-payment-button"
-                onClick={finishOrder}
-                disabled={isFinishing}
+                onClick={handlePixPayment}
+                disabled={isProcessing}
               >
-                {isFinishing ? "Gerando Pix..." : "Finalizar pedido"}
-                {!isFinishing && <span>→</span>}
+                {isProcessing ? "Gerando Pix..." : "Finalizar pedido"}
+                {!isProcessing && <span>→</span>}
               </button>
 
               <p className="payment-note">
-                Ao finalizar, você confirma seu pedido com a FLOWER PROPS.
+                Ao finalizar, você confirma sua assinatura com a FLOWER.
               </p>
             </>
           )}
 
+          {/* BOTÃO JÁ PAGUEI (depois do QR) */}
           {pixData && (
             <button
               type="button"
               className="finish-payment-button"
-              onClick={() => {
-                localStorage.removeItem("flower-cart");
-                router.push("/pedido-confirmado");
-              }}
+              onClick={() => router.push("/assinatura/confirmada")}
             >
               Já paguei, continuar
               <span>→</span>
@@ -570,70 +526,73 @@ export default function PaymentPage() {
           )}
         </section>
 
+        {/* RESUMO */}
         <aside className="payment-summary">
           <div className="payment-summary-heading">
             <span>RESUMO</span>
-            <h2>Seu pedido</h2>
+            <h2>Sua assinatura</h2>
           </div>
 
           <div className="payment-summary-products">
-            {cartItems.map((item) => (
-              <div className="payment-summary-product" key={item.id}>
-                <div className="payment-summary-image">
-                  <img src={item.image} alt={item.name} />
-                  <span>{item.quantity}</span>
-                </div>
-
-                <div>
-                  <strong>{item.name}</strong>
-                  <p>{formatPrice(item.price)}</p>
-                </div>
+            <div className="payment-summary-product">
+              <div className="payment-summary-image">
+                {subscription.image && (
+                  <img src={subscription.image} alt={subscription.name} />
+                )}
+                <span>1</span>
               </div>
-            ))}
+
+              <div>
+                <strong>Assinatura {subscription.name}</strong>
+                <p>
+                  {subscription.deliveries_per_month}{" "}
+                  {subscription.deliveries_per_month === 1
+                    ? "entrega"
+                    : "entregas"}
+                  /mês
+                </p>
+              </div>
+            </div>
           </div>
 
           <div className="payment-values">
             <div>
-              <span>Produtos</span>
-              <strong>{formatPrice(subtotal)}</strong>
+              <span>Plano</span>
+              <strong>{formatPrice(subscription.price)}</strong>
             </div>
 
             <div>
               <span>
-                {customerData?.deliveryMethod === "pickup"
+                {deliveryMethod === "pickup"
                   ? "Retirada no ateliê"
                   : "Entrega"}
               </span>
+              <strong>Grátis</strong>
+            </div>
 
+            <div>
+              <span>Dia da entrega</span>
               <strong>
-                {deliveryFee === 0 ? "Grátis" : formatPrice(deliveryFee)}
+                {subscription.delivery_day === "saturday"
+                  ? "Sábado"
+                  : "Domingo"}
               </strong>
             </div>
           </div>
 
           <div className="payment-total">
             <span>Total</span>
-            <strong>{formatPrice(total)}</strong>
+            <strong>{formatPrice(subscription.price)}</strong>
           </div>
 
           <div className="payment-summary-receiving">
             <span>RECEBIMENTO</span>
             <strong>
-              {customerData?.deliveryMethod === "pickup"
+              {deliveryMethod === "pickup"
                 ? "Retirada no ateliê"
-                : "Entrega"}
+                : "Entrega em Macaé"}
             </strong>
           </div>
-
-          {!pixData && (
-            <button
-              type="button"
-              className="payment-summary-back"
-              onClick={goBack}
-            >
-              ← Voltar à revisão
-            </button>
-          )}
         </aside>
       </div>
     </main>
