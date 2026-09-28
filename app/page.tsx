@@ -613,26 +613,23 @@ export default function Home() {
           </div>
         ) : (
           <div className="product-grid">
-            {filteredProducts.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={{
-                  ...product,
-                  image: product.image || fallbackImage,
-                }}
-                onAddToCart={addToCart}
-              />
-            ))}
+            {filteredProducts.slice(0, 4).map((product) => (
+  <ProductCard
+    key={product.id}
+    product={product}
+    onAddToCart={addToCart}
+  />
+))}
           </div>
         )}
 
-        {!searchTerm && (
-          <div className="center-button">
-            <a href="#produtos" className="button button-outline dark">
-              Ver todos os produtos
-            </a>
-          </div>
-        )}
+        {false && !searchTerm && (
+  <div className="center-button">
+    <a href="#produtos" className="button button-outline dark">
+      Ver todos os produtos
+    </a>
+  </div>
+)}
       </section>
 
       {/* ==================== ASSINATURA ==================== */}
