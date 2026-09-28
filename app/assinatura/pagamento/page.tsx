@@ -60,6 +60,9 @@ export default function AssinaturaPagamentoPage() {
     subscriptionOrderId: number;
   } | null>(null);
 
+  // 🎯 Timer de 5 minutos (300 segundos)
+  const [timeLeft, setTimeLeft] = useState(300);
+
   // ==========================================
   // CARREGA DADOS DO CHECKOUT
   // ==========================================
@@ -82,6 +85,89 @@ export default function AssinaturaPagamentoPage() {
   }, [router]);
 
   // ==========================================
+  // TIMER DE 5 MINUTOS
+  // ==========================================
+
+  useEffect(() => {
+    if (!pixData) return;
+    if (timeLeft <= 0) return;
+
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [pixData, timeLeft]);
+
+  // ==========================================
+  // POLLING: DETECTA PAGAMENTO AUTOMATICAMENTE
+  // ==========================================
+
+  useEffect(() => {
+    if (!pixData) return;
+    if (timeLeft <= 0) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const { data, error } = await supabase
+          .from("subscription_orders")
+          .select("payment_status")
+          .eq("id", pixData.subscriptionOrderId)
+          .single();
+
+        if (error) {
+          console.error("Erro no polling:", error);
+          return;
+        }
+
+        if (data?.payment_status === "paid") {
+          console.log("✅ Pagamento detectado! Redirecionando...");
+
+          clearInterval(interval);
+
+          localStorage.setItem(
+            "flower-subscription-order-id",
+            String(pixData.subscriptionOrderId)
+          );
+          localStorage.removeItem("flower-subscription-customer");
+
+          router.push("/assinatura/confirmada");
+        }
+      } catch (err) {
+        console.error("Erro no polling:", err);
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [pixData, router, timeLeft]);
+
+  // ==========================================
+  // QUANDO EXPIRAR: CANCELA PEDIDO
+  // ==========================================
+
+  useEffect(() => {
+    if (!pixData) return;
+    if (timeLeft > 0) return;
+
+    async function cancelOrder() {
+      console.log("⏰ Pix expirado. Cancelando pedido...");
+
+      await supabase
+        .from("subscription_orders")
+        .update({ payment_status: "cancelled" })
+        .eq("id", pixData!.subscriptionOrderId);
+    }
+
+    cancelOrder();
+  }, [timeLeft, pixData]);
+
+  // ==========================================
   // SALVA PEDIDO NO SUPABASE (pending)
   // ==========================================
 
@@ -92,8 +178,9 @@ export default function AssinaturaPagamentoPage() {
 
     const { subscription, customer, deliveryMethod } = checkoutData;
 
-    // Pega user_id se logado
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     const { data: order, error: orderError } = await supabase
       .from("subscription_orders")
@@ -182,7 +269,10 @@ export default function AssinaturaPagamentoPage() {
           })
           .eq("id", orderId);
 
-        localStorage.setItem("flower-subscription-order-id", String(orderId));
+        localStorage.setItem(
+          "flower-subscription-order-id",
+          String(orderId)
+        );
         localStorage.removeItem("flower-subscription-checkout");
         localStorage.removeItem("flower-subscription-customer");
 
@@ -196,7 +286,9 @@ export default function AssinaturaPagamentoPage() {
           })
           .eq("id", orderId);
 
-        setError("Pagamento em análise. Você receberá confirmação em breve.");
+        setError(
+          "Pagamento em análise. Você receberá confirmação em breve."
+        );
         setIsProcessingCard(false);
       } else {
         await supabase
@@ -266,7 +358,13 @@ export default function AssinaturaPagamentoPage() {
         subscriptionOrderId: orderId,
       });
 
-      localStorage.setItem("flower-subscription-order-id", String(orderId));
+      // 🎯 Reinicia o timer
+      setTimeLeft(300);
+
+      localStorage.setItem(
+        "flower-subscription-order-id",
+        String(orderId)
+      );
 
       setIsProcessing(false);
     } catch (err: any) {
@@ -349,6 +447,7 @@ export default function AssinaturaPagamentoPage() {
             </div>
           )}
 
+          {/* MÉTODOS */}
           {!pixData && (
             <section className="payment-card">
               <div className="payment-card-heading">
@@ -418,8 +517,8 @@ export default function AssinaturaPagamentoPage() {
             </section>
           )}
 
-          {/* PIX — QR CODE */}
-          {pixData && (
+          {/* PIX — QR CODE ATIVO */}
+          {pixData && timeLeft > 0 && (
             <section className="payment-card payment-instructions">
               <div className="payment-card-heading">
                 <span>02</span>
@@ -440,6 +539,69 @@ export default function AssinaturaPagamentoPage() {
                   }}
                 />
 
+                {/* 🎯 TIMER */}
+                <div
+                  style={{
+                    marginBottom: 20,
+                    padding: "12px 24px",
+                    background: "#f7f8f4",
+                    borderRadius: 4,
+                    display: "inline-block",
+                  }}
+                >
+                  <span
+                    style={{
+                      display: "block",
+                      marginBottom: 6,
+                      color: "#68735a",
+                      fontSize: 9,
+                      fontWeight: 600,
+                      letterSpacing: "0.15em",
+                    }}
+                  >
+                    EXPIRA EM
+                  </span>
+
+                  <strong
+                    style={{
+                      display: "block",
+                      color: timeLeft <= 60 ? "#a65f5f" : "#293b31",
+                      fontFamily: "monospace",
+                      fontSize: 26,
+                      fontWeight: 600,
+                      lineHeight: 1,
+                    }}
+                  >
+                    {Math.floor(timeLeft / 60)}:
+                    {String(timeLeft % 60).padStart(2, "0")}
+                  </strong>
+                </div>
+
+                {/* 🎯 INDICADOR AGUARDANDO */}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 10,
+                    marginBottom: 20,
+                    color: "#68735a",
+                    fontSize: 13,
+                  }}
+                >
+                  <span
+                    style={{
+                      display: "inline-block",
+                      width: 8,
+                      height: 8,
+                      borderRadius: "50%",
+                      background: "#68735a",
+                      animation: "pulse 1.5s infinite",
+                    }}
+                  />
+                  Aguardando pagamento...
+                </div>
+
                 <button
                   type="button"
                   className="button button-primary dark"
@@ -457,8 +619,57 @@ export default function AssinaturaPagamentoPage() {
                     lineHeight: 1.6,
                   }}
                 >
-                  Após o pagamento, sua assinatura será ativada automaticamente.
+                  Após o pagamento, sua assinatura será ativada
+                  automaticamente.
                 </p>
+              </div>
+            </section>
+          )}
+
+          {/* PIX — EXPIRADO */}
+          {pixData && timeLeft === 0 && (
+            <section className="payment-card payment-instructions">
+              <div className="payment-card-heading">
+                <span>02</span>
+                <div>
+                  <h2>Pix expirado</h2>
+                  <p>O tempo para pagamento acabou.</p>
+                </div>
+              </div>
+
+              <div style={{ textAlign: "center", padding: "30px 0" }}>
+                <p
+                  style={{
+                    marginBottom: 24,
+                    color: "#68735a",
+                    fontSize: 14,
+                    lineHeight: 1.7,
+                  }}
+                >
+                  O QR Code expirou após 5 minutos. Nenhum valor foi
+                  cobrado.
+                  <br />
+                  Você pode tentar novamente.
+                </p>
+
+                <button
+                  type="button"
+                  className="button button-primary dark"
+                  onClick={() => {
+                    setPixData(null);
+                    setTimeLeft(300);
+                  }}
+                  style={{ marginRight: 8 }}
+                >
+                  Tentar novamente
+                </button>
+
+                <Link
+                  href="/"
+                  className="button button-outline dark"
+                >
+                  Voltar pra home
+                </Link>
               </div>
             </section>
           )}
@@ -511,18 +722,6 @@ export default function AssinaturaPagamentoPage() {
                 Ao finalizar, você confirma sua assinatura com a FLOWER.
               </p>
             </>
-          )}
-
-          {/* BOTÃO JÁ PAGUEI (depois do QR) */}
-          {pixData && (
-            <button
-              type="button"
-              className="finish-payment-button"
-              onClick={() => router.push("/assinatura/confirmada")}
-            >
-              Já paguei, continuar
-              <span>→</span>
-            </button>
           )}
         </section>
 

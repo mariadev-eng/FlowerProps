@@ -312,6 +312,46 @@ export default function PaymentPage() {
     navigator.clipboard.writeText(pixData.qrCode);
     alert("Código Pix copiado! Cole no seu app do banco.");
   }
+// ==========================================
+// POLLING: DETECTA PAGAMENTO DO PIX AUTOMATICAMENTE
+// ==========================================
+
+useEffect(() => {
+  if (!pixData) return;
+
+  const interval = setInterval(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("orders")
+        .select("payment_status")
+        .eq("id", pixData.orderId)
+        .single();
+
+      if (error) {
+        console.error("Erro no polling:", error);
+        return;
+      }
+
+      if (data?.payment_status === "paid") {
+        console.log("✅ Pagamento detectado! Redirecionando...");
+
+        clearInterval(interval);
+
+        localStorage.setItem(
+          "flower-order-id",
+          String(pixData.orderId)
+        );
+        localStorage.removeItem("flower-cart");
+
+        router.push("/pedido-confirmado");
+      }
+    } catch (err) {
+      console.error("Erro no polling:", err);
+    }
+  }, 3000);
+
+  return () => clearInterval(interval);
+}, [pixData, router]);
 
   return (
     <main className="payment-page">

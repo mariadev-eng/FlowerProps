@@ -4243,3 +4243,13 @@ body:has(.cart-drawer.active) {
   border-radius: 50%;
   background: var(--green-dark);
 }
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.3; }
+  100% { opacity: 1; }
+}
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.3; }
+  100% { opacity: 1; }
+}
