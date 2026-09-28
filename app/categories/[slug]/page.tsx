@@ -23,7 +23,6 @@ type CategoryInfo = {
   description: string;
 };
 
-// Mapeamento de slug (URL) → id (Supabase)
 const SLUG_TO_CATEGORY: Record<string, CategoryInfo> = {
   buques: {
     id: 1,
@@ -54,14 +53,12 @@ export default function CategoriaPage() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Se slug não existe, volta pra home
   useEffect(() => {
     if (!category) {
       router.replace("/");
     }
   }, [category, router]);
 
-  // Carrega produtos da categoria
   useEffect(() => {
     if (!category) return;
 
@@ -88,7 +85,6 @@ export default function CategoriaPage() {
     loadProducts();
   }, [category]);
 
-  // Recupera carrinho
   useEffect(() => {
     const savedCart = localStorage.getItem("flower-cart");
 
@@ -103,14 +99,11 @@ export default function CategoriaPage() {
     setIsLoaded(true);
   }, []);
 
-  // Salva carrinho
   useEffect(() => {
     if (!isLoaded) return;
-
     localStorage.setItem("flower-cart", JSON.stringify(cartItems));
   }, [cartItems, isLoaded]);
 
-  // Adicionar ao carrinho
   function addToCart(product: Product) {
     setCartItems((currentItems) => {
       const existingItem = currentItems.find(
@@ -135,7 +128,6 @@ export default function CategoriaPage() {
 
   return (
     <main className="category-page">
-      {/* HEADER */}
       <header className="site-header">
         <div className="header-content">
           <Link href="/" className="brand">
@@ -166,7 +158,6 @@ export default function CategoriaPage() {
         </div>
       </header>
 
-      {/* INTRO DA CATEGORIA */}
       <section className="category-intro section">
         <Link href="/" className="category-back">
           ← Voltar
@@ -177,7 +168,6 @@ export default function CategoriaPage() {
         <h1>{category.name}</h1>
       </section>
 
-      {/* PRODUTOS */}
       <section className="category-products section">
         {isLoading ? (
           <div className="products-loading">

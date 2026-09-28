@@ -16,6 +16,7 @@ type Product = {
   category_id: number;
   image: string | null;
   available: boolean;
+  featured?: boolean;
 };
 
 type CartItem = Product & {
@@ -57,16 +58,10 @@ function getCategoryName(categoryId: number) {
   switch (categoryId) {
     case 1:
       return "Buquês";
-
-    case 2:
-      return "Presentes";
-
     case 3:
-      return "Rosas";
-
+      return "Presentes";
     case 4:
       return "Acessórios";
-
     default:
       return "FLOWER";
   }
@@ -93,54 +88,51 @@ export default function Home() {
   // ================================
 
   useEffect(() => {
-  async function loadProducts() {
-    setIsProductsLoading(true);
+    async function loadProducts() {
+      setIsProductsLoading(true);
 
-    const { data, error } = await supabase
-      .from("products")
-      .select("*");
+      const { data, error } = await supabase.from("products").select("*");
 
-    console.log("=== FLOWER / SUPABASE ===");
-    console.log("Produtos:", data);
-    console.log("Erro:", error);
-
-    if (error) {
-      console.error("ERRO SUPABASE:", error);
-      setProducts([]);
-    } else {
-      setProducts(data ?? []);
-    }
-
-    setIsProductsLoading(false);
-  }
-
-  async function loadTopProducts() {
-    try {
-      // Busca o ranking de mais vendidos
-      const { data, error } = await supabase.rpc("get_top_products", {
-        limit_count: 4,
-      });
+      console.log("=== FLOWER / SUPABASE ===");
+      console.log("Produtos:", data);
+      console.log("Erro:", error);
 
       if (error) {
-        console.error("Erro ao buscar mais vendidos:", error);
-        return;
+        console.error("ERRO SUPABASE:", error);
+        setProducts([]);
+      } else {
+        setProducts(data ?? []);
       }
 
-      // Extrai os IDs
-      const topIds = (data ?? []).map((item: any) => item.product_id);
-      setTopProductIds(topIds);
-
-      console.log("=== TOP PRODUTOS ===");
-      console.log("Top IDs:", topIds);
-    } catch (err) {
-      console.error("Erro no ranking:", err);
+      setIsProductsLoading(false);
     }
-  }
 
-  loadProducts();
-  loadTopProducts();
-}, []);
-   // ================================
+    async function loadTopProducts() {
+      try {
+        const { data, error } = await supabase.rpc("get_top_products", {
+          limit_count: 4,
+        });
+
+        if (error) {
+          console.error("Erro ao buscar mais vendidos:", error);
+          return;
+        }
+
+        const topIds = (data ?? []).map((item: any) => item.product_id);
+        setTopProductIds(topIds);
+
+        console.log("=== TOP PRODUTOS ===");
+        console.log("Top IDs:", topIds);
+      } catch (err) {
+        console.error("Erro no ranking:", err);
+      }
+    }
+
+    loadProducts();
+    loadTopProducts();
+  }, []);
+
+  // ================================
   // AUTOPLAY DAS CATEGORIAS (MOBILE)
   // ================================
 
@@ -150,7 +142,9 @@ export default function Home() {
     const initAutoplay = () => {
       if (window.innerWidth > 700) return;
 
-      const grid = document.querySelector(".category-grid") as HTMLElement | null;
+      const grid = document.querySelector(
+        ".category-grid"
+      ) as HTMLElement | null;
       if (!grid) return;
 
       const cards = grid.querySelectorAll(".category-card");
@@ -166,7 +160,6 @@ export default function Home() {
           const card = cards[currentIndex] as HTMLElement;
 
           if (card) {
-            // 🎯 Rola APENAS o carrossel (não a página)
             grid.scrollTo({
               left: card.offsetLeft - grid.offsetLeft,
               behavior: "smooth",
@@ -192,6 +185,7 @@ export default function Home() {
 
     return () => clearTimeout(timeout);
   }, [products]);
+
   // ================================
   // RECUPERAR CARRINHO
   // ================================
@@ -217,10 +211,7 @@ export default function Home() {
   useEffect(() => {
     if (!isLoaded) return;
 
-    localStorage.setItem(
-      "flower-cart",
-      JSON.stringify(cartItems)
-    );
+    localStorage.setItem("flower-cart", JSON.stringify(cartItems));
   }, [cartItems, isLoaded]);
 
   // ================================
@@ -236,21 +227,12 @@ export default function Home() {
       if (existingItem) {
         return currentItems.map((item) =>
           item.id === product.id
-            ? {
-                ...item,
-                quantity: item.quantity + 1,
-              }
+            ? { ...item, quantity: item.quantity + 1 }
             : item
         );
       }
 
-      return [
-        ...currentItems,
-        {
-          ...product,
-          quantity: 1,
-        },
-      ];
+      return [...currentItems, { ...product, quantity: 1 }];
     });
 
     setIsCartOpen(true);
@@ -273,12 +255,7 @@ export default function Home() {
   function increaseQuantity(id: number) {
     setCartItems((currentItems) =>
       currentItems.map((item) =>
-        item.id === id
-          ? {
-              ...item,
-              quantity: item.quantity + 1,
-            }
-          : item
+        item.id === id ? { ...item, quantity: item.quantity + 1 } : item
       )
     );
   }
@@ -291,12 +268,7 @@ export default function Home() {
     setCartItems((currentItems) =>
       currentItems
         .map((item) =>
-          item.id === id
-            ? {
-                ...item,
-                quantity: item.quantity - 1,
-              }
-            : item
+          item.id === id ? { ...item, quantity: item.quantity - 1 } : item
         )
         .filter((item) => item.quantity > 0)
     );
@@ -369,11 +341,7 @@ export default function Home() {
 
       <header className="site-header">
         <div className="header-content">
-          <a
-            href="#inicio"
-            className="brand"
-            aria-label="FLOWER - Buquês & Acessórios"
-          >
+          <a href="#inicio" className="brand" aria-label="FLOWER">
             <img
               src="/images/logoflowerprops.png"
               alt="FLOWER Buquês & Acessórios"
@@ -390,7 +358,6 @@ export default function Home() {
           </nav>
 
           <div className="header-actions">
-            {/* LUPA */}
             <button
               type="button"
               aria-label="Pesquisar produtos"
@@ -399,7 +366,6 @@ export default function Home() {
               ⌕
             </button>
 
-            {/* CONTA */}
             <button
               type="button"
               aria-label="Minha conta"
@@ -408,7 +374,6 @@ export default function Home() {
               <UserRound size={20} strokeWidth={1.5} />
             </button>
 
-            {/* CARRINHO */}
             <button
               type="button"
               aria-label="Carrinho"
@@ -416,11 +381,8 @@ export default function Home() {
               className="cart-button"
             >
               ♡
-
               {cartQuantity > 0 && (
-                <span className="cart-count">
-                  {cartQuantity}
-                </span>
+                <span className="cart-count">{cartQuantity}</span>
               )}
             </button>
           </div>
@@ -437,9 +399,7 @@ export default function Home() {
                 id="flower-search"
                 type="search"
                 value={searchTerm}
-                onChange={(event) =>
-                  setSearchTerm(event.target.value)
-                }
+                onChange={(event) => setSearchTerm(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === "Escape") {
                     closeSearch();
@@ -460,16 +420,12 @@ export default function Home() {
               </button>
             </div>
 
-            {/* RESULTADOS DA PESQUISA */}
-
             {searchTerm.trim() && (
               <div className="search-results">
                 {filteredProducts.length === 0 ? (
                   <div className="search-no-results">
                     <span>♡</span>
-
                     <p>Nenhum produto encontrado.</p>
-
                     <small>
                       Tente buscar por outro nome ou categoria.
                     </small>
@@ -507,7 +463,6 @@ export default function Home() {
                           <span>
                             {getCategoryName(product.category_id)}
                           </span>
-
                           <strong>{product.name}</strong>
                         </div>
 
@@ -553,8 +508,8 @@ export default function Home() {
           </h1>
 
           <p>
-            Encontre o buquê perfeito para transformar momentos especiais
-            em memórias inesquecíveis.
+            Encontre o buquê perfeito para transformar momentos especiais em
+            memórias inesquecíveis.
           </p>
 
           <div className="hero-buttons">
@@ -575,7 +530,6 @@ export default function Home() {
         <div className="section-heading">
           <div>
             <span className="eyebrow">ENCONTRE O QUE PROCURA</span>
-
             <h2>Flores para cada momento</h2>
           </div>
 
@@ -586,31 +540,29 @@ export default function Home() {
 
         <div className="category-grid">
           {categories.map((category) => (
-  <Link
-    href={`/categoria/${category.slug}`}
-    className="category-card"
-    key={category.id}
-  >
-    <img src={category.image} alt={category.name} />
-    <div className="category-overlay">
-      <span>{category.description}</span>
-      <h3>{category.name}</h3>
-    </div>
-  </Link>
-))}
+            <Link
+              href={`/categories/${category.slug}`}
+              className="category-card"
+              key={category.id}
+            >
+              <img src={category.image} alt={category.name} />
+              <div className="category-overlay">
+                <span>{category.description}</span>
+                <h3>{category.name}</h3>
+              </div>
+            </Link>
+          ))}
         </div>
       </section>
 
       {/* ==================== PRODUTOS ==================== */}
 
-            <section className="products section" id="produtos">
+      <section className="products section" id="produtos">
         <div className="section-heading centered">
           <span className="eyebrow">MAIS DESEJADOS</span>
 
           <h2>
-            {searchTerm
-              ? "Resultados da pesquisa"
-              : "Escolha seu produto"}
+            {searchTerm ? "Resultados da pesquisa" : "Escolha seu produto"}
           </h2>
 
           <p>
@@ -641,22 +593,18 @@ export default function Home() {
         ) : (
           <div className="product-grid">
             {(() => {
-              // 1. Primeiro tenta pegar os mais vendidos (ranking automático)
               let featured = products.filter((p) =>
                 topProductIds.includes(p.id)
               );
 
-              // 2. Se não tem 4 ainda, completa com os "featured" do Supabase
               if (featured.length < 4) {
                 const featuredProducts = products.filter(
                   (p: any) =>
-                    p.featured === true &&
-                    !topProductIds.includes(p.id)
+                    p.featured === true && !topProductIds.includes(p.id)
                 );
                 featured = [...featured, ...featuredProducts];
               }
 
-              // 3. Se ainda não tem 4, completa com outros aleatórios
               if (featured.length < 4) {
                 const others = products.filter(
                   (p) =>
@@ -669,7 +617,6 @@ export default function Home() {
                 ];
               }
 
-              // 4. Limita a 4 e renderiza
               return featured.slice(0, 4).map((product) => (
                 <ProductCard
                   key={product.id}
@@ -681,6 +628,7 @@ export default function Home() {
           </div>
         )}
       </section>
+
       {/* ==================== ASSINATURA ==================== */}
 
       <section className="subscription" id="assinaturas">
@@ -717,12 +665,9 @@ export default function Home() {
             </div>
           </div>
 
-          <Link
-  href="/assinaturas"
-  className="button button-light"
->
-  Criar minha assinatura
-</Link>
+          <Link href="/assinaturas" className="button button-light">
+            Criar minha assinatura
+          </Link>
         </div>
       </section>
 
@@ -739,52 +684,45 @@ export default function Home() {
 
         <p>
           No Ateliê FLOWER, cada composição é pensada para transmitir
-          sentimentos, celebrar pessoas e transformar pequenos momentos
-          em grandes lembranças.
+          sentimentos, celebrar pessoas e transformar pequenos momentos em
+          grandes lembranças.
         </p>
       </section>
 
       {/* ==================== FOOTER ==================== */}
 
-    <footer className="footer">
-  <div className="footer-brand">
-    <img
-      src="/images/logoflowerprops.png"
-      alt="FLOWER Buquês & Acessórios"
-      className="footer-logo"
-    />
-  </div>
+      <footer className="footer">
+        <div className="footer-brand">
+          <img
+            src="/images/logoflowerprops.png"
+            alt="FLOWER Buquês & Acessórios"
+            className="footer-logo"
+          />
+        </div>
 
-  <div className="footer-links">
-    <a
-      href="https://instagram.com/_flowerprops_"
-      target="_blank"
-      rel="noopener noreferrer"
-    >
-      Instagram
-    </a>
+        <div className="footer-links">
+          <a
+            href="https://instagram.com/_flowerprops_"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Instagram
+          </a>
 
-    <a
-      href="https://wa.me/5522992298475"
-      target="_blank"
-      rel="noopener noreferrer"
-    >
-      WhatsApp
-    </a>
+          <a
+            href="https://wa.me/5522992298475"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            WhatsApp
+          </a>
 
-    <a href="#">
-      Contato
-    </a>
+          <a href="#">Contato</a>
+          <a href="#">Política de privacidade</a>
+        </div>
 
-    <a href="#">
-      Política de privacidade
-    </a>
-  </div>
-
-  <p>
-    © 2026 FLOWER. Todos os direitos reservados.
-  </p>
-</footer>
+        <p>© 2026 FLOWER. Todos os direitos reservados.</p>
+      </footer>
     </main>
   );
 }
