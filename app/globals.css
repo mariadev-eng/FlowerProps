@@ -4034,9 +4034,9 @@ body:has(.cart-drawer.active) {
     overflow-x: auto;
     overflow-y: hidden;
     scroll-snap-type: x mandatory;
-    gap: 0;                       /* ← sem espaço entre cards */
-    padding-bottom: 0;
-    margin: 0 -20px;              /* ← estica até as bordas */
+    gap: 12px;                     /* ← espaço entre cards */
+    padding: 0 16px 12px;          /* ← margem lateral (16px) */
+    margin: 0;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
   }
@@ -4046,10 +4046,9 @@ body:has(.cart-drawer.active) {
   }
 
   .category-card {
-    flex: 0 0 100%;               /* ← cada card ocupa 100% */
-    scroll-snap-align: center;    /* ← alinha ao centro */
-    scroll-snap-stop: always;     /* ← trava ao arrastar */
-    height: 480px;                /* ← altura fixa pra preencher */
-    width: 100%;
+    flex: 0 0 calc(100% - 32px);   /* ← 100% - margens */
+    scroll-snap-align: center;
+    scroll-snap-stop: always;
+    height: 480px;
   }
 }
