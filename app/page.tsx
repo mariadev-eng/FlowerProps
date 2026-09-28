@@ -119,7 +119,7 @@ export default function Home() {
 
     loadProducts();
   }, []);
-    // ================================
+   // ================================
   // AUTOPLAY DAS CATEGORIAS (MOBILE)
   // ================================
 
@@ -129,7 +129,7 @@ export default function Home() {
     const initAutoplay = () => {
       if (window.innerWidth > 700) return;
 
-      const grid = document.querySelector(".category-grid");
+      const grid = document.querySelector(".category-grid") as HTMLElement | null;
       if (!grid) return;
 
       const cards = grid.querySelectorAll(".category-card");
@@ -137,17 +137,18 @@ export default function Home() {
       if (totalCards === 0) return;
 
       let currentIndex = 0;
-      let interval: NodeJS.Timeout | null = null;
+      let interval: ReturnType<typeof setInterval> | null = null;
 
       const startAutoplay = () => {
         interval = setInterval(() => {
           currentIndex = (currentIndex + 1) % totalCards;
           const card = cards[currentIndex] as HTMLElement;
+
           if (card) {
-            card.scrollIntoView({
+            // 🎯 Rola APENAS o carrossel (não a página)
+            grid.scrollTo({
+              left: card.offsetLeft - grid.offsetLeft,
               behavior: "smooth",
-              block: "nearest",
-              inline: "center",
             });
           }
         }, 4000);
@@ -166,12 +167,10 @@ export default function Home() {
       });
     };
 
-    // Aguarda os cards renderizarem
     const timeout = setTimeout(initAutoplay, 500);
 
     return () => clearTimeout(timeout);
   }, [products]);
-
   // ================================
   // RECUPERAR CARRINHO
   // ================================
