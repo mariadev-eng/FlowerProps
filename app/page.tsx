@@ -25,13 +25,15 @@ type CartItem = Product & {
 const categories = [
   {
     id: 1,
+    slug: "buques",
     name: "Buquês",
     description: "Para surpreender",
     image:
       "https://stqpsaaxejtjhkbyapys.supabase.co/storage/v1/object/public/banners/buquehero.jpeg",
   },
   {
-    id: 2,
+    id: 3,
+    slug: "presentes",
     name: "Presentes",
     description: "Flores + carinho",
     image:
@@ -39,6 +41,7 @@ const categories = [
   },
   {
     id: 4,
+    slug: "acessorios",
     name: "Acessórios",
     description: "Detalhes que encantam",
     image:
@@ -72,6 +75,7 @@ function getCategoryName(categoryId: number) {
 export default function Home() {
   const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
+  const [topProductIds, setTopProductIds] = useState<number[]>([]);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -89,29 +93,53 @@ export default function Home() {
   // ================================
 
   useEffect(() => {
-    async function loadProducts() {
-      setIsProductsLoading(true);
+  async function loadProducts() {
+    setIsProductsLoading(true);
 
-      const { data, error } = await supabase
-        .from("products")
-        .select("*");
+    const { data, error } = await supabase
+      .from("products")
+      .select("*");
 
-      console.log("=== FLOWER / SUPABASE ===");
-      console.log("Produtos:", data);
-      console.log("Erro:", error);
+    console.log("=== FLOWER / SUPABASE ===");
+    console.log("Produtos:", data);
+    console.log("Erro:", error);
 
-      if (error) {
-        console.error("ERRO SUPABASE:", error);
-        setProducts([]);
-      } else {
-        setProducts(data ?? []);
-      }
-
-      setIsProductsLoading(false);
+    if (error) {
+      console.error("ERRO SUPABASE:", error);
+      setProducts([]);
+    } else {
+      setProducts(data ?? []);
     }
 
-    loadProducts();
-  }, []);
+    setIsProductsLoading(false);
+  }
+
+  async function loadTopProducts() {
+    try {
+      // Busca o ranking de mais vendidos
+      const { data, error } = await supabase.rpc("get_top_products", {
+        limit_count: 4,
+      });
+
+      if (error) {
+        console.error("Erro ao buscar mais vendidos:", error);
+        return;
+      }
+
+      // Extrai os IDs
+      const topIds = (data ?? []).map((item: any) => item.product_id);
+      setTopProductIds(topIds);
+
+      console.log("=== TOP PRODUTOS ===");
+      console.log("Top IDs:", topIds);
+    } catch (err) {
+      console.error("Erro no ranking:", err);
+    }
+  }
+
+  loadProducts();
+  loadTopProducts();
+}, []);
    // ================================
   // AUTOPLAY DAS CATEGORIAS (MOBILE)
   // ================================
@@ -558,25 +586,24 @@ export default function Home() {
 
         <div className="category-grid">
           {categories.map((category) => (
-            <a
-              href="#produtos"
-              className="category-card"
-              key={category.id}
-            >
-              <img src={category.image} alt={category.name} />
-
-              <div className="category-overlay">
-                <span>{category.description}</span>
-                <h3>{category.name}</h3>
-              </div>
-            </a>
-          ))}
+  <Link
+    href={`/categoria/${category.slug}`}
+    className="category-card"
+    key={category.id}
+  >
+    <img src={category.image} alt={category.name} />
+    <div className="category-overlay">
+      <span>{category.description}</span>
+      <h3>{category.name}</h3>
+    </div>
+  </Link>
+))}
         </div>
       </section>
 
       {/* ==================== PRODUTOS ==================== */}
 
-      <section className="products section" id="produtos">
+            <section className="products section" id="produtos">
         <div className="section-heading centered">
           <span className="eyebrow">MAIS DESEJADOS</span>
 
@@ -613,25 +640,47 @@ export default function Home() {
           </div>
         ) : (
           <div className="product-grid">
-            {filteredProducts.slice(0, 4).map((product) => (
-  <ProductCard
-    key={product.id}
-    product={product}
-    onAddToCart={addToCart}
-  />
-))}
+            {(() => {
+              // 1. Primeiro tenta pegar os mais vendidos (ranking automático)
+              let featured = products.filter((p) =>
+                topProductIds.includes(p.id)
+              );
+
+              // 2. Se não tem 4 ainda, completa com os "featured" do Supabase
+              if (featured.length < 4) {
+                const featuredProducts = products.filter(
+                  (p: any) =>
+                    p.featured === true &&
+                    !topProductIds.includes(p.id)
+                );
+                featured = [...featured, ...featuredProducts];
+              }
+
+              // 3. Se ainda não tem 4, completa com outros aleatórios
+              if (featured.length < 4) {
+                const others = products.filter(
+                  (p) =>
+                    !topProductIds.includes(p.id) &&
+                    !featured.some((f) => f.id === p.id)
+                );
+                featured = [
+                  ...featured,
+                  ...others.slice(0, 4 - featured.length),
+                ];
+              }
+
+              // 4. Limita a 4 e renderiza
+              return featured.slice(0, 4).map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  onAddToCart={addToCart}
+                />
+              ));
+            })()}
           </div>
         )}
-
-        {false && !searchTerm && (
-  <div className="center-button">
-    <a href="#produtos" className="button button-outline dark">
-      Ver todos os produtos
-    </a>
-  </div>
-)}
       </section>
-
       {/* ==================== ASSINATURA ==================== */}
 
       <section className="subscription" id="assinaturas">
