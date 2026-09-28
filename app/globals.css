@@ -4034,22 +4034,22 @@ body:has(.cart-drawer.active) {
     overflow-x: auto;
     overflow-y: hidden;
     scroll-snap-type: x mandatory;
-    gap: 12px;
-    padding-bottom: 12px;
+    gap: 0;                       /* ← sem espaço entre cards */
+    padding-bottom: 0;
     margin: 0 -20px;              /* ← estica até as bordas */
-    padding-left: 20px;
-    padding-right: 20px;
-    -webkit-overflow-scrolling: touch;   /* ← scroll suave no iOS */
-    scrollbar-width: none;         /* ← esconde barra (Firefox) */
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
   }
 
   .category-grid::-webkit-scrollbar {
-    display: none;                 /* ← esconde barra (Chrome/Safari) */
+    display: none;
   }
 
   .category-card {
-    flex: 0 0 75%;                 /* ← cada card ocupa 75% da tela */
-    scroll-snap-align: start;      /* ← "trava" cada card no lugar */
-    height: 380px;
+    flex: 0 0 100%;               /* ← cada card ocupa 100% */
+    scroll-snap-align: center;    /* ← alinha ao centro */
+    scroll-snap-stop: always;     /* ← trava ao arrastar */
+    height: 480px;                /* ← altura fixa pra preencher */
+    width: 100%;
   }
 }
