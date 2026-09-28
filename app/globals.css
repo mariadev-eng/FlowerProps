@@ -4164,7 +4164,7 @@ body:has(.cart-drawer.active) {
    ========================================================= */
 
 .subscription-card:nth-child(1) .subscription-card-image img {
-  object-position: center 30% !important;
+  object-position: center 10% !important;
 }
 /* =========================================================
    SELETOR DE DIA DA ENTREGA (ASSINATURAS)
