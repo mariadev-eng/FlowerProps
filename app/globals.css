@@ -4007,10 +4007,12 @@ body:has(.cart-drawer.active) {
   .footer-links {
     grid-column: 2;
     flex-direction: column;
-    align-items: flex-start;
+    align-items: flex-end;
     justify-content: flex-start;
+    justify-self: end;
     gap: 10px;
-    width: auto;
+    width: 100%;
+    text-align: right;
   }
 
   .footer-links a {
