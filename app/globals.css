@@ -4922,28 +4922,29 @@ body:has(.cart-drawer.active) {
   }
 
   .product-detail-top h1 {
-    margin: 0 auto 8px;      /* ← auto pra centralizar */
-    max-width: 90%;
-    font-family: var(--serif);
-    font-size: 34px;          /* ← era 38px, reduzi */
-    font-weight: 500;
-    line-height: 1;
-    letter-spacing: -0.03em;
-    color: var(--green-dark);
-    text-align: center;
-  }
+  margin: 0 auto 6px;
+  max-width: 100%;
+  padding: 0 10px;
+  font-family: var(--serif);
+  font-size: 28px;
+  font-weight: 500;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: var(--green-dark);
+  text-align: center;
+}
 
   .product-detail-top .product-detail-price {
-    font-family: var(--serif);
-    font-size: 26px;          /* ← era 32px, reduzi */
-    font-weight: 500;
-    line-height: 1;
-    color: var(--green-dark);
-    padding: 0;
-    margin: 0 auto;
-    border: 0;
-    text-align: center;
-  }
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--green-dark);
+  padding: 0;
+  margin: 0 auto;
+  border: 0;
+  text-align: center;
+}
   /* 🎯 ESCONDE nome + valor na coluna direita (já estão em cima) */
   .product-detail-info .eyebrow,
   .product-detail-info h1,
@@ -5158,13 +5159,16 @@ body:has(.cart-drawer.active) {
   }
 
   .product-detail-top h1 {
-    margin: 0 0 10px;
+    margin: 0 0 8px;
+      max-width: 90%;
     font-family: var(--serif);
-    font-size: 38px;
+    font-size: 34px;
     font-weight: 500;
     line-height: 1;
     letter-spacing: -0.03em;
     color: var(--green-dark);
+      text-align: center;
+
   }
 
   .product-detail-top .product-detail-price {
