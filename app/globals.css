@@ -4717,3 +4717,236 @@ body:has(.cart-drawer.active) {
     box-shadow: none;
   }
 }
+/* =========================================================
+   COMPLEMENTOS — COMPLETE SEU PRESENTE
+   ========================================================= */
+
+.product-complements {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.product-complements-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.product-complements-heading h2 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--green-dark);
+}
+
+.product-complements-heading span {
+  font-size: 0.72rem;
+  opacity: 0.6;
+  color: var(--text-light);
+  letter-spacing: 0.04em;
+}
+
+/* WRAPPER — segura a seta e o carrossel */
+
+.product-complements-wrapper {
+  position: relative;
+}
+
+/* CARROSSEL */
+
+.product-complements-carousel {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  padding: 4px 2px 12px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.product-complements-carousel::-webkit-scrollbar {
+  display: none;
+}
+
+/* CARD */
+
+.product-complement-card {
+  flex: 0 0 145px;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  background: #fff;
+  border: 1px solid #ebe6df;
+  border-radius: 12px;
+  transition: border-color 0.2s ease, transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.product-complement-card:hover {
+  border-color: #c9b8a8;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(41, 59, 49, 0.08);
+}
+
+/* IMAGEM */
+
+.product-complement-image {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f5f1ec;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+}
+
+.product-complement-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.product-complement-card:hover .product-complement-image img {
+  transform: scale(1.05);
+}
+
+/* INFO */
+
+.product-complement-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 0 2px;
+}
+
+.product-complement-name {
+  font-size: 0.78rem;
+  color: #2f2a26;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.product-complement-price {
+  font-size: 0.82rem;
+  color: var(--green-dark);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* BOTÃO + ESTILO RENNER */
+
+.product-complement-add {
+  width: 100%;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 2px;
+  border: 1px solid #2f2a26;
+  border-radius: 8px;
+  background: #fff;
+  color: #2f2a26;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.product-complement-add::before {
+  content: "+";
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.product-complement-add:hover {
+  background: #2f2a26;
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.product-complement-add:active {
+  transform: translateY(0);
+}
+
+/* SETA DE NAVEGAÇÃO (aparece só quando tem mais itens pra rolar) */
+
+.product-complements-arrow {
+  position: absolute;
+  top: 50%;
+  right: -6px;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #ebe6df;
+  border-radius: 50%;
+  background: #fff;
+  color: #2f2a26;
+  font-size: 1rem;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(41, 59, 49, 0.12);
+  transition: background 0.2s ease, transform 0.2s ease,
+    opacity 0.2s ease;
+  z-index: 2;
+}
+
+.product-complements-arrow:hover {
+  background: #2f2a26;
+  color: #fff;
+  transform: translateY(-50%) scale(1.05);
+}
+
+.product-complements-arrow.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* MOBILE */
+
+@media (max-width: 700px) {
+  .product-complement-card {
+    flex: 0 0 135px;
+    padding: 8px;
+  }
+
+  .product-complement-name {
+    font-size: 0.74rem;
+  }
+
+  .product-complement-price {
+    font-size: 0.78rem;
+  }
+
+  .product-complement-add {
+    height: 30px;
+    font-size: 0.68rem;
+  }
+
+  .product-complements-arrow {
+    display: none; /* no mobile não precisa de seta, rola com o dedo */
+  }
+}

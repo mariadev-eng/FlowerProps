@@ -408,7 +408,7 @@ export default function ProdutoPage() {
             </div>
           </div>
 
-          {/* INFO + FLORES + COMPLEMENTOS */}
+          {/* INFO + FLORES */}
           <div className="product-detail-info">
             <span className="eyebrow">FLOWER PROPS</span>
             <h1>{product.name}</h1>
@@ -516,60 +516,60 @@ export default function ProdutoPage() {
               </div>
             )}
 
-            {/* COMPLEMENTOS — COMPLETE SEU PRESENTE */}
-            {complements.length > 0 && product.category_id !== 4 && (
-              <div className="product-complements">
-                <div className="product-complements-heading">
-                  <h2>Complete seu presente</h2>
-                  <span>Combina com o que você escolheu</span>
-                </div>
-
-                <div className="product-complements-carousel">
-                  {complements.map((complement) => (
-                    <div
-                      key={complement.id}
-                      className="product-complement-card"
-                    >
-                      <div className="product-complement-image">
-                        {complement.image ? (
-                          <img
-                            src={complement.image}
-                            alt={complement.name}
-                          />
-                        ) : (
-                          <span>🎁</span>
-                        )}
-                      </div>
-
-                      <div className="product-complement-info">
-                        <span className="product-complement-name">
-                          {complement.name}
-                        </span>
-                        <strong className="product-complement-price">
-                          {formatPrice(complement.price)}
-                        </strong>
-                      </div>
-
-                      <button
-                        type="button"
-                        className="product-complement-add"
-                        onClick={() => addComplementToCart(complement)}
-                        aria-label={`Adicionar ${complement.name} ao carrinho`}
-                      >
-                        +
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* ERRO */}
             {error && (
               <div className="account-message error">{error}</div>
             )}
           </div>
         </div>
+
+        {/* COMPLEMENTOS — COMPLETE SEU PRESENTE (largura total, embaixo) */}
+        {complements.length > 0 && product.category_id !== 4 && (
+          <div className="product-complements">
+            <div className="product-complements-heading">
+              <h2>Complete seu presente</h2>
+              <span>Combina com o que você escolheu</span>
+            </div>
+
+            <div className="product-complements-carousel">
+              {complements.map((complement) => (
+                <div
+                  key={complement.id}
+                  className="product-complement-card"
+                >
+                  <div className="product-complement-image">
+                    {complement.image ? (
+                      <img
+                        src={complement.image}
+                        alt={complement.name}
+                      />
+                    ) : (
+                      <span>🎁</span>
+                    )}
+                  </div>
+
+                  <div className="product-complement-info">
+                    <span className="product-complement-name">
+                      {complement.name}
+                    </span>
+                    <strong className="product-complement-price">
+                      {formatPrice(complement.price)}
+                    </strong>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="product-complement-add"
+                    onClick={() => addComplementToCart(complement)}
+                    aria-label={`Adicionar ${complement.name} ao carrinho`}
+                  >
+                    +
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* BOTÃO FIXO NO RODAPÉ */}
         <div className="product-detail-sticky-bar">
