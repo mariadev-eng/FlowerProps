@@ -4916,38 +4916,36 @@ body:has(.cart-drawer.active) {
     text-align: center;   /* ← 🎯 CENTRALIZA tudo */
   }
 
-  .product-detail-top .eyebrow {
+    .product-detail-top .eyebrow {
     margin-bottom: 10px;
     text-align: center;
   }
 
   .product-detail-top h1 {
-  margin: 0 auto 6px;
-  max-width: 100%;
-  padding: 0 10px;
-  font-family: var(--serif);
-  font-size: 26px;
-  font-weight: 500;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
-  color: var(--green-dark);
-  text-align: center;
-  white-space: nowrap;      /* 🎯 força numa linha só */
-  overflow: hidden;
-  text-overflow: ellipsis
-}
+    margin: 0 auto 8px;
+    max-width: 100%;
+    padding: 0 10px;
+    font-family: var(--serif);
+    font-size: 22px;
+    font-weight: 500;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--green-dark);
+    text-align: center;
+    white-space: nowrap;
+  }
 
   .product-detail-top .product-detail-price {
-  font-family: var(--serif);
-  font-size: 22px;
-  font-weight: 500;
-  line-height: 1;
-  color: var(--green-dark);
-  padding: 0;
-  margin: 0 auto;
-  border: 0;
-  text-align: center;
-}
+    font-family: var(--serif);
+    font-size: 22px;
+    font-weight: 500;
+    line-height: 1;
+    color: var(--green-dark);
+    padding: 0;
+    margin: 0 auto;
+    border: 0;
+    text-align: center;
+  }
   /* 🎯 ESCONDE nome + valor na coluna direita (já estão em cima) */
   .product-detail-info .eyebrow,
   .product-detail-info h1,
