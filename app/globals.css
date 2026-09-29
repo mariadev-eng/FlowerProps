@@ -4859,3 +4859,468 @@ body:has(.cart-drawer.active) {
     font-size: 10px;
   }
 }
+/* =========================================================
+   PRODUTO — TOPO (nome + valor em cima)
+   ========================================================= */
+
+.product-detail-top {
+  display: none;   /* 🎯 escondido no desktop */
+}
+
+/* Desktop: nome + valor aparecem na coluna direita */
+.product-detail-info .eyebrow,
+.product-detail-info h1,
+.product-detail-info .product-detail-price {
+  display: block;
+}
+
+/* =========================================================
+   BOTÃO FIXO — aparece em todos os tamanhos
+   ========================================================= */
+
+.product-detail-sticky-bar {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  margin-top: 30px;
+  padding: 16px 0 0;
+  background: linear-gradient(
+    to top,
+    var(--cream) 0%,
+    var(--cream) 80%,
+    transparent 100%
+  );
+}
+
+/* =========================================================
+   MOBILE — reorganiza em etapas
+   ========================================================= */
+
+@media (max-width: 900px) {
+  .product-detail {
+    padding-top: 20px;
+    padding-bottom: 0;
+  }
+
+  .product-back {
+    margin-bottom: 20px;
+    font-size: 10px;
+  }
+
+  /* 🎯 Nome + valor EM CIMA */
+  .product-detail-top {
+    display: block;
+    margin-bottom: 20px;
+  }
+
+  .product-detail-top .eyebrow {
+    margin-bottom: 8px;
+  }
+
+  .product-detail-top h1 {
+    margin: 0 0 10px;
+    font-size: 38px;
+    font-family: var(--serif);
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: var(--green-dark);
+  }
+
+  .product-detail-top .product-detail-price {
+    font-size: 34px;
+    font-family: var(--serif);
+    font-weight: 500;
+    color: var(--green-dark);
+    padding: 0;
+    margin: 0;
+    border: 0;
+    line-height: 1;
+  }
+
+  /* 🎯 ESCONDE nome + valor na coluna direita (já estão em cima) */
+  .product-detail-info .eyebrow,
+  .product-detail-info h1,
+  .product-detail-info .product-detail-price {
+    display: none;
+  }
+
+  .product-detail-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    max-width: 100%;
+    padding: 0;
+  }
+
+  /* Imagem */
+  .product-detail-image-wrapper {
+    width: 100%;
+    margin-bottom: 20px;
+  }
+
+  .product-detail-image {
+    width: 100%;
+    max-width: 100%;
+    aspect-ratio: 4 / 5;
+    border-radius: 0;
+  }
+
+  .product-detail-info {
+    padding: 0;
+  }
+
+  /* Bolinhas */
+  .product-colors {
+    justify-content: flex-start;
+    padding: 0;
+    margin-bottom: 20px;
+  }
+
+  .product-colors-dots {
+    gap: 12px;
+  }
+
+  .product-color-dot {
+    width: 30px;
+    height: 30px;
+  }
+
+  .product-color-swatch {
+    width: 22px;
+    height: 22px;
+  }
+
+  /* Descrição + aviso */
+  .product-detail-description {
+    font-size: 13px;
+    margin-bottom: 18px;
+    line-height: 1.7;
+  }
+
+  .product-detail-note {
+    font-size: 11px;
+    padding: 10px 12px;
+    margin-bottom: 24px;
+  }
+
+  /* Flores */
+  .product-flowers {
+    margin-top: 10px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+  }
+
+  .product-flowers-heading {
+    margin-bottom: 10px;
+  }
+
+  .product-flowers-heading h2 {
+    font-size: 22px;
+  }
+
+  .product-flowers-heading span {
+    font-size: 10px;
+  }
+
+  .product-flowers-note {
+    font-size: 10px;
+    margin-bottom: 16px;
+  }
+
+  .product-flowers-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .product-flower-row {
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+    background: transparent;
+    border-radius: 0;
+  }
+
+  .product-flower-row:last-child {
+    border-bottom: 0;
+  }
+
+  .product-flower-thumb {
+    width: 56px;
+    height: 56px;
+  }
+
+  .product-flower-label {
+    font-size: 14px;
+    font-family: var(--serif);
+  }
+
+  /* 🎯 BOTÃO FIXO — espaço extra pro conteúdo não ficar atrás */
+  .product-detail {
+    padding-bottom: 90px;
+  }
+
+  .product-detail-sticky-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    margin-top: 0;
+    padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
+    background: rgba(248, 248, 244, 0.98);
+    border-top: 1px solid var(--border);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 -6px 20px rgba(41, 59, 49, 0.06);
+  }
+
+  .product-detail-button {
+    margin: 0;
+    min-height: 54px;
+    font-size: 11px;
+    border-radius: 2px;
+  }
+}
+
+@media (max-width: 480px) {
+  .product-detail-top h1 {
+    font-size: 34px;
+  }
+
+  .product-detail-top .product-detail-price {
+    font-size: 30px;
+  }
+
+  .product-flower-thumb {
+    width: 48px;
+    height: 48px;
+  }
+
+  .product-flower-label {
+    font-size: 13px;
+  }
+}
+/* =========================================================
+   PRODUTO — TOPO MOBILE (nome + valor em cima)
+   ========================================================= */
+
+.product-detail-top {
+  display: none;   /* esconde no desktop */
+}
+
+/* =========================================================
+   BOTÃO FIXO NO RODAPÉ
+   ========================================================= */
+
+.product-detail-sticky-bar {
+  margin-top: 30px;
+  padding: 16px 0 0;
+  background: var(--cream);
+}
+
+/* =========================================================
+   MOBILE — empilha + botão fixo
+   ========================================================= */
+
+@media (max-width: 900px) {
+  .product-detail {
+    padding-top: 20px;
+    padding-bottom: 100px;   /* 🎯 espaço pro botão fixo */
+  }
+
+  .product-back {
+    margin-bottom: 20px;
+    font-size: 10px;
+  }
+
+  .product-detail-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    max-width: 100%;
+    padding: 0;
+  }
+
+  /* 🎯 Nome + valor EM CIMA */
+  .product-detail-top {
+    display: block;
+    margin-bottom: 18px;
+    text-align: left;
+  }
+
+  .product-detail-top .eyebrow {
+    margin-bottom: 8px;
+  }
+
+  .product-detail-top h1 {
+    margin: 0 0 10px;
+    font-family: var(--serif);
+    font-size: 38px;
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: var(--green-dark);
+  }
+
+  .product-detail-top .product-detail-price {
+    font-family: var(--serif);
+    font-size: 32px;
+    font-weight: 500;
+    line-height: 1;
+    color: var(--green-dark);
+    padding: 0;
+    margin: 0;
+    border: 0;
+  }
+
+  /* 🎯 Esconde nome + valor da coluna direita */
+  .product-detail-info .eyebrow,
+  .product-detail-info h1,
+  .product-detail-info .product-detail-price {
+    display: none;
+  }
+
+  /* Imagem */
+  .product-detail-image-wrapper {
+    width: 100%;
+    margin-bottom: 20px;
+  }
+
+  .product-detail-image {
+    width: 100%;
+    max-width: 100%;
+    aspect-ratio: 4 / 5;
+    border-radius: 0;
+  }
+
+  .product-detail-info {
+    padding: 0;
+  }
+
+  /* Bolinhas */
+  .product-colors {
+    justify-content: flex-start;
+    padding: 0;
+    margin-bottom: 20px;
+  }
+
+  .product-colors-dots {
+    gap: 12px;
+  }
+
+  .product-color-dot {
+    width: 30px;
+    height: 30px;
+  }
+
+  .product-color-swatch {
+    width: 22px;
+    height: 22px;
+  }
+
+  /* Descrição + aviso */
+  .product-detail-description {
+    font-size: 13px;
+    margin-bottom: 18px;
+    line-height: 1.7;
+  }
+
+  .product-detail-note {
+    font-size: 11px;
+    padding: 10px 12px;
+    margin-bottom: 24px;
+  }
+
+  /* Flores */
+  .product-flowers {
+    margin-top: 10px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+  }
+
+  .product-flowers-heading {
+    margin-bottom: 10px;
+  }
+
+  .product-flowers-heading h2 {
+    font-size: 22px;
+  }
+
+  .product-flowers-heading span {
+    font-size: 10px;
+  }
+
+  .product-flowers-note {
+    font-size: 10px;
+    margin-bottom: 16px;
+  }
+
+  .product-flowers-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .product-flower-row {
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+    background: transparent;
+    border-radius: 0;
+  }
+
+  .product-flower-row:last-child {
+    border-bottom: 0;
+  }
+
+  .product-flower-thumb {
+    width: 56px;
+    height: 56px;
+  }
+
+  .product-flower-label {
+    font-size: 14px;
+    font-family: var(--serif);
+  }
+
+  /* 🎯 BOTÃO FIXO NO RODAPÉ */
+  .product-detail-sticky-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 50;
+    margin: 0;
+    padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
+    background: rgba(248, 248, 244, 0.98);
+    border-top: 1px solid var(--border);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 -6px 20px rgba(41, 59, 49, 0.06);
+  }
+
+  .product-detail-button {
+    margin: 0;
+    min-height: 54px;
+    font-size: 11px;
+    border-radius: 2px;
+  }
+}
+
+@media (max-width: 480px) {
+  .product-detail-top h1 {
+    font-size: 34px;
+  }
+
+  .product-detail-top .product-detail-price {
+    font-size: 28px;
+  }
+
+  .product-flower-thumb {
+    width: 48px;
+    height: 48px;
+  }
+
+  .product-flower-label {
+    font-size: 13px;
+  }
+}

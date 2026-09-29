@@ -23,7 +23,6 @@ type Product = {
   available: boolean;
   requires_flower_selection: boolean;
   colors: ProductColor[] | null;
-  // 10 flores
   flower_1_name: string | null;
   flower_1_image: string | null;
   flower_2_name: string | null;
@@ -66,7 +65,9 @@ export default function ProdutoPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   const [selectedFlowers, setSelectedFlowers] = useState<Flower[]>([]);
-  const [selectedColor, setSelectedColor] = useState<ProductColor | null>(null);
+  const [selectedColor, setSelectedColor] = useState<ProductColor | null>(
+    null
+  );
   const [currentImage, setCurrentImage] = useState<string>("");
   const [error, setError] = useState("");
 
@@ -98,7 +99,6 @@ export default function ProdutoPage() {
 
       setProduct(data);
 
-      // 🎯 Define a imagem inicial
       const activeColors = (data.colors || []).filter(
         (c: ProductColor) => c.active
       );
@@ -152,7 +152,9 @@ export default function ProdutoPage() {
 
     for (let i = 1; i <= 10; i++) {
       const name = prod[`flower_${i}_name` as keyof Product] as string | null;
-      const image = prod[`flower_${i}_image` as keyof Product] as string | null;
+      const image = prod[`flower_${i}_image` as keyof Product] as
+        | string
+        | null;
 
       if (name && name.trim()) {
         flowers.push({
@@ -210,13 +212,11 @@ export default function ProdutoPage() {
 
     const activeColors = getActiveColors();
 
-    // Se tem cores, precisa escolher
     if (activeColors.length > 0 && !selectedColor) {
       setError("Escolha uma cor para continuar.");
       return;
     }
 
-    // Se precisa de flores, valida
     if (product.requires_flower_selection) {
       if (selectedFlowers.length === 0) {
         setError("Escolha pelo menos 1 flor para continuar.");
@@ -320,8 +320,17 @@ export default function ProdutoPage() {
         </Link>
 
         <div className="product-detail-grid">
-          {/* COLUNA ESQUERDA: IMAGEM + BOLINHAS */}
-          <div className="product-detail-left">
+          {/* 🎯 NOME + VALOR (só aparece no mobile, em cima da imagem) */}
+          <div className="product-detail-top">
+            <span className="eyebrow">FLOWER PROPS</span>
+            <h1>{product.name}</h1>
+            <div className="product-detail-price">
+              {formatPrice(product.price)}
+            </div>
+          </div>
+
+          {/* IMAGEM */}
+          <div className="product-detail-image-wrapper">
             <div className="product-detail-image">
               {currentImage ? (
                 <img src={currentImage} alt={product.name} />
@@ -329,8 +338,26 @@ export default function ProdutoPage() {
                 <div className="product-detail-placeholder">🌸</div>
               )}
             </div>
+          </div>
 
-            {/* 🎯 BOLINHAS DE COR */}
+          {/* INFO + FLORES (coluna direita no desktop, embaixo no mobile) */}
+          <div className="product-detail-info">
+            <span className="eyebrow">FLOWER PROPS</span>
+            <h1>{product.name}</h1>
+            <p className="product-detail-description">
+              {product.description}
+            </p>
+
+            <div className="product-detail-price">
+              {formatPrice(product.price)}
+            </div>
+
+            <p className="product-detail-note">
+              🌸 Imagem ilustrativa — sua composição será feita com as
+              flores escolhidas por você.
+            </p>
+
+            {/* BOLINHAS DE COR */}
             {hasColors && (
               <div className="product-colors">
                 <div className="product-colors-dots">
@@ -354,39 +381,24 @@ export default function ProdutoPage() {
                 </div>
               </div>
             )}
-          </div>
-
-          {/* COLUNA DIREITA: INFO + FLORES */}
-          <div className="product-detail-info">
-            <span className="eyebrow">FLOWER PROPS</span>
-            <h1>{product.name}</h1>
-            <p>{product.description}</p>
-
-            <div className="product-detail-price">
-              {formatPrice(product.price)}
-            </div>
-            <p className="product-detail-note">
-  🌸 Imagem ilustrativa — sua composição será feita com as flores
-  escolhidas por você.
-</p>
 
             {/* SELETOR DE FLORES */}
             {product.requires_flower_selection && (
               <div className="product-flowers">
                 <div className="product-flowers-heading">
-  <h2>Escolha suas flores</h2>
-  <span>
-    {selectedFlowers.length}{" "}
-    {selectedFlowers.length === 1
-      ? "flor escolhida"
-      : "flores escolhidas"}
-  </span>
-</div>
+                  <h2>Escolha suas flores</h2>
+                  <span>
+                    {selectedFlowers.length}{" "}
+                    {selectedFlowers.length === 1
+                      ? "flor escolhida"
+                      : "flores escolhidas"}
+                  </span>
+                </div>
 
-<p className="product-flowers-note">
-  As flores são da estação — a composição final pode variar conforme
-  a disponibilidade da semana.
-</p>
+                <p className="product-flowers-note">
+                  As flores são da estação — a composição final pode
+                  variar conforme a disponibilidade da semana.
+                </p>
 
                 {!hasFlowers ? (
                   <div className="product-flowers-empty">
@@ -409,7 +421,10 @@ export default function ProdutoPage() {
                       >
                         <div className="product-flower-thumb">
                           {flower.image ? (
-                            <img src={flower.image} alt={flower.name} />
+                            <img
+                              src={flower.image}
+                              alt={flower.name}
+                            />
                           ) : (
                             <span>🌸</span>
                           )}
@@ -433,20 +448,20 @@ export default function ProdutoPage() {
             {error && (
               <div className="account-message error">{error}</div>
             )}
-
-            {/* BOTÃO */}
-            <button
-              type="button"
-              className="product-detail-button"
-              onClick={addToCart}
-              disabled={
-                product.requires_flower_selection && !hasFlowers
-              }
-            >
-              Adicionar ao carrinho
-              <span>→</span>
-            </button>
           </div>
+        </div>
+
+        {/* 🎯 BOTÃO FIXO NO RODAPÉ */}
+        <div className="product-detail-sticky-bar">
+          <button
+            type="button"
+            className="product-detail-button"
+            onClick={addToCart}
+            disabled={product.requires_flower_selection && !hasFlowers}
+          >
+            Adicionar ao carrinho
+            <span>→</span>
+          </button>
         </div>
       </section>
     </main>
