@@ -4926,12 +4926,15 @@ body:has(.cart-drawer.active) {
   max-width: 100%;
   padding: 0 10px;
   font-family: var(--serif);
-  font-size: 28px;
+  font-size: 26px;
   font-weight: 500;
-  line-height: 1.05;
+  line-height: 1.1;
   letter-spacing: -0.02em;
   color: var(--green-dark);
   text-align: center;
+  white-space: nowrap;      /* 🎯 força numa linha só */
+  overflow: hidden;
+  text-overflow: ellipsis
 }
 
   .product-detail-top .product-detail-price {
