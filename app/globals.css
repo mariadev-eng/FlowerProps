@@ -5377,3 +5377,52 @@ body:has(.cart-drawer.active) {
     text-align: center !important;
   }
 }
+/* =========================================================
+   FORÇA CENTRALIZAÇÃO — NOME E PREÇO
+   ========================================================= */
+
+@media (max-width: 900px) {
+  .product-detail-top {
+    display: block !important;
+    width: 100% !important;
+    text-align: center !important;
+    margin: 0 0 20px 0 !important;
+  }
+
+  .product-detail-top .eyebrow {
+    display: block !important;
+    width: 100% !important;
+    text-align: center !important;
+    margin: 0 0 10px 0 !important;
+  }
+
+  .product-detail-top h1 {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 0 8px 0 !important;
+    padding: 0 10px !important;
+    font-family: var(--serif) !important;
+    font-size: 22px !important;
+    font-weight: 500 !important;
+    line-height: 1.1 !important;
+    letter-spacing: -0.02em !important;
+    color: var(--green-dark) !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+  }
+
+  .product-detail-top .product-detail-price {
+    display: block !important;
+    width: 100% !important;
+    font-family: var(--serif) !important;
+    font-size: 20px !important;
+    font-weight: 500 !important;
+    line-height: 1 !important;
+    color: var(--green-dark) !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: 0 !important;
+    text-align: center !important;
+  }
+}
