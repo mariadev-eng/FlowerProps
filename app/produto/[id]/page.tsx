@@ -320,7 +320,7 @@ export default function ProdutoPage() {
         </Link>
 
         <div className="product-detail-grid">
-          {/* 🎯 NOME + VALOR (só aparece no mobile, em cima da imagem) */}
+          {/* NOME + VALOR (só aparece no mobile, em cima da imagem) */}
           <div className="product-detail-top">
             <span className="eyebrow">FLOWER PROPS</span>
             <h1>{product.name}</h1>
@@ -340,7 +340,7 @@ export default function ProdutoPage() {
             </div>
           </div>
 
-          {/* INFO + FLORES (coluna direita no desktop, embaixo no mobile) */}
+          {/* INFO + FLORES */}
           <div className="product-detail-info">
             <span className="eyebrow">FLOWER PROPS</span>
             <h1>{product.name}</h1>
@@ -351,11 +351,6 @@ export default function ProdutoPage() {
             <div className="product-detail-price">
               {formatPrice(product.price)}
             </div>
-
-            <p className="product-detail-note">
-              🌸 Imagem ilustrativa — sua composição será feita com as
-              flores escolhidas por você.
-            </p>
 
             {/* BOLINHAS DE COR */}
             {hasColors && (
@@ -380,6 +375,14 @@ export default function ProdutoPage() {
                   ))}
                 </div>
               </div>
+            )}
+
+            {/* AVISO — só se tem seletor de flores */}
+            {product.requires_flower_selection && (
+              <p className="product-detail-note">
+                🌸 Imagem ilustrativa — sua composição será feita com as
+                flores escolhidas por você.
+              </p>
             )}
 
             {/* SELETOR DE FLORES */}
@@ -451,7 +454,7 @@ export default function ProdutoPage() {
           </div>
         </div>
 
-        {/* 🎯 BOTÃO FIXO NO RODAPÉ */}
+        {/* BOTÃO FIXO NO RODAPÉ */}
         <div className="product-detail-sticky-bar">
           <button
             type="button"
