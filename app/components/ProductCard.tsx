@@ -1,5 +1,7 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+
 type Product = {
   id: number;
   name: string;
@@ -12,10 +14,12 @@ type Product = {
 
 type ProductCardProps = {
   product: Product;
-  onAddToCart: (product: Product) => void;
+  onAddToCart?: (product: Product) => void;
 };
 
-export default function ProductCard({ product, onAddToCart }: ProductCardProps) {
+export default function ProductCard({ product }: ProductCardProps) {
+  const router = useRouter();
+
   function formatPrice(value: number) {
     return value.toLocaleString("pt-BR", {
       style: "currency",
@@ -23,8 +27,17 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
     });
   }
 
+  function goToProduct() {
+    router.push(`/produto/${product.id}`);
+  }
+
   return (
-    <div className="product-card" id={`product-${product.id}`}>
+    <div
+      className="product-card"
+      id={`product-${product.id}`}
+      onClick={goToProduct}
+      style={{ cursor: "pointer" }}
+    >
       <div className="product-image">
         <img
           src={product.image || "/images/placeholder.png"}
@@ -40,6 +53,7 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
           type="button"
           className="favorite"
           aria-label={`Favoritar ${product.name}`}
+          onClick={(e) => e.stopPropagation()}
         >
           ♡
         </button>
@@ -56,8 +70,11 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
           <button
             type="button"
             className="add-button"
-            onClick={() => onAddToCart(product)}
-            aria-label={`Adicionar ${product.name} ao carrinho`}
+            onClick={(e) => {
+              e.stopPropagation();
+              goToProduct();
+            }}
+            aria-label={`Ver ${product.name}`}
           >
             +
           </button>

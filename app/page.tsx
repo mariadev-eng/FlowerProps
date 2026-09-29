@@ -621,7 +621,6 @@ export default function Home() {
                 <ProductCard
                   key={product.id}
                   product={product}
-                  onAddToCart={addToCart}
                 />
               ));
             })()}
