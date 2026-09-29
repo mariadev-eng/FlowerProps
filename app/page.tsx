@@ -555,7 +555,49 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ==================== PRODUTOS ==================== */}
+      {/* ==================== ASSINATURA / FLORES SEMANAIS ==================== */}
+
+      <section className="subscription" id="assinaturas">
+        <div className="subscription-image" />
+
+        <div className="subscription-content">
+          <span className="eyebrow">FLOWER EM CASA</span>
+
+          <h2>
+            Flores novas,
+            <br />
+            <em>sempre.</em>
+          </h2>
+
+          <p>
+            Escolha a frequência que combina com você e receba flores frescas
+            em casa, selecionadas especialmente para cada entrega.
+          </p>
+
+          <div className="subscription-options">
+            <div>
+              <strong>01</strong>
+              <span>Escolha seu estilo</span>
+            </div>
+
+            <div>
+              <strong>02</strong>
+              <span>Escolha a frequência</span>
+            </div>
+
+            <div>
+              <strong>03</strong>
+              <span>Receba suas flores</span>
+            </div>
+          </div>
+
+          <Link href="/assinaturas" className="button button-light">
+            Criar minha assinatura
+          </Link>
+        </div>
+      </section>
+
+      {/* ==================== PRODUTOS / MAIS PEDIDOS ==================== */}
 
       <section className="products section" id="produtos">
         <div className="section-heading centered">
@@ -626,48 +668,6 @@ export default function Home() {
             })()}
           </div>
         )}
-      </section>
-
-      {/* ==================== ASSINATURA ==================== */}
-
-      <section className="subscription" id="assinaturas">
-        <div className="subscription-image" />
-
-        <div className="subscription-content">
-          <span className="eyebrow">FLOWER EM CASA</span>
-
-          <h2>
-            Flores novas,
-            <br />
-            <em>sempre.</em>
-          </h2>
-
-          <p>
-            Escolha a frequência que combina com você e receba flores frescas
-            em casa, selecionadas especialmente para cada entrega.
-          </p>
-
-          <div className="subscription-options">
-            <div>
-              <strong>01</strong>
-              <span>Escolha seu estilo</span>
-            </div>
-
-            <div>
-              <strong>02</strong>
-              <span>Escolha a frequência</span>
-            </div>
-
-            <div>
-              <strong>03</strong>
-              <span>Receba suas flores</span>
-            </div>
-          </div>
-
-          <Link href="/assinaturas" className="button button-light">
-            Criar minha assinatura
-          </Link>
-        </div>
       </section>
 
       {/* ==================== SOBRE ==================== */}
