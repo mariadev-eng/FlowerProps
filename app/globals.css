@@ -4909,37 +4909,41 @@ body:has(.cart-drawer.active) {
     font-size: 10px;
   }
 
-  /* 🎯 Nome + valor EM CIMA */
+   /* 🎯 Nome + valor EM CIMA — CENTRALIZADO */
   .product-detail-top {
     display: block;
     margin-bottom: 20px;
+    text-align: center;   /* ← 🎯 CENTRALIZA tudo */
   }
 
   .product-detail-top .eyebrow {
-    margin-bottom: 8px;
+    margin-bottom: 10px;
+    text-align: center;
   }
 
   .product-detail-top h1 {
-    margin: 0 0 10px;
-    font-size: 38px;
+    margin: 0 auto 8px;      /* ← auto pra centralizar */
+    max-width: 90%;
     font-family: var(--serif);
+    font-size: 34px;          /* ← era 38px, reduzi */
     font-weight: 500;
     line-height: 1;
     letter-spacing: -0.03em;
     color: var(--green-dark);
+    text-align: center;
   }
 
   .product-detail-top .product-detail-price {
-    font-size: 34px;
     font-family: var(--serif);
+    font-size: 26px;          /* ← era 32px, reduzi */
     font-weight: 500;
+    line-height: 1;
     color: var(--green-dark);
     padding: 0;
-    margin: 0;
+    margin: 0 auto;
     border: 0;
-    line-height: 1;
+    text-align: center;
   }
-
   /* 🎯 ESCONDE nome + valor na coluna direita (já estão em cima) */
   .product-detail-info .eyebrow,
   .product-detail-info h1,
@@ -5085,11 +5089,11 @@ body:has(.cart-drawer.active) {
 
 @media (max-width: 480px) {
   .product-detail-top h1 {
-    font-size: 34px;
+    font-size: 30px;
   }
 
   .product-detail-top .product-detail-price {
-    font-size: 30px;
+    font-size: 24px;
   }
 
   .product-flower-thumb {
