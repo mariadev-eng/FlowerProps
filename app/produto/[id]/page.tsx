@@ -385,7 +385,7 @@ export default function ProdutoPage() {
               </p>
             )}
 
-            {/* SELETOR DE FLORES */}
+                        {/* SELETOR DE FLORES */}
             {product.requires_flower_selection && (
               <div className="product-flowers">
                 <div className="product-flowers-heading">
@@ -412,32 +412,33 @@ export default function ProdutoPage() {
                     </p>
                   </div>
                 ) : (
-                  <div className="product-flowers-list">
+                  <div className="product-flowers-grid">
                     {availableFlowers.map((flower) => (
                       <button
                         key={flower.name}
                         type="button"
-                        className={`product-flower-row ${
+                        className={`product-flower-card ${
                           isSelected(flower) ? "active" : ""
                         }`}
                         onClick={() => toggleFlower(flower)}
+                        aria-pressed={isSelected(flower)}
                       >
-                        <div className="product-flower-thumb">
+                        <div className="product-flower-card-image">
                           {flower.image ? (
-                            <img
-                              src={flower.image}
-                              alt={flower.name}
-                            />
+                            <img src={flower.image} alt={flower.name} />
                           ) : (
                             <span>🌸</span>
                           )}
                         </div>
 
-                        <span className="product-flower-label">
+                        <span className="product-flower-card-name">
                           {flower.name}
                         </span>
 
-                        <span className="product-flower-checkbox">
+                        <span
+                          className="product-flower-card-check"
+                          aria-hidden="true"
+                        >
                           {isSelected(flower) ? "✓" : ""}
                         </span>
                       </button>
