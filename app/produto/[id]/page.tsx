@@ -23,6 +23,9 @@ type Product = {
   available: boolean;
   requires_flower_selection: boolean;
   colors: ProductColor[] | null;
+  included_complements?: string[] | null;
+  is_complement?: boolean;
+  complement_order?: number;
   flower_1_name: string | null;
   flower_1_image: string | null;
   flower_2_name: string | null;
@@ -71,11 +74,13 @@ export default function ProdutoPage() {
   const [currentImage, setCurrentImage] = useState<string>("");
   const [error, setError] = useState("");
 
+  const [complements, setComplements] = useState<Product[]>([]);
+
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
 
   // ==========================================
-  // CARREGA PRODUTO
+  // CARREGA PRODUTO + COMPLEMENTOS
   // ==========================================
 
   useEffect(() => {
@@ -108,6 +113,41 @@ export default function ProdutoPage() {
         setCurrentImage(activeColors[0].image);
       } else {
         setCurrentImage(data.image || "");
+      }
+
+      // ==========================================
+      // COMPLEMENTOS
+      // ==========================================
+
+      // Só busca complementos se NÃO for acessório (category_id !== 4)
+      if (data.category_id !== 4) {
+        const { data: complementsData, error: complementsError } =
+          await supabase
+            .from("products")
+            .select("*")
+            .eq("is_complement", true)
+            .order("complement_order", { ascending: true });
+
+        if (complementsError) {
+          console.error(
+            "Erro ao carregar complementos:",
+            complementsError
+          );
+          setComplements([]);
+        } else {
+          const alreadyIncluded = (data.included_complements || []).map(
+            (s: string) => s.toLowerCase().trim()
+          );
+
+          const filtered = (complementsData ?? []).filter(
+            (c: Product) =>
+              !alreadyIncluded.includes(c.name.toLowerCase().trim())
+          );
+
+          setComplements(filtered);
+        }
+      } else {
+        setComplements([]);
       }
 
       setIsLoading(false);
@@ -204,7 +244,35 @@ export default function ProdutoPage() {
   }
 
   // ==========================================
-  // ADICIONA AO CARRINHO
+  // ADICIONA COMPLEMENTO AO CARRINHO
+  // ==========================================
+
+  function addComplementToCart(complement: Product) {
+    const cartItem: CartItem = {
+      ...complement,
+      quantity: 1,
+      image: complement.image,
+    };
+
+    setCartItems((current) => {
+      const existingIndex = current.findIndex(
+        (item) => item.id === complement.id && !item.selected_flowers
+      );
+
+      if (existingIndex >= 0) {
+        return current.map((item, i) =>
+          i === existingIndex
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        );
+      }
+
+      return [...current, cartItem];
+    });
+  }
+
+  // ==========================================
+  // ADICIONA PRODUTO PRINCIPAL AO CARRINHO
   // ==========================================
 
   function addToCart() {
@@ -340,7 +408,7 @@ export default function ProdutoPage() {
             </div>
           </div>
 
-          {/* INFO + FLORES */}
+          {/* INFO + FLORES + COMPLEMENTOS */}
           <div className="product-detail-info">
             <span className="eyebrow">FLOWER PROPS</span>
             <h1>{product.name}</h1>
@@ -385,7 +453,7 @@ export default function ProdutoPage() {
               </p>
             )}
 
-                        {/* SELETOR DE FLORES */}
+            {/* SELETOR DE FLORES */}
             {product.requires_flower_selection && (
               <div className="product-flowers">
                 <div className="product-flowers-heading">
@@ -445,6 +513,54 @@ export default function ProdutoPage() {
                     ))}
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* COMPLEMENTOS — COMPLETE SEU PRESENTE */}
+            {complements.length > 0 && product.category_id !== 4 && (
+              <div className="product-complements">
+                <div className="product-complements-heading">
+                  <h2>Complete seu presente</h2>
+                  <span>Combina com o que você escolheu</span>
+                </div>
+
+                <div className="product-complements-carousel">
+                  {complements.map((complement) => (
+                    <div
+                      key={complement.id}
+                      className="product-complement-card"
+                    >
+                      <div className="product-complement-image">
+                        {complement.image ? (
+                          <img
+                            src={complement.image}
+                            alt={complement.name}
+                          />
+                        ) : (
+                          <span>🎁</span>
+                        )}
+                      </div>
+
+                      <div className="product-complement-info">
+                        <span className="product-complement-name">
+                          {complement.name}
+                        </span>
+                        <strong className="product-complement-price">
+                          {formatPrice(complement.price)}
+                        </strong>
+                      </div>
+
+                      <button
+                        type="button"
+                        className="product-complement-add"
+                        onClick={() => addComplementToCart(complement)}
+                        aria-label={`Adicionar ${complement.name} ao carrinho`}
+                      >
+                        +
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
