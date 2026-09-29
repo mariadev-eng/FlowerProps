@@ -145,6 +145,10 @@ export default function AssinaturasPage() {
           Sem escolher as flores — a gente monta a composição da semana pra
           você.
         </p>
+
+        <p className="subscriptions-note">
+          Após a contratação, suas flores chegam na semana seguinte.
+        </p>
       </section>
 
       <section className="subscriptions-grid section">

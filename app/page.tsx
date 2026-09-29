@@ -337,6 +337,7 @@ export default function Home() {
 
   return (
     <main>
+       
       {/* ==================== MENU ==================== */}
 
       <header className="site-header">
@@ -568,10 +569,7 @@ export default function Home() {
             <br />
             <em>sempre.</em>
           </h2>
-    {/* ✨ NOVO — aviso sobre a primeira entrega */}
-          <p className="subscription-note">
-           Após a contratação, suas flores chegam na semana seguinte.
-          </p>
+
           <p>
             Escolha a frequência que combina com você e receba flores frescas
             em casa, selecionadas especialmente para cada entrega.
