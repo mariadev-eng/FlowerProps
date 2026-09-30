@@ -5,11 +5,11 @@ import { mercadoPagoClient } from "@/lib/mercado-pago";
 export async function POST(request: Request) {
   try {
     // 🆕 DEBUG — apaga depois que resolver
-    console.log("=== DEBUG MP SERVER ===");
-    console.log("Token existe?", !!process.env.MERCADO_PAGO_ACCESS_TOKEN);
-    console.log("Prefixo:", process.env.MERCADO_PAGO_ACCESS_TOKEN?.substring(0, 12));
-    console.log("Tamanho:", process.env.MERCADO_PAGO_ACCESS_TOKEN?.length);
-    console.log("======================");
+    console.log(
+      `=== DEBUG MP | Token: ${!!process.env.MERCADO_PAGO_ACCESS_TOKEN} | ` +
+        `Prefixo: ${process.env.MERCADO_PAGO_ACCESS_TOKEN?.substring(0, 12)} | ` +
+        `Tamanho: ${process.env.MERCADO_PAGO_ACCESS_TOKEN?.length} ===`
+    );
 
     const body = await request.json();
 
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
       payer,
       description,
       external_reference,
-      device_id, // 🆕 Recebe o device id do frontend
+      device_id,
     } = body;
 
     // Validação básica
@@ -65,14 +65,14 @@ export async function POST(request: Request) {
     }
 
     // ==========================================
-    // 🆕 MONTAR REQUEST OPTIONS COM DEVICE ID
+    // MONTAR REQUEST OPTIONS COM DEVICE ID
     // ==========================================
 
     const requestOptions: any = {};
 
     if (device_id) {
       requestOptions.headers = {
-        "X-meli-session-id": device_id, // 🆕 Envia o device id pro Mercado Pago
+        "X-meli-session-id": device_id,
       };
     }
 
@@ -82,7 +82,7 @@ export async function POST(request: Request) {
 
     const result = await payment.create({
       body: paymentBody,
-      requestOptions, // 🆕 Passa o header com o device id
+      requestOptions,
     });
 
     // ==========================================
