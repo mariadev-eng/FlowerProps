@@ -1,23 +1,30 @@
 import { MercadoPagoConfig } from "mercadopago";
 
-const accessToken = process.env.MERCADO_PAGO_ACCESS_TOKEN;
+let client: MercadoPagoConfig | null = null;
 
-// 🆕 DEBUG — apaga depois que resolver
-console.log(
-  `=== LIB MP | Token: ${!!accessToken} | ` +
-    `Prefixo: ${accessToken?.substring(0, 12)} | ` +
-    `Tamanho: ${accessToken?.length} ===`
-);
+export function getMercadoPagoClient(): MercadoPagoConfig {
+  if (client) return client;
 
-if (!accessToken) {
-  throw new Error(
-    "MERCADO_PAGO_ACCESS_TOKEN não está configurado. Verifique as env vars da Vercel."
+  const accessToken = process.env.MERCADO_PAGO_ACCESS_TOKEN;
+
+  console.log(
+    `=== LIB MP | Token: ${!!accessToken} | ` +
+      `Prefixo: ${accessToken?.substring(0, 12)} | ` +
+      `Tamanho: ${accessToken?.length} ===`
   );
-}
 
-export const mercadoPagoClient = new MercadoPagoConfig({
-  accessToken,
-  options: {
-    timeout: 10000,
-  },
-});
+  if (!accessToken) {
+    throw new Error(
+      "MERCADO_PAGO_ACCESS_TOKEN não está configurado."
+    );
+  }
+
+  client = new MercadoPagoConfig({
+    accessToken,
+    options: {
+      timeout: 10000,
+    },
+  });
+
+  return client;
+}

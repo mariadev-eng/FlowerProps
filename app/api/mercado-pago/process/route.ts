@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { Payment } from "mercadopago";
-import { mercadoPagoClient } from "@/lib/mercado-pago";
+import { getMercadoPagoClient } from "@/lib/mercado-pago";
 
 export async function POST(request: Request) {
   try {
@@ -40,7 +40,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const payment = new Payment(mercadoPagoClient);
+    // 🆕 CORRIGIDO — chamando a função com ()
+    const payment = new Payment(getMercadoPagoClient());
 
     // ==========================================
     // MONTAR O BODY DO PAGAMENTO
