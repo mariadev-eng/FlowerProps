@@ -14,6 +14,7 @@ export async function POST(request: Request) {
       payer,
       description,
       external_reference,
+      device_id, // 🆕 Recebe o device id do frontend
     } = body;
 
     // Validação básica
@@ -57,10 +58,25 @@ export async function POST(request: Request) {
     }
 
     // ==========================================
+    // 🆕 MONTAR REQUEST OPTIONS COM DEVICE ID
+    // ==========================================
+
+    const requestOptions: any = {};
+
+    if (device_id) {
+      requestOptions.headers = {
+        "X-meli-session-id": device_id, // 🆕 Envia o device id pro Mercado Pago
+      };
+    }
+
+    // ==========================================
     // CRIAR O PAGAMENTO
     // ==========================================
 
-    const result = await payment.create({ body: paymentBody });
+    const result = await payment.create({
+      body: paymentBody,
+      requestOptions, // 🆕 Passa o header com o device id
+    });
 
     // ==========================================
     // DEVOLVER PRO FRONTEND

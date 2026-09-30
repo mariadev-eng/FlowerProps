@@ -92,6 +92,15 @@ export default function PaymentPage() {
     });
   }
 
+  // ==========================================
+  // 🆕 CAPTURA O DEVICE ID DO MERCADO PAGO
+  // ==========================================
+
+  function getDeviceId(): string | null {
+    if (typeof window === "undefined") return null;
+    return (window as any).MP_DEVICE_SESSION_ID || null;
+  }
+
   function goBack() {
     router.push("/revisao");
   }
@@ -108,7 +117,9 @@ export default function PaymentPage() {
         customer_phone: customerData.phone,
         customer_email: customerData.email,
         delivery_method: customerData.deliveryMethod,
-         delivery_day: cartItems.find((item: any) => item.delivery_day)?.delivery_day || null,
+        delivery_day:
+          cartItems.find((item: any) => item.delivery_day)?.delivery_day ||
+          null,
         cep: customerData.cep,
         street: customerData.street,
         number: customerData.number,
@@ -166,6 +177,9 @@ export default function PaymentPage() {
     try {
       const orderId = await saveOrderToSupabase("card");
 
+      // 🆕 Captura o device id
+      const deviceId = getDeviceId();
+
       const response = await fetch("/api/mercado-pago/process", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -174,6 +188,7 @@ export default function PaymentPage() {
           payment_method_id: formData.payment_method_id,
           installments: formData.installments,
           transaction_amount: total,
+          device_id: deviceId, // 🆕 Envia o device id
           payer: {
             email: customerData.email,
             first_name: customerData.name.split(" ")[0],
@@ -251,12 +266,16 @@ export default function PaymentPage() {
     try {
       const orderId = await saveOrderToSupabase("pix");
 
+      // 🆕 Captura o device id
+      const deviceId = getDeviceId();
+
       const response = await fetch("/api/mercado-pago/process", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           payment_method_id: "pix",
           transaction_amount: total,
+          device_id: deviceId, // 🆕 Envia o device id
           payer: {
             email: customerData.email,
             first_name: customerData.name.split(" ")[0],
@@ -312,46 +331,47 @@ export default function PaymentPage() {
     navigator.clipboard.writeText(pixData.qrCode);
     alert("Código Pix copiado! Cole no seu app do banco.");
   }
-// ==========================================
-// POLLING: DETECTA PAGAMENTO DO PIX AUTOMATICAMENTE
-// ==========================================
 
-useEffect(() => {
-  if (!pixData) return;
+  // ==========================================
+  // POLLING: DETECTA PAGAMENTO DO PIX AUTOMATICAMENTE
+  // ==========================================
 
-  const interval = setInterval(async () => {
-    try {
-      const { data, error } = await supabase
-        .from("orders")
-        .select("payment_status")
-        .eq("id", pixData.orderId)
-        .single();
+  useEffect(() => {
+    if (!pixData) return;
 
-      if (error) {
-        console.error("Erro no polling:", error);
-        return;
+    const interval = setInterval(async () => {
+      try {
+        const { data, error } = await supabase
+          .from("orders")
+          .select("payment_status")
+          .eq("id", pixData.orderId)
+          .single();
+
+        if (error) {
+          console.error("Erro no polling:", error);
+          return;
+        }
+
+        if (data?.payment_status === "paid") {
+          console.log("✅ Pagamento detectado! Redirecionando...");
+
+          clearInterval(interval);
+
+          localStorage.setItem(
+            "flower-order-id",
+            String(pixData.orderId)
+          );
+          localStorage.removeItem("flower-cart");
+
+          router.push("/pedido-confirmado");
+        }
+      } catch (err) {
+        console.error("Erro no polling:", err);
       }
+    }, 3000);
 
-      if (data?.payment_status === "paid") {
-        console.log("✅ Pagamento detectado! Redirecionando...");
-
-        clearInterval(interval);
-
-        localStorage.setItem(
-          "flower-order-id",
-          String(pixData.orderId)
-        );
-        localStorage.removeItem("flower-cart");
-
-        router.push("/pedido-confirmado");
-      }
-    } catch (err) {
-      console.error("Erro no polling:", err);
-    }
-  }, 3000);
-
-  return () => clearInterval(interval);
-}, [pixData, router]);
+    return () => clearInterval(interval);
+  }, [pixData, router]);
 
   return (
     <main className="payment-page">

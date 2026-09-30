@@ -219,6 +219,15 @@ export default function AssinaturaPagamentoPage() {
   }
 
   // ==========================================
+  // 🆕 CAPTURA O DEVICE ID DO MERCADO PAGO
+  // ==========================================
+
+  function getDeviceId(): string | null {
+    if (typeof window === "undefined") return null;
+    return (window as any).MP_DEVICE_SESSION_ID || null;
+  }
+
+  // ==========================================
   // PAGAMENTO COM CARTÃO
   // ==========================================
 
@@ -236,6 +245,9 @@ export default function AssinaturaPagamentoPage() {
       const orderId = await saveSubscriptionOrder("card");
       const { customer, subscription } = checkoutData;
 
+      // 🆕 Captura o device id
+      const deviceId = getDeviceId();
+
       const response = await fetch("/api/mercado-pago/process", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -244,6 +256,7 @@ export default function AssinaturaPagamentoPage() {
           payment_method_id: formData.payment_method_id,
           installments: formData.installments,
           transaction_amount: subscription.price,
+          device_id: deviceId, // 🆕 Envia o device id
           payer: {
             email: customer.email,
             first_name: customer.name.split(" ")[0],
@@ -329,12 +342,16 @@ export default function AssinaturaPagamentoPage() {
       const orderId = await saveSubscriptionOrder("pix");
       const { customer, subscription } = checkoutData;
 
+      // 🆕 Captura o device id
+      const deviceId = getDeviceId();
+
       const response = await fetch("/api/mercado-pago/process", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           payment_method_id: "pix",
           transaction_amount: subscription.price,
+          device_id: deviceId, // 🆕 Envia o device id
           payer: {
             email: customer.email,
             first_name: customer.name.split(" ")[0],
