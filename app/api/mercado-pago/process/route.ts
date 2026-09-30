@@ -4,6 +4,13 @@ import { mercadoPagoClient } from "@/lib/mercado-pago";
 
 export async function POST(request: Request) {
   try {
+    // 🆕 DEBUG — apaga depois que resolver
+    console.log("=== DEBUG MP SERVER ===");
+    console.log("Token existe?", !!process.env.MERCADO_PAGO_ACCESS_TOKEN);
+    console.log("Prefixo:", process.env.MERCADO_PAGO_ACCESS_TOKEN?.substring(0, 12));
+    console.log("Tamanho:", process.env.MERCADO_PAGO_ACCESS_TOKEN?.length);
+    console.log("======================");
+
     const body = await request.json();
 
     const {
