@@ -26,6 +26,7 @@ type Product = {
   included_complements?: string[] | null;
   is_complement?: boolean;
   complement_order?: number;
+  max_flowers?: number | null; // 🆕
   flower_1_name: string | null;
   flower_1_image: string | null;
   flower_2_name: string | null;
@@ -119,7 +120,6 @@ export default function ProdutoPage() {
       // COMPLEMENTOS
       // ==========================================
 
-      // Só busca complementos se NÃO for acessório (category_id !== 4)
       if (data.category_id !== 4) {
         const { data: complementsData, error: complementsError } =
           await supabase
@@ -222,25 +222,50 @@ export default function ProdutoPage() {
   }
 
   // ==========================================
-  // TOGGLE FLOR
+  // TOGGLE FLOR (com limite)
   // ==========================================
 
   function toggleFlower(flower: Flower) {
+    let blocked = false; // 🆕
+
     setSelectedFlowers((current) => {
       const exists = current.find((f) => f.name === flower.name);
 
+      // Se já tá selecionada, remove (sempre permite)
       if (exists) {
         return current.filter((f) => f.name !== flower.name);
+      }
+
+      // 🆕 Se tem limite e já atingiu, bloqueia
+      if (product?.max_flowers && current.length >= product.max_flowers) {
+        blocked = true;
+        return current;
       }
 
       return [...current, flower];
     });
 
-    setError("");
+    // 🆕 Mostra ou limpa o erro
+    if (blocked) {
+      setError(
+        `Você pode escolher no máximo ${product?.max_flowers} ${
+          product?.max_flowers === 1 ? "flor" : "flores"
+        }.`
+      );
+    } else {
+      setError("");
+    }
   }
 
   function isSelected(flower: Flower): boolean {
     return selectedFlowers.some((f) => f.name === flower.name);
+  }
+
+  // 🆕 Verifica se a flor tá bloqueada (não selecionada + limite atingido)
+  function isFlowerBlocked(flower: Flower): boolean {
+    if (!product?.max_flowers) return false;
+    if (isSelected(flower)) return false;
+    return selectedFlowers.length >= product.max_flowers;
   }
 
   // ==========================================
@@ -388,7 +413,6 @@ export default function ProdutoPage() {
         </Link>
 
         <div className="product-detail-grid">
-          {/* NOME + VALOR (só aparece no mobile, em cima da imagem) */}
           <div className="product-detail-top">
             <span className="eyebrow">FLOWER PROPS</span>
             <h1>{product.name}</h1>
@@ -397,7 +421,6 @@ export default function ProdutoPage() {
             </div>
           </div>
 
-          {/* IMAGEM */}
           <div className="product-detail-image-wrapper">
             <div className="product-detail-image">
               {currentImage ? (
@@ -408,7 +431,6 @@ export default function ProdutoPage() {
             </div>
           </div>
 
-          {/* INFO + FLORES */}
           <div className="product-detail-info">
             <span className="eyebrow">FLOWER PROPS</span>
             <h1>{product.name}</h1>
@@ -420,7 +442,6 @@ export default function ProdutoPage() {
               {formatPrice(product.price)}
             </div>
 
-            {/* BOLINHAS DE COR */}
             {hasColors && (
               <div className="product-colors">
                 <div className="product-colors-dots">
@@ -445,7 +466,6 @@ export default function ProdutoPage() {
               </div>
             )}
 
-            {/* AVISO — só se tem seletor de flores */}
             {product.requires_flower_selection && (
               <p className="product-detail-note">
                 🌸 Imagem ilustrativa — sua composição será feita com as
@@ -453,18 +473,28 @@ export default function ProdutoPage() {
               </p>
             )}
 
-            {/* SELETOR DE FLORES */}
             {product.requires_flower_selection && (
               <div className="product-flowers">
                 <div className="product-flowers-heading">
                   <h2>Escolha suas flores</h2>
                   <span>
                     {selectedFlowers.length}{" "}
+                    {product.max_flowers
+                      ? `/ ${product.max_flowers} `
+                      : ""}
                     {selectedFlowers.length === 1
                       ? "flor escolhida"
                       : "flores escolhidas"}
                   </span>
                 </div>
+
+                {/* 🆕 AVISO DE LIMITE */}
+                {product.max_flowers && (
+                  <p className="product-flowers-limit">
+                    Escolha somente {product.max_flowers}{" "}
+                    {product.max_flowers === 1 ? "flor" : "flores"}.
+                  </p>
+                )}
 
                 <p className="product-flowers-note">
                   As flores são da estação — a composição final pode
@@ -481,49 +511,55 @@ export default function ProdutoPage() {
                   </div>
                 ) : (
                   <div className="product-flowers-grid">
-                    {availableFlowers.map((flower) => (
-                      <button
-                        key={flower.name}
-                        type="button"
-                        className={`product-flower-card ${
-                          isSelected(flower) ? "active" : ""
-                        }`}
-                        onClick={() => toggleFlower(flower)}
-                        aria-pressed={isSelected(flower)}
-                      >
-                        <div className="product-flower-card-image">
-                          {flower.image ? (
-                            <img src={flower.image} alt={flower.name} />
-                          ) : (
-                            <span>🌸</span>
-                          )}
-                        </div>
+                    {availableFlowers.map((flower) => {
+                      const blocked = isFlowerBlocked(flower);
 
-                        <span className="product-flower-card-name">
-                          {flower.name}
-                        </span>
-
-                        <span
-                          className="product-flower-card-check"
-                          aria-hidden="true"
+                      return (
+                        <button
+                          key={flower.name}
+                          type="button"
+                          className={`product-flower-card ${
+                            isSelected(flower) ? "active" : ""
+                          } ${blocked ? "blocked" : ""}`}
+                          onClick={() => toggleFlower(flower)}
+                          disabled={blocked}
+                          aria-pressed={isSelected(flower)}
                         >
-                          {isSelected(flower) ? "✓" : ""}
-                        </span>
-                      </button>
-                    ))}
+                          <div className="product-flower-card-image">
+                            {flower.image ? (
+                              <img
+                                src={flower.image}
+                                alt={flower.name}
+                              />
+                            ) : (
+                              <span>🌸</span>
+                            )}
+                          </div>
+
+                          <span className="product-flower-card-name">
+                            {flower.name}
+                          </span>
+
+                          <span
+                            className="product-flower-card-check"
+                            aria-hidden="true"
+                          >
+                            {isSelected(flower) ? "✓" : ""}
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
             )}
 
-            {/* ERRO */}
             {error && (
               <div className="account-message error">{error}</div>
             )}
           </div>
         </div>
 
-        {/* COMPLEMENTOS — COMPLETE SEU PRESENTE (largura total, embaixo) */}
         {complements.length > 0 && product.category_id !== 4 && (
           <div className="product-complements">
             <div className="product-complements-heading">
@@ -571,7 +607,6 @@ export default function ProdutoPage() {
           </div>
         )}
 
-        {/* BOTÃO FIXO NO RODAPÉ */}
         <div className="product-detail-sticky-bar">
           <button
             type="button"

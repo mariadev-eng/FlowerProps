@@ -4951,3 +4951,38 @@ body:has(.cart-drawer.active) {
     display: none; /* no mobile não precisa de seta, rola com o dedo */
   }
 }
+/* =========================================================
+   LIMITE DE FLORES
+   ========================================================= */
+
+.product-flowers-limit {
+  display: inline-block;
+  margin: 0 0 12px;
+  padding: 6px 12px;
+  background: rgba(173, 149, 98, 0.1);
+  border-left: 2px solid var(--gold);
+  color: var(--gold);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.product-flower-card.blocked {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+  filter: grayscale(0.5);
+}
+
+/* 🆕 Garante que o heading mostra o "X / 2" corretamente */
+
+.product-flowers-heading span {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 700px) {
+  .product-flowers-limit {
+    font-size: 10px;
+    padding: 5px 10px;
+  }
+}
