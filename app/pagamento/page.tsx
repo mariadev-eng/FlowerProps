@@ -93,7 +93,68 @@ export default function PaymentPage() {
   }
 
   // ==========================================
-  // 🆕 CAPTURA O DEVICE ID DO MERCADO PAGO
+  // 🆕 CHECKOUT PRO — Redirecionamento pro MP
+  // ==========================================
+
+  async function handleCheckoutPro() {
+    setIsFinishing(true);
+    setError("");
+
+    if (cartItems.length === 0) {
+      setError("Seu carrinho está vazio.");
+      setIsFinishing(false);
+      return;
+    }
+
+    if (!customerData) {
+      setError("Dados do cliente não encontrados.");
+      setIsFinishing(false);
+      return;
+    }
+
+    try {
+      // Salva o pedido primeiro no Supabase (pending)
+      const orderId = await saveOrderToSupabase("checkout_pro");
+
+      // Cria a preferência no Mercado Pago
+      const response = await fetch("/api/mercado-pago/preference", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: cartItems.map((item) => ({
+            id: item.id,
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+          })),
+          orderId,
+          payer: {
+            email: customerData.email,
+            name: customerData.name,
+          },
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.init_point) {
+        throw new Error(result.error || "Erro ao gerar link de pagamento.");
+      }
+
+      // Salva o ID do pedido pra usar depois do retorno
+      localStorage.setItem("flower-order-id", String(orderId));
+
+      // Redireciona pro Mercado Pago
+      window.location.href = result.init_point;
+    } catch (err: any) {
+      console.error("Erro no checkout pro:", err);
+      setError(err?.message || "Erro ao iniciar pagamento.");
+      setIsFinishing(false);
+    }
+  }
+
+  // ==========================================
+  // CAPTURA O DEVICE ID DO MERCADO PAGO
   // ==========================================
 
   function getDeviceId(): string | null {
@@ -177,7 +238,6 @@ export default function PaymentPage() {
     try {
       const orderId = await saveOrderToSupabase("card");
 
-      // 🆕 Captura o device id
       const deviceId = getDeviceId();
 
       const response = await fetch("/api/mercado-pago/process", {
@@ -188,7 +248,7 @@ export default function PaymentPage() {
           payment_method_id: formData.payment_method_id,
           installments: formData.installments,
           transaction_amount: total,
-          device_id: deviceId, // 🆕 Envia o device id
+          device_id: deviceId,
           payer: {
             email: customerData.email,
             first_name: customerData.name.split(" ")[0],
@@ -266,7 +326,6 @@ export default function PaymentPage() {
     try {
       const orderId = await saveOrderToSupabase("pix");
 
-      // 🆕 Captura o device id
       const deviceId = getDeviceId();
 
       const response = await fetch("/api/mercado-pago/process", {
@@ -275,7 +334,7 @@ export default function PaymentPage() {
         body: JSON.stringify({
           payment_method_id: "pix",
           transaction_amount: total,
-          device_id: deviceId, // 🆕 Envia o device id
+          device_id: deviceId,
           payer: {
             email: customerData.email,
             first_name: customerData.name.split(" ")[0],
@@ -441,63 +500,82 @@ export default function PaymentPage() {
             </div>
           )}
 
+          {/* 🆕 CARTÃO — CHECKOUT PRO (REDIRECIONAMENTO) */}
           {!pixData && (
-            <section className="payment-card">
+            <section className="payment-card payment-instructions">
               <div className="payment-card-heading">
                 <span>01</span>
 
                 <div>
-                  <h2>Forma de pagamento</h2>
-                  <p>Escolha uma opção</p>
+                  <h2>Cartão de crédito ou débito</h2>
+                  <p>Você será redirecionado para o Mercado Pago</p>
                 </div>
               </div>
 
-              <div className="payment-methods">
+              <div className="pix-information">
+                <div className="pix-symbol" style={{ background: "#009EE3" }}>
+                  MP
+                </div>
+
+                <div>
+                  <strong>Ambiente 100% seguro</strong>
+                  <p>
+                    Você pagará no ambiente do Mercado Pago e voltará
+                    automaticamente após a confirmação.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                className="finish-payment-button"
+                onClick={handleCheckoutPro}
+                disabled={isFinishing}
+                style={{ marginTop: 20 }}
+              >
+                {isFinishing ? "Redirecionando..." : "Pagar com cartão"}
+                {!isFinishing && <span>→</span>}
+              </button>
+            </section>
+          )}
+
+          {/* PIX — SELEÇÃO */}
+          {!pixData && (
+            <section className="payment-card">
+              <div className="payment-card-heading">
+                <span>02</span>
+
+                <div>
+                  <h2>Ou pague com Pix</h2>
+                  <p>Pagamento instantâneo, sem sair do site</p>
+                </div>
+              </div>
+
+              {paymentMethod !== "pix" && (
                 <button
                   type="button"
-                  className={`payment-method ${
-                    paymentMethod === "pix" ? "selected" : ""
-                  }`}
+                  className="payment-method"
                   onClick={() => setPaymentMethod("pix")}
+                  style={{ width: "100%" }}
                 >
                   <div className="payment-method-icon">PIX</div>
 
                   <div className="payment-method-content">
                     <strong>Pix</strong>
-                    <span>Pagamento instantâneo</span>
+                    <span>QR Code na hora</span>
                   </div>
 
-                  <div className="payment-radio">
-                    {paymentMethod === "pix" && "✓"}
-                  </div>
+                  <div className="payment-radio">→</div>
                 </button>
-
-                <button
-                  type="button"
-                  className={`payment-method ${
-                    paymentMethod === "card" ? "selected" : ""
-                  }`}
-                  onClick={() => setPaymentMethod("card")}
-                >
-                  <div className="payment-method-icon card-icon">CARD</div>
-
-                  <div className="payment-method-content">
-                    <strong>Cartão</strong>
-                    <span>Crédito ou débito</span>
-                  </div>
-
-                  <div className="payment-radio">
-                    {paymentMethod === "card" && "✓"}
-                  </div>
-                </button>
-              </div>
+              )}
             </section>
           )}
 
+          {/* PIX — INSTRUÇÕES */}
           {paymentMethod === "pix" && !pixData && (
             <section className="payment-card payment-instructions">
               <div className="payment-card-heading">
-                <span>02</span>
+                <span>03</span>
 
                 <div>
                   <h2>Pagamento via Pix</h2>
@@ -518,6 +596,7 @@ export default function PaymentPage() {
             </section>
           )}
 
+          {/* PIX — QR CODE ATIVO */}
           {pixData && (
             <section className="payment-card payment-instructions">
               <div className="payment-card-heading">
@@ -566,37 +645,7 @@ export default function PaymentPage() {
             </section>
           )}
 
-          {paymentMethod === "card" && (
-            <section className="payment-card payment-instructions">
-              <div className="payment-card-heading">
-                <span>02</span>
-
-                <div>
-                  <h2>Dados do cartão</h2>
-                  <p>Preencha os dados com segurança.</p>
-                </div>
-              </div>
-
-              {isProcessingCard ? (
-                <div style={{ padding: "40px 0", textAlign: "center" }}>
-                  <p>Processando pagamento... Aguarde.</p>
-                </div>
-              ) : (
-                <CardPayment
-                  initialization={{ amount: total }}
-                  onSubmit={handleCardSubmit}
-                  customization={{
-                    visual: {
-                      style: {
-                        theme: "default",
-                      },
-                    },
-                  }}
-                />
-              )}
-            </section>
-          )}
-
+          {/* BOTÃO FINALIZAR (PIX) */}
           {paymentMethod === "pix" && !pixData && (
             <>
               <button

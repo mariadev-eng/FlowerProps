@@ -46,7 +46,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       init_point: result.init_point,
-      sandbox_init_point: result.sandbox_init_point,
     });
   } catch (error: any) {
     console.error("Erro ao criar preferência:", error);
