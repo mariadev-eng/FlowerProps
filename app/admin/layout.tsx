@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
 const TABS = [
+  { href: "/admin/caixa", label: "Caixa" },
   { href: "/admin/assinaturas", label: "Assinaturas" },
   { href: "/admin/produtos", label: "Produtos" },
 ];
@@ -16,7 +17,12 @@ export default function AdminLayout({
   const pathname = usePathname();
   const router = useRouter();
 
+  // Telas que NÃO devem mostrar o layout (login e impressão)
   if (pathname.startsWith("/admin/login")) {
+    return <>{children}</>;
+  }
+
+  if (pathname.startsWith("/admin/caixa/imprimir")) {
     return <>{children}</>;
   }
 
