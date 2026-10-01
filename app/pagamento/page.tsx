@@ -538,44 +538,12 @@ export default function PaymentPage() {
               </button>
             </section>
           )}
-
-          {/* PIX — SELEÇÃO */}
-          {!pixData && (
-            <section className="payment-card">
-              <div className="payment-card-heading">
-                <span>02</span>
-
-                <div>
-                  <h2>Ou pague com Pix</h2>
-                  <p>Pagamento instantâneo, sem sair do site</p>
-                </div>
-              </div>
-
-              {paymentMethod !== "pix" && (
-                <button
-                  type="button"
-                  className="payment-method"
-                  onClick={() => setPaymentMethod("pix")}
-                  style={{ width: "100%" }}
-                >
-                  <div className="payment-method-icon">PIX</div>
-
-                  <div className="payment-method-content">
-                    <strong>Pix</strong>
-                    <span>QR Code na hora</span>
-                  </div>
-
-                  <div className="payment-radio">→</div>
-                </button>
-              )}
-            </section>
-          )}
-
+              
           {/* PIX — INSTRUÇÕES */}
           {paymentMethod === "pix" && !pixData && (
             <section className="payment-card payment-instructions">
               <div className="payment-card-heading">
-                <span>03</span>
+                <span>02</span>
 
                 <div>
                   <h2>Pagamento via Pix</h2>
