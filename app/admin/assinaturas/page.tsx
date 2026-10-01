@@ -171,11 +171,13 @@ export default function AdminAssinaturasPage() {
   // ==========================================
 
   function getWhatsAppLink(phone: string, name: string) {
-    const digits = phone.replace(/\D/g, "");
-    const withCountry = digits.startsWith("55") ? digits : `55${digits}`;
-    const message = encodeURIComponent(buildWhatsAppMessage(name));
-    return `https://wa.me/${withCountry}?text=${message}`;
-  }
+  const digits = phone.replace(/\D/g, "");
+  const withCountry = digits.startsWith("55") ? digits : `55${digits}`;
+  const message = encodeURIComponent(buildWhatsAppMessage(name));
+  
+  // 🆕 Usa o protocolo whatsapp:// que força o app desktop
+  return `whatsapp://send?phone=${withCountry}&text=${message}`;
+}
 
   // ==========================================
   // HELPERS
