@@ -217,10 +217,17 @@ export default function PaymentPage() {
       .from("order_items")
       .insert(orderItems);
 
-    if (itemsError) {
-      console.error("ERRO AO CRIAR ITENS:", itemsError);
-      throw new Error("Erro ao salvar produtos do pedido.");
-    }
+  if (itemsError) {
+  console.error("ERRO AO CRIAR ITENS - MESSAGE:", itemsError.message);
+  console.error("ERRO AO CRIAR ITENS - DETAILS:", itemsError.details);
+  console.error("ERRO AO CRIAR ITENS - HINT:", itemsError.hint);
+  console.error("ERRO AO CRIAR ITENS - CODE:", itemsError.code);
+  console.error("ERRO AO CRIAR ITENS - COMPLETO:", JSON.stringify(itemsError));
+
+  throw new Error(
+    itemsError.message || "Erro ao salvar produtos do pedido."
+  );
+}
 
     return order.id;
   }
@@ -499,45 +506,40 @@ export default function PaymentPage() {
               {error}
             </div>
           )}
+{/* CARTÃO — CHECKOUT TRANSPARENTE */}
+{!pixData && (
+  <section className="payment-card payment-instructions">
+    <div className="payment-card-heading">
+      <span>01</span>
 
-          {/* 🆕 CARTÃO — CHECKOUT PRO (REDIRECIONAMENTO) */}
-          {!pixData && (
-            <section className="payment-card payment-instructions">
-              <div className="payment-card-heading">
-                <span>01</span>
+      <div>
+        <h2>Cartão de crédito</h2>
+        <p>Pagamento seguro pelo Mercado Pago</p>
+      </div>
+    </div>
 
-                <div>
-                  <h2>Cartão de crédito ou débito</h2>
-                  <p>Você será redirecionado para o Mercado Pago</p>
-                </div>
-              </div>
-
-              <div className="pix-information">
-                <div className="pix-symbol" style={{ background: "#009EE3" }}>
-                  MP
-                </div>
-
-                <div>
-                  <strong>Ambiente 100% seguro</strong>
-                  <p>
-                    Você pagará no ambiente do Mercado Pago e voltará
-                    automaticamente após a confirmação.
-                  </p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                className="finish-payment-button"
-                onClick={handleCheckoutPro}
-                disabled={isFinishing}
-                style={{ marginTop: 20 }}
-              >
-                {isFinishing ? "Redirecionando..." : "Pagar com cartão"}
-                {!isFinishing && <span>→</span>}
-              </button>
-            </section>
-          )}
+    <div style={{ marginTop: 24 }}>
+      <CardPayment
+        initialization={{
+          amount: total,
+        }}
+        customization={{
+          paymentMethods: {
+            minInstallments: 1,
+            maxInstallments: 12,
+          },
+        }}
+        onSubmit={handleCardSubmit}
+        onError={(error) => {
+          console.error("ERRO CARD PAYMENT:", error);
+          setError(
+            "Não foi possível processar o cartão. Verifique os dados e tente novamente."
+          );
+        }}
+      />
+    </div>
+  </section>
+)}
               
           {/* PIX — INSTRUÇÕES */}
           {paymentMethod === "pix" && !pixData && (
