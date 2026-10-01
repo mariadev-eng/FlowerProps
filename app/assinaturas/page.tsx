@@ -85,7 +85,8 @@ export default function AssinaturasPage() {
       JSON.stringify(subscriptionCheckout)
     );
 
-    router.push("/assinatura");
+    // 🆕 CORRIGIDO: vai pro checkout da assinatura
+    router.push("/assinatura/checkout");
   }
 
   function formatPrice(value: number) {
@@ -215,7 +216,7 @@ export default function AssinaturasPage() {
                     </div>
                   </div>
 
-                  {/* 🆕 BOTÃO ASSINAR — com estilo inline forçado */}
+                  {/* BOTÃO ASSINAR */}
                   <button
                     type="button"
                     onClick={() => handleSubscribe(sub)}
