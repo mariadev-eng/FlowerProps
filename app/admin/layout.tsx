@@ -16,7 +16,6 @@ export default function AdminLayout({
   const pathname = usePathname();
   const router = useRouter();
 
-  // Se for a tela de login, não mostra o layout de abas
   if (pathname.startsWith("/admin/login")) {
     return <>{children}</>;
   }
@@ -36,7 +35,6 @@ export default function AdminLayout({
         fontFamily: "system-ui, -apple-system, sans-serif",
       }}
     >
-      {/* HEADER */}
       <header
         style={{
           display: "flex",
@@ -48,13 +46,7 @@ export default function AdminLayout({
           color: "#fff",
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 32,
-          }}
-        >
+        <div style={{ display: "flex", alignItems: "center", gap: 32 }}>
           <span
             style={{
               fontSize: 14,
@@ -108,7 +100,6 @@ export default function AdminLayout({
         </button>
       </header>
 
-      {/* CONTEÚDO */}
       <main style={{ padding: 24 }}>{children}</main>
     </div>
   );

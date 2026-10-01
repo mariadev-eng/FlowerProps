@@ -26,7 +26,7 @@ type Product = {
   included_complements?: string[] | null;
   is_complement?: boolean;
   complement_order?: number;
-  max_flowers?: number | null; // 🆕
+  max_flowers?: number | null;
   flower_1_name: string | null;
   flower_1_image: string | null;
   flower_2_name: string | null;
@@ -76,12 +76,12 @@ export default function ProdutoPage() {
   const [error, setError] = useState("");
 
   const [complements, setComplements] = useState<Product[]>([]);
-
+  const [weeklyFlowers, setWeeklyFlowers] = useState<Flower[]>([]);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
 
   // ==========================================
-  // CARREGA PRODUTO + COMPLEMENTOS
+  // CARREGA PRODUTO + COMPLEMENTOS + FLORES
   // ==========================================
 
   useEffect(() => {
@@ -114,6 +114,25 @@ export default function ProdutoPage() {
         setCurrentImage(activeColors[0].image);
       } else {
         setCurrentImage(data.image || "");
+      }
+
+      // ==========================================
+      // FLORES DA SEMANA (tabela nova)
+      // ==========================================
+
+      const { data: flowersData } = await supabase
+        .from("weekly_flowers")
+        .select("*")
+        .eq("active", true)
+        .order("position", { ascending: true });
+
+      if (flowersData) {
+        setWeeklyFlowers(
+          flowersData.map((f) => ({
+            name: f.name,
+            image: f.image || "",
+          }))
+        );
       }
 
       // ==========================================
@@ -184,27 +203,11 @@ export default function ProdutoPage() {
   }, [cartItems, isLoaded]);
 
   // ==========================================
-  // LISTA DE FLORES DISPONÍVEIS
+  // LISTA DE FLORES DISPONÍVEIS (tabela nova)
   // ==========================================
 
-  function getAvailableFlowers(prod: Product): Flower[] {
-    const flowers: Flower[] = [];
-
-    for (let i = 1; i <= 10; i++) {
-      const name = prod[`flower_${i}_name` as keyof Product] as string | null;
-      const image = prod[`flower_${i}_image` as keyof Product] as
-        | string
-        | null;
-
-      if (name && name.trim()) {
-        flowers.push({
-          name: name.trim(),
-          image: image || "",
-        });
-      }
-    }
-
-    return flowers;
+  function getAvailableFlowers(): Flower[] {
+    return weeklyFlowers;
   }
 
   // ==========================================
@@ -226,17 +229,15 @@ export default function ProdutoPage() {
   // ==========================================
 
   function toggleFlower(flower: Flower) {
-    let blocked = false; // 🆕
+    let blocked = false;
 
     setSelectedFlowers((current) => {
       const exists = current.find((f) => f.name === flower.name);
 
-      // Se já tá selecionada, remove (sempre permite)
       if (exists) {
         return current.filter((f) => f.name !== flower.name);
       }
 
-      // 🆕 Se tem limite e já atingiu, bloqueia
       if (product?.max_flowers && current.length >= product.max_flowers) {
         blocked = true;
         return current;
@@ -245,7 +246,6 @@ export default function ProdutoPage() {
       return [...current, flower];
     });
 
-    // 🆕 Mostra ou limpa o erro
     if (blocked) {
       setError(
         `Você pode escolher no máximo ${product?.max_flowers} ${
@@ -261,7 +261,6 @@ export default function ProdutoPage() {
     return selectedFlowers.some((f) => f.name === flower.name);
   }
 
-  // 🆕 Verifica se a flor tá bloqueada (não selecionada + limite atingido)
   function isFlowerBlocked(flower: Flower): boolean {
     if (!product?.max_flowers) return false;
     if (isSelected(flower)) return false;
@@ -370,7 +369,7 @@ export default function ProdutoPage() {
     );
   }
 
-  const availableFlowers = getAvailableFlowers(product);
+  const availableFlowers = getAvailableFlowers();
   const hasFlowers = availableFlowers.length > 0;
   const activeColors = getActiveColors();
   const hasColors = activeColors.length > 0;
@@ -488,7 +487,6 @@ export default function ProdutoPage() {
                   </span>
                 </div>
 
-                {/* 🆕 AVISO DE LIMITE */}
                 {product.max_flowers && (
                   <p className="product-flowers-limit">
                     Escolha somente {product.max_flowers}{" "}
