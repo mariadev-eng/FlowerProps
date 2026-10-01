@@ -5,9 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { UserRound } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { validateCep, type DeliveryMethod } from "@/lib/checkcep";
 
-type SubscriptionData = {
+type Subscription = {
   id: number;
   name: string;
   description: string;
@@ -15,137 +14,78 @@ type SubscriptionData = {
   frequency: string;
   deliveries_per_month: number;
   image: string | null;
-  delivery_day: "saturday" | "sunday";
+  available: boolean;
+  display_order: number;
 };
 
-type FormData = {
-  name: string;
-  phone: string;
-  email: string;
-  cep: string;
-  street: string;
-  number: string;
-  complement: string;
-  neighborhood: string;
-  city: string;
-  state: string;
-};
+type DeliveryDay = "saturday" | "sunday";
 
-export default function AssinaturaCheckoutPage() {
+const fallbackImage =
+  "https://images.unsplash.com/photo-1490750967868-88aa4486c946?auto=format&fit=crop&w=900&q=85";
+
+export default function AssinaturasPage() {
   const router = useRouter();
 
-  const [subscription, setSubscription] = useState<SubscriptionData | null>(
-    null
-  );
-  const [isLoadingSub, setIsLoadingSub] = useState(true);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const [deliveryMethod, setDeliveryMethod] =
-    useState<DeliveryMethod>("delivery");
-
-  const [formData, setFormData] = useState<FormData>({
-    name: "",
-    phone: "",
-    email: "",
-    cep: "",
-    street: "",
-    number: "",
-    complement: "",
-    neighborhood: "",
-    city: "",
-    state: "",
-  });
-
-  const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>(
-    {}
-  );
-
-  const [isSearchingCep, setIsSearchingCep] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [generalError, setGeneralError] = useState("");
-
-  // ==========================================
-  // CARREGA A ASSINATURA ESCOLHIDA
-  // ==========================================
+  const [selectedDays, setSelectedDays] = useState<
+    Record<number, DeliveryDay | null>
+  >({});
 
   useEffect(() => {
-    const saved = localStorage.getItem("flower-subscription-checkout");
+    async function loadSubscriptions() {
+      const { data, error } = await supabase
+        .from("subscriptions")
+        .select("*")
+        .eq("available", true)
+        .order("display_order", { ascending: true });
 
-    if (!saved) {
-      router.push("/assinaturas");
+      if (error) {
+        console.error("Erro ao carregar assinaturas:", error);
+        setSubscriptions([]);
+      } else {
+        setSubscriptions(data ?? []);
+      }
+
+      setLoading(false);
+    }
+
+    loadSubscriptions();
+  }, []);
+
+  function handleSelectDay(subscriptionId: number, day: DeliveryDay) {
+    setSelectedDays((current) => ({
+      ...current,
+      [subscriptionId]: day,
+    }));
+  }
+
+  function handleSubscribe(subscription: Subscription) {
+    const selectedDay = selectedDays[subscription.id];
+
+    if (!selectedDay) {
+      alert("Escolha o dia da entrega (sábado ou domingo) antes de assinar.");
       return;
     }
 
-    try {
-      setSubscription(JSON.parse(saved));
-    } catch {
-      router.push("/assinaturas");
-    }
+    const subscriptionCheckout = {
+      id: subscription.id,
+      name: subscription.name,
+      description: subscription.description,
+      price: subscription.price,
+      frequency: subscription.frequency,
+      deliveries_per_month: subscription.deliveries_per_month,
+      image: subscription.image || fallbackImage,
+      delivery_day: selectedDay,
+    };
 
-    setIsLoadingSub(false);
-  }, [router]);
+    localStorage.setItem(
+      "flower-subscription-checkout",
+      JSON.stringify(subscriptionCheckout)
+    );
 
-  // ==========================================
-  // PRÉ-PREENCHE SE LOGADO
-  // ==========================================
-
-  useEffect(() => {
-    async function loadUserData() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) return;
-
-      setFormData((current) => ({
-        ...current,
-        name: user.user_metadata?.name || "",
-        email: user.email || "",
-      }));
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-
-      if (profile) {
-        setFormData((current) => ({
-          ...current,
-          name: profile.name || current.name,
-          phone: profile.phone || current.phone,
-          cep: profile.cep || current.cep,
-          street: profile.street || current.street,
-          number: profile.number || current.number,
-          complement: profile.complement || current.complement,
-          neighborhood: profile.neighborhood || current.neighborhood,
-          city: profile.city || current.city,
-          state: profile.state || current.state,
-        }));
-      }
-    }
-
-    loadUserData();
-  }, []);
-
-  // ==========================================
-  // FORMATAÇÃO
-  // ==========================================
-
-  function formatPhone(value: string) {
-    const n = value.replace(/\D/g, "").slice(0, 11);
-
-    if (n.length <= 2) return n.length ? `(${n}` : "";
-    if (n.length <= 6) return `(${n.slice(0, 2)}) ${n.slice(2)}`;
-    if (n.length <= 10)
-      return `(${n.slice(0, 2)}) ${n.slice(2, 6)}-${n.slice(6)}`;
-
-    return `(${n.slice(0, 2)}) ${n.slice(2, 7)}-${n.slice(7)}`;
-  }
-
-  function formatCep(value: string) {
-    const n = value.replace(/\D/g, "").slice(0, 8);
-    if (n.length <= 5) return n;
-    return `${n.slice(0, 5)}-${n.slice(5)}`;
+    router.push("/assinatura");
   }
 
   function formatPrice(value: number) {
@@ -155,481 +95,188 @@ export default function AssinaturaCheckoutPage() {
     });
   }
 
-  // ==========================================
-  // BUSCA CEP
-  // ==========================================
-
-  async function searchCep(cep: string) {
-    const clean = cep.replace(/\D/g, "");
-    if (clean.length !== 8) return;
-
-    setIsSearchingCep(true);
-    setErrors((c) => ({ ...c, cep: "" }));
-
-    const result = await validateCep(clean, deliveryMethod);
-
-    if (!result.valid) {
-      setErrors((c) => ({ ...c, cep: result.error || "CEP inválido" }));
-      setFormData((c) => ({
-        ...c,
-        street: "",
-        neighborhood: "",
-        city: "",
-        state: "",
-      }));
-      setIsSearchingCep(false);
-      return;
-    }
-
-    setFormData((c) => ({
-      ...c,
-      street: result.data?.street || "",
-      neighborhood: result.data?.neighborhood || "",
-      city: result.data?.city || "",
-      state: result.data?.state || "",
-    }));
-
-    setIsSearchingCep(false);
-  }
-
-  // ==========================================
-  // HANDLERS
-  // ==========================================
-
-  function handleChange(field: keyof FormData, value: string) {
-    setFormData((c) => ({ ...c, [field]: value }));
-    if (errors[field]) {
-      setErrors((c) => ({ ...c, [field]: "" }));
-    }
-  }
-
-  function handlePhoneChange(value: string) {
-    handleChange("phone", formatPhone(value));
-  }
-
-  function handleCepChange(value: string) {
-    const formatted = formatCep(value);
-    handleChange("cep", formatted);
-
-    const clean = formatted.replace(/\D/g, "");
-    if (clean.length === 8) {
-      searchCep(clean);
-    } else {
-      setFormData((c) => ({
-        ...c,
-        street: "",
-        neighborhood: "",
-        city: "",
-        state: "",
-      }));
-    }
-  }
-
-  // ==========================================
-  // VALIDA FORMULÁRIO
-  // ==========================================
-
-  function validateForm(): boolean {
-    const newErrors: Partial<Record<keyof FormData, string>> = {};
-
-    if (!formData.name.trim()) newErrors.name = "Informe seu nome.";
-    if (!formData.phone.trim()) newErrors.phone = "Informe seu telefone.";
-    if (!formData.email.trim()) newErrors.email = "Informe seu e-mail.";
-    else if (!formData.email.includes("@"))
-      newErrors.email = "E-mail inválido.";
-
-    if (deliveryMethod === "delivery") {
-      if (!formData.cep.trim()) newErrors.cep = "Informe o CEP.";
-      if (!formData.street.trim()) newErrors.street = "Informe a rua.";
-      if (!formData.number.trim()) newErrors.number = "Informe o número.";
-      if (!formData.neighborhood.trim())
-        newErrors.neighborhood = "Informe o bairro.";
-      if (!formData.city.trim()) newErrors.city = "Informe a cidade.";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  }
-
-  // ==========================================
-  // CONTINUA PRO PAGAMENTO
-  // ==========================================
-
-  function handleContinue() {
-    setGeneralError("");
-
-    if (!validateForm()) {
-      setGeneralError("Preencha os campos destacados.");
-      return;
-    }
-
-    setLoading(true);
-
-    const checkoutData = {
-      subscription,
-      customer: formData,
-      deliveryMethod,
-    };
-
-    localStorage.setItem(
-      "flower-subscription-customer",
-      JSON.stringify(checkoutData)
-    );
-
-    router.push("/assinatura/pagamento");
-  }
-
-  // ==========================================
-  // LOADING INICIAL
-  // ==========================================
-
-  if (isLoadingSub || !subscription) {
-    return (
-      <main className="checkout-page">
-        <div className="checkout-container">
-          <p>Carregando...</p>
-        </div>
-      </main>
-    );
-  }
-
-  // ==========================================
-  // RENDER
-  // ==========================================
-
   return (
-    <main className="checkout-page">
-      <header className="checkout-header">
-        <div className="checkout-header-inner">
-          <Link href="/" className="checkout-logo">
-            FLOWER
+    <main className="subscriptions-page">
+      <header className="site-header">
+        <div className="header-content">
+          <Link href="/" className="brand" aria-label="FLOWER">
+            <img
+              src="/images/logoflowerprops.png"
+              alt="FLOWER Buquês & Acessórios"
+              className="brand-logo"
+            />
           </Link>
 
-          <span className="checkout-header-title">
-            Assinatura — Passo 1 de 2
-          </span>
+          <nav className="desktop-nav">
+            <Link href="/">Início</Link>
+            <Link href="/#produtos">Buquês</Link>
+            <Link href="/#categorias">Categorias</Link>
+            <Link href="/#assinaturas">Assinaturas</Link>
+            <Link href="/#sobre">Sobre nós</Link>
+          </nav>
 
-          <Link href="/assinaturas" className="checkout-back">
-            ← Voltar
-          </Link>
+          <div className="header-actions">
+            <button
+              type="button"
+              aria-label="Minha conta"
+              onClick={() => router.push("/conta")}
+            >
+              <UserRound size={20} strokeWidth={1.5} />
+            </button>
+          </div>
         </div>
       </header>
 
-      <div className="checkout-container">
-        {/* ==================== FORMULÁRIO ==================== */}
+      <section className="subscriptions-intro section">
+        <span className="eyebrow">FLOWER EM CASA</span>
 
-        <div className="checkout-main">
-          <div className="checkout-title">
-            <span className="eyebrow">ASSINATURA FLORAL</span>
+        <h1>
+          Escolha seu
+          <br />
+          <em>plano de assinatura.</em>
+        </h1>
 
-            <h1>
-              Vamos entregar suas
-              <br />
-              <em>flores.</em>
-            </h1>
+        <p>
+          Receba flores frescas, selecionadas especialmente para cada entrega.
+          Sem escolher as flores — a gente monta a composição da semana pra
+          você.
+        </p>
 
-            <p>Preencha seus dados para continuarmos com a assinatura.</p>
+        <p className="subscriptions-note">
+          Após a contratação, suas flores chegam na semana seguinte.
+        </p>
+      </section>
+
+      <section className="subscriptions-grid section">
+        {loading ? (
+          <div className="subscriptions-loading">
+            <p>Carregando planos...</p>
           </div>
-
-          {generalError && (
-            <div
-              className="account-message error"
-              style={{ marginBottom: 20 }}
-            >
-              {generalError}
-            </div>
-          )}
-
-          {/* DADOS */}
-          <section className="checkout-section">
-            <div className="checkout-section-title">
-              <span>01</span>
-              <div>
-                <h2>Seus dados</h2>
-                <p>Precisamos dessas informações para o pedido.</p>
-              </div>
-            </div>
-
-            <div className="checkout-form">
-              <label>
-                Nome completo
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => handleChange("name", e.target.value)}
-                  placeholder="Digite seu nome"
-                  className={errors.name ? "input-error" : ""}
-                />
-                {errors.name && (
-                  <small className="field-error">{errors.name}</small>
-                )}
-              </label>
-
-              <div className="form-row">
-                <label>
-                  Telefone
-                  <input
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => handlePhoneChange(e.target.value)}
-                    placeholder="(22) 99999-9999"
-                    inputMode="numeric"
-                    maxLength={15}
-                    className={errors.phone ? "input-error" : ""}
-                  />
-                  {errors.phone && (
-                    <small className="field-error">{errors.phone}</small>
-                  )}
-                </label>
-
-                <label>
-                  E-mail
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => handleChange("email", e.target.value)}
-                    placeholder="seuemail@email.com"
-                    className={errors.email ? "input-error" : ""}
-                  />
-                  {errors.email && (
-                    <small className="field-error">{errors.email}</small>
-                  )}
-                </label>
-              </div>
-            </div>
-          </section>
-
-          {/* RECEBIMENTO */}
-          <section className="checkout-section">
-            <div className="checkout-section-title">
-              <span>02</span>
-              <div>
-                <h2>Forma de recebimento</h2>
-                <p>Escolha como deseja receber suas flores.</p>
-              </div>
-            </div>
-
-            <div className="delivery-options">
-              <button
-                type="button"
-                className={
-                  deliveryMethod === "delivery"
-                    ? "delivery-option active"
-                    : "delivery-option"
-                }
-                onClick={() => setDeliveryMethod("delivery")}
-              >
-                <div>
-                  <strong>Receber em casa</strong>
-                  <span>Entrega em Macaé-RJ (grátis para assinantes)</span>
-                </div>
-                <span className="radio" />
-              </button>
-
-              <button
-                type="button"
-                className={
-                  deliveryMethod === "pickup"
-                    ? "delivery-option active"
-                    : "delivery-option"
-                }
-                onClick={() => setDeliveryMethod("pickup")}
-              >
-                <div>
-                  <strong>Retirar no ateliê</strong>
-                  <span>Disponível para clientes do RJ</span>
-                </div>
-                <span className="radio" />
-              </button>
-            </div>
-          </section>
-
-          {/* ENDEREÇO */}
-          {deliveryMethod === "delivery" && (
-            <section className="checkout-section">
-              <div className="checkout-section-title">
-                <span>03</span>
-                <div>
-                  <h2>Endereço de entrega</h2>
-                  <p>Onde devemos entregar suas flores?</p>
-                </div>
-              </div>
-
-              <div className="checkout-form">
-                <div className="form-row">
-                  <label>
-                    CEP
-                    <input
-                      type="text"
-                      value={formData.cep}
-                      onChange={(e) => handleCepChange(e.target.value)}
-                      placeholder="27900-000"
-                      inputMode="numeric"
-                      maxLength={9}
-                      className={errors.cep ? "input-error" : ""}
-                    />
-                    {isSearchingCep && (
-                      <small className="field-help">
-                        Buscando endereço...
-                      </small>
-                    )}
-                    {errors.cep && (
-                      <small className="field-error">{errors.cep}</small>
-                    )}
-                  </label>
-
-                  <label>
-                    Número
-                    <input
-                      type="text"
-                      value={formData.number}
-                      onChange={(e) => handleChange("number", e.target.value)}
-                      placeholder="123"
-                      className={errors.number ? "input-error" : ""}
-                    />
-                    {errors.number && (
-                      <small className="field-error">{errors.number}</small>
-                    )}
-                  </label>
+        ) : subscriptions.length === 0 ? (
+          <div className="subscriptions-empty">
+            <p>Nenhum plano disponível no momento.</p>
+            <Link href="/" className="button button-outline dark">
+              Voltar para a home
+            </Link>
+          </div>
+        ) : (
+          <div className="subscriptions-cards">
+            {subscriptions.map((sub) => (
+              <div key={sub.id} className="subscription-card">
+                <div className="subscription-card-image">
+                  <img src={sub.image || fallbackImage} alt={sub.name} />
                 </div>
 
-                <label>
-                  Rua
-                  <input
-                    type="text"
-                    value={formData.street}
-                    onChange={(e) => handleChange("street", e.target.value)}
-                    placeholder="Nome da rua"
-                    className={errors.street ? "input-error" : ""}
-                  />
-                  {errors.street && (
-                    <small className="field-error">{errors.street}</small>
-                  )}
-                </label>
+                <div className="subscription-card-content">
+                  <span className="eyebrow">
+                    {sub.deliveries_per_month}{" "}
+                    {sub.deliveries_per_month === 1
+                      ? "entrega por mês"
+                      : "entregas por mês"}
+                  </span>
 
-                <label>
-                  Complemento
-                  <input
-                    type="text"
-                    value={formData.complement}
-                    onChange={(e) =>
-                      handleChange("complement", e.target.value)
-                    }
-                    placeholder="Apartamento, bloco, referência..."
-                  />
-                </label>
+                  <h2>{sub.name}</h2>
 
-                <div className="form-row">
-                  <label>
-                    Bairro
-                    <input
-                      type="text"
-                      value={formData.neighborhood}
-                      onChange={(e) =>
-                        handleChange("neighborhood", e.target.value)
-                      }
-                      placeholder="Seu bairro"
-                      className={errors.neighborhood ? "input-error" : ""}
-                    />
-                    {errors.neighborhood && (
-                      <small className="field-error">
-                        {errors.neighborhood}
-                      </small>
-                    )}
-                  </label>
+                  <p>{sub.description}</p>
 
-                  <label>
-                    Cidade
-                    <input
-                      type="text"
-                      value={formData.city}
-                      onChange={(e) => handleChange("city", e.target.value)}
-                      placeholder="Sua cidade"
-                      className={errors.city ? "input-error" : ""}
-                    />
-                    {errors.city && (
-                      <small className="field-error">{errors.city}</small>
-                    )}
-                  </label>
+                  <div className="subscription-card-price">
+                    <strong>{formatPrice(sub.price)}</strong>
+                    <span>por mês</span>
+                  </div>
+
+                  {/* SELETOR DE DIA */}
+                  <div className="subscription-delivery-day">
+                    <span className="subscription-delivery-label">
+                      Escolha o dia da entrega:
+                    </span>
+
+                    <div className="subscription-day-options">
+                      <button
+                        type="button"
+                        className={`subscription-day-option ${
+                          selectedDays[sub.id] === "saturday" ? "active" : ""
+                        }`}
+                        onClick={() => handleSelectDay(sub.id, "saturday")}
+                      >
+                        <span className="subscription-day-radio" />
+                        <span>Sábado</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        className={`subscription-day-option ${
+                          selectedDays[sub.id] === "sunday" ? "active" : ""
+                        }`}
+                        onClick={() => handleSelectDay(sub.id, "sunday")}
+                      >
+                        <span className="subscription-day-radio" />
+                        <span>Domingo</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 🆕 BOTÃO ASSINAR — com estilo inline forçado */}
+                  <button
+                    type="button"
+                    onClick={() => handleSubscribe(sub)}
+                    style={{
+                      width: "100%",
+                      minHeight: 48,
+                      marginTop: 24,
+                      padding: "0 24px",
+                      background: "#2f2a26",
+                      color: "#ffffff",
+                      border: 0,
+                      borderRadius: 4,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      letterSpacing: "0.1em",
+                      textTransform: "uppercase",
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                    }}
+                  >
+                    Assinar {sub.name}
+                  </button>
                 </div>
-
-                <label>
-                  Estado
-                  <input
-                    type="text"
-                    value={formData.state}
-                    readOnly
-                    placeholder="Estado"
-                  />
-                </label>
               </div>
-            </section>
-          )}
+            ))}
+          </div>
+        )}
+      </section>
 
-          {/* CONTINUAR */}
-          <button
-            type="button"
-            className="checkout-continue"
-            onClick={handleContinue}
-            disabled={loading}
-          >
-            {loading ? "Aguarde..." : "Ir para pagamento"}
-            {!loading && <span>→</span>}
-          </button>
+      <footer className="footer">
+        <div className="footer-brand">
+          <img
+            src="/images/logoflowerprops.png"
+            alt="FLOWER Buquês & Acessórios"
+            className="footer-logo"
+          />
         </div>
 
-        {/* ==================== RESUMO ==================== */}
+        <div className="footer-links">
+          <a
+            href="https://instagram.com/_flowerprops_"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Instagram
+          </a>
 
-        <aside className="checkout-summary">
-          <div className="summary-header">
-            <span className="eyebrow">SUA ASSINATURA</span>
-            <h2>Resumo</h2>
-          </div>
+          <a
+            href="https://wa.me/5522992298475"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            WhatsApp
+          </a>
 
-          <div className="checkout-products">
-            <div className="checkout-product">
-              <div className="checkout-product-image">
-                {subscription.image && (
-                  <img src={subscription.image} alt={subscription.name} />
-                )}
-              </div>
+          <a href="#">Contato</a>
+          <a href="#">Política de privacidade</a>
+        </div>
 
-              <div className="checkout-product-info">
-                <strong>Assinatura {subscription.name}</strong>
-                <span>
-                  {subscription.deliveries_per_month}{" "}
-                  {subscription.deliveries_per_month === 1
-                    ? "entrega por mês"
-                    : "entregas por mês"}
-                </span>
-                <span>
-                  {subscription.delivery_day === "saturday"
-                    ? "Sábado"
-                    : "Domingo"}
-                </span>
-              </div>
-
-              <strong>{formatPrice(subscription.price)}</strong>
-            </div>
-          </div>
-
-          <div className="summary-line">
-            <span>Entrega</span>
-            <strong>
-              {deliveryMethod === "pickup" ? "Retirada no ateliê" : "Grátis"}
-            </strong>
-          </div>
-
-          <div className="summary-total">
-            <span>Total</span>
-            <strong>{formatPrice(subscription.price)}</strong>
-          </div>
-
-          <p className="summary-security">
-            Seus dados serão utilizados somente para processar sua assinatura.
-          </p>
-        </aside>
-      </div>
+        <p>© 2026 FLOWER. Todos os direitos reservados.</p>
+      </footer>
     </main>
   );
 }
