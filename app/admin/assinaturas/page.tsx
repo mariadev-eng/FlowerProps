@@ -83,12 +83,10 @@ export default function AdminAssinaturasPage() {
   // ==========================================
 
   const filtered = subscriptions.filter((sub) => {
-    // Filtro de status
     if (statusFilter !== "all" && sub.payment_status !== statusFilter) {
       return false;
     }
 
-    // Busca por nome ou email
     if (searchTerm.trim()) {
       const search = searchTerm.toLowerCase().trim();
       const matchesName = sub.customer_name.toLowerCase().includes(search);
@@ -123,14 +121,12 @@ export default function AdminAssinaturasPage() {
       return;
     }
 
-    // Atualiza a lista
     setSubscriptions((current) =>
       current.map((sub) =>
         sub.id === id ? { ...sub, payment_status: "paid" } : sub
       )
     );
 
-    // Atualiza o painel aberto
     if (selectedSubscription?.id === id) {
       setSelectedSubscription((current) =>
         current ? { ...current, payment_status: "paid" } : null
@@ -139,7 +135,7 @@ export default function AdminAssinaturasPage() {
   }
 
   // ==========================================
-  // FORMATAR PREÇO
+  // HELPERS
   // ==========================================
 
   function formatPrice(value: number) {
@@ -148,10 +144,6 @@ export default function AdminAssinaturasPage() {
       currency: "BRL",
     });
   }
-
-  // ==========================================
-  // FORMATAR DATA
-  // ==========================================
 
   function formatDate(value: string) {
     const date = new Date(value);
@@ -164,22 +156,14 @@ export default function AdminAssinaturasPage() {
     });
   }
 
-  // ==========================================
-  // CALCULAR PRÓXIMA ENTREGA
-  // ==========================================
-
   function getNextDelivery(sub: SubscriptionOrder): string {
     const now = new Date();
-    const created = new Date(sub.created_at);
-
-    // Baseado no dia da semana
     const targetDay = sub.delivery_day === "saturday" ? 6 : 0;
 
-    // Próxima data no dia escolhido
     const next = new Date(now);
     const currentDay = next.getDay();
     let daysToAdd = (targetDay - currentDay + 7) % 7;
-    if (daysToAdd === 0) daysToAdd = 7; // Sempre a próxima, não a de hoje
+    if (daysToAdd === 0) daysToAdd = 7;
     next.setDate(next.getDate() + daysToAdd);
 
     return next.toLocaleDateString("pt-BR", {
@@ -189,10 +173,6 @@ export default function AdminAssinaturasPage() {
     });
   }
 
-  // ==========================================
-  // FREQUÊNCIA EM PORTUGUÊS
-  // ==========================================
-
   function formatFrequency(freq: string) {
     const map: Record<string, string> = {
       weekly: "Semanal",
@@ -200,6 +180,43 @@ export default function AdminAssinaturasPage() {
       monthly: "Mensal",
     };
     return map[freq] || freq;
+  }
+
+  function getWhatsAppLink(phone: string) {
+    const digits = phone.replace(/\D/g, "");
+    // Adiciona 55 se não tiver
+    const withCountry = digits.startsWith("55") ? digits : `55${digits}`;
+    return `https://wa.me/${withCountry}`;
+  }
+
+  function getFullAddress(sub: SubscriptionOrder) {
+    const parts = [];
+
+    if (sub.street) {
+      let line = sub.street;
+      if (sub.number) line += `, ${sub.number}`;
+      if (sub.complement) line += ` — ${sub.complement}`;
+      parts.push(line);
+    }
+
+    if (sub.neighborhood) parts.push(sub.neighborhood);
+    if (sub.city) {
+      let line = sub.city;
+      if (sub.state) line += ` — ${sub.state}`;
+      parts.push(line);
+    }
+
+    if (sub.cep) parts.push(`CEP ${sub.cep}`);
+
+    return parts.join("\n");
+  }
+
+  function getGoogleMapsLink(sub: SubscriptionOrder) {
+    const address = getFullAddress(sub);
+    if (!address) return "#";
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+      address.replace(/\n/g, ", ")
+    )}`;
   }
 
   return (
@@ -233,7 +250,6 @@ export default function AdminAssinaturasPage() {
         </div>
 
         <div style={{ display: "flex", gap: 8 }}>
-          {/* BUSCA */}
           <input
             type="search"
             value={searchTerm}
@@ -250,7 +266,6 @@ export default function AdminAssinaturasPage() {
             }}
           />
 
-          {/* FILTRO STATUS */}
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
@@ -272,7 +287,6 @@ export default function AdminAssinaturasPage() {
             <option value="rejected">Recusado</option>
           </select>
 
-          {/* RECARREGAR */}
           <button
             type="button"
             onClick={loadSubscriptions}
@@ -400,7 +414,6 @@ export default function AdminAssinaturasPage() {
       {/* PAINEL LATERAL — DETALHES */}
       {selectedSubscription && (
         <>
-          {/* Overlay */}
           <div
             onClick={() => setSelectedSubscription(null)}
             style={{
@@ -411,7 +424,6 @@ export default function AdminAssinaturasPage() {
             }}
           />
 
-          {/* Painel */}
           <aside
             style={{
               position: "fixed",
@@ -522,20 +534,82 @@ export default function AdminAssinaturasPage() {
                 )}
               </div>
 
-              {/* Cliente */}
-              <Section title="Cliente">
-                <Field label="Nome" value={selectedSubscription.customer_name} />
+              {/* CONTATO */}
+              <Section title="Contato">
+                <Field
+                  label="Nome"
+                  value={selectedSubscription.customer_name}
+                />
                 <Field
                   label="Email"
                   value={selectedSubscription.customer_email}
+                  link={`mailto:${selectedSubscription.customer_email}`}
                 />
                 <Field
                   label="Telefone"
                   value={selectedSubscription.customer_phone}
+                  link={`tel:${selectedSubscription.customer_phone.replace(
+                    /\D/g,
+                    ""
+                  )}`}
                 />
+
+                {/* Botões de ação do contato */}
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    marginTop: 4,
+                  }}
+                >
+                  <a
+                    href={getWhatsAppLink(selectedSubscription.customer_phone)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      flex: 1,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 6,
+                      padding: "10px 12px",
+                      background: "#25D366",
+                      color: "#fff",
+                      border: 0,
+                      borderRadius: 6,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      textDecoration: "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    💬 WhatsApp
+                  </a>
+                  <a
+                    href={`mailto:${selectedSubscription.customer_email}`}
+                    style={{
+                      flex: 1,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 6,
+                      padding: "10px 12px",
+                      background: "#2f2a26",
+                      color: "#fff",
+                      border: 0,
+                      borderRadius: 6,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      textDecoration: "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    ✉️ Email
+                  </a>
+                </div>
               </Section>
 
-              {/* Plano */}
+              {/* PLANO */}
               <Section title="Plano">
                 <Field label="Nome" value={selectedSubscription.plan_name} />
                 <Field
@@ -560,7 +634,7 @@ export default function AdminAssinaturasPage() {
                 />
               </Section>
 
-              {/* Pagamento */}
+              {/* PAGAMENTO */}
               <Section title="Pagamento">
                 <Field
                   label="Método"
@@ -574,39 +648,118 @@ export default function AdminAssinaturasPage() {
                 )}
               </Section>
 
-              {/* Entrega */}
+              {/* ENDEREÇO */}
               {selectedSubscription.delivery_method === "delivery" && (
                 <Section title="Endereço de entrega">
-                  <Field
-                    label="CEP"
-                    value={selectedSubscription.cep || "—"}
-                  />
-                  <Field
-                    label="Rua"
-                    value={selectedSubscription.street || "—"}
-                  />
-                  <Field
-                    label="Número"
-                    value={selectedSubscription.number || "—"}
-                  />
+                  {selectedSubscription.cep && (
+                    <Field label="CEP" value={selectedSubscription.cep} />
+                  )}
+                  {selectedSubscription.street && (
+                    <Field
+                      label="Rua"
+                      value={selectedSubscription.street}
+                    />
+                  )}
+                  {selectedSubscription.number && (
+                    <Field
+                      label="Número"
+                      value={selectedSubscription.number}
+                    />
+                  )}
                   {selectedSubscription.complement && (
                     <Field
                       label="Complemento"
                       value={selectedSubscription.complement}
                     />
                   )}
-                  <Field
-                    label="Bairro"
-                    value={selectedSubscription.neighborhood || "—"}
-                  />
-                  <Field
-                    label="Cidade"
-                    value={`${selectedSubscription.city || "—"} ${
-                      selectedSubscription.state
-                        ? `/ ${selectedSubscription.state}`
-                        : ""
-                    }`}
-                  />
+                  {selectedSubscription.neighborhood && (
+                    <Field
+                      label="Bairro"
+                      value={selectedSubscription.neighborhood}
+                    />
+                  )}
+                  {selectedSubscription.city && (
+                    <Field
+                      label="Cidade"
+                      value={selectedSubscription.city}
+                    />
+                  )}
+                  {selectedSubscription.state && (
+                    <Field
+                      label="Estado"
+                      value={selectedSubscription.state}
+                    />
+                  )}
+
+                  {/* Endereço completo formatado */}
+                  {getFullAddress(selectedSubscription) && (
+                    <div
+                      style={{
+                        marginTop: 8,
+                        padding: 12,
+                        background: "#f9f9f7",
+                        borderRadius: 6,
+                        fontSize: 12,
+                        color: "#2f2a26",
+                        lineHeight: 1.6,
+                        whiteSpace: "pre-line",
+                      }}
+                    >
+                      {getFullAddress(selectedSubscription)}
+                    </div>
+                  )}
+
+                  {/* Botões do endereço */}
+                  <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                    <a
+                      href={getGoogleMapsLink(selectedSubscription)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        flex: 1,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 6,
+                        padding: "10px 12px",
+                        background: "#fff",
+                        color: "#2f2a26",
+                        border: "1px solid #d1d5db",
+                        borderRadius: 6,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        textDecoration: "none",
+                        cursor: "pointer",
+                      }}
+                    >
+                      📍 Ver no Maps
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const address = getFullAddress(selectedSubscription);
+                        navigator.clipboard.writeText(address);
+                        alert("Endereço copiado!");
+                      }}
+                      style={{
+                        flex: 1,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 6,
+                        padding: "10px 12px",
+                        background: "#fff",
+                        color: "#2f2a26",
+                        border: "1px solid #d1d5db",
+                        borderRadius: 6,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      📋 Copiar
+                    </button>
+                  </div>
                 </Section>
               )}
 
@@ -616,7 +769,7 @@ export default function AdminAssinaturasPage() {
                 </Section>
               )}
 
-              {/* Datas */}
+              {/* HISTÓRICO */}
               <Section title="Histórico">
                 <Field
                   label="Criado em"
@@ -686,21 +839,49 @@ function Section({
   );
 }
 
-function Field({ label, value }: { label: string; value: string }) {
+function Field({
+  label,
+  value,
+  link,
+}: {
+  label: string;
+  value: string;
+  link?: string;
+}) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
-      <span style={{ fontSize: 13, color: "#7a7a72" }}>{label}</span>
-      <span
-        style={{
-          fontSize: 13,
-          color: "#2f2a26",
-          fontWeight: 500,
-          textAlign: "right",
-          wordBreak: "break-word",
-        }}
-      >
-        {value}
+      <span style={{ fontSize: 13, color: "#7a7a72", flexShrink: 0 }}>
+        {label}
       </span>
+      {link ? (
+        <a
+          href={link}
+          target={link.startsWith("http") ? "_blank" : undefined}
+          rel={link.startsWith("http") ? "noopener noreferrer" : undefined}
+          style={{
+            fontSize: 13,
+            color: "#2563eb",
+            fontWeight: 500,
+            textAlign: "right",
+            wordBreak: "break-word",
+            textDecoration: "none",
+          }}
+        >
+          {value}
+        </a>
+      ) : (
+        <span
+          style={{
+            fontSize: 13,
+            color: "#2f2a26",
+            fontWeight: 500,
+            textAlign: "right",
+            wordBreak: "break-word",
+          }}
+        >
+          {value}
+        </span>
+      )}
     </div>
   );
 }
