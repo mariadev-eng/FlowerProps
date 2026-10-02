@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { initMercadoPago, CardPayment } from "@mercadopago/sdk-react";
+import { initMercadoPago } from "@mercadopago/sdk-react";
 import { supabase } from "@/lib/supabase";
 
 initMercadoPago(process.env.NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY!, {
   locale: "pt-BR",
 });
+
+const WHATSAPP_NUMBER = "5522992298475";
 
 type CartItem = {
   id: number;
@@ -41,10 +43,7 @@ export default function PaymentPage() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [customerData, setCustomerData] = useState<CustomerData | null>(null);
 
-  const [paymentMethod, setPaymentMethod] = useState<"pix" | "card">("pix");
-
   const [isFinishing, setIsFinishing] = useState(false);
-  const [isProcessingCard, setIsProcessingCard] = useState(false);
   const [error, setError] = useState("");
 
   const [pixData, setPixData] = useState<{
@@ -92,71 +91,6 @@ export default function PaymentPage() {
     });
   }
 
-  // ==========================================
-  // 🆕 CHECKOUT PRO — Redirecionamento pro MP
-  // ==========================================
-
-  async function handleCheckoutPro() {
-    setIsFinishing(true);
-    setError("");
-
-    if (cartItems.length === 0) {
-      setError("Seu carrinho está vazio.");
-      setIsFinishing(false);
-      return;
-    }
-
-    if (!customerData) {
-      setError("Dados do cliente não encontrados.");
-      setIsFinishing(false);
-      return;
-    }
-
-    try {
-      // Salva o pedido primeiro no Supabase (pending)
-      const orderId = await saveOrderToSupabase("checkout_pro");
-
-      // Cria a preferência no Mercado Pago
-      const response = await fetch("/api/mercado-pago/preference", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          items: cartItems.map((item) => ({
-            id: item.id,
-            name: item.name,
-            quantity: item.quantity,
-            price: item.price,
-          })),
-          orderId,
-          payer: {
-            email: customerData.email,
-            name: customerData.name,
-          },
-        }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok || !result.init_point) {
-        throw new Error(result.error || "Erro ao gerar link de pagamento.");
-      }
-
-      // Salva o ID do pedido pra usar depois do retorno
-      localStorage.setItem("flower-order-id", String(orderId));
-
-      // Redireciona pro Mercado Pago
-      window.location.href = result.init_point;
-    } catch (err: any) {
-      console.error("Erro no checkout pro:", err);
-      setError(err?.message || "Erro ao iniciar pagamento.");
-      setIsFinishing(false);
-    }
-  }
-
-  // ==========================================
-  // CAPTURA O DEVICE ID DO MERCADO PAGO
-  // ==========================================
-
   function getDeviceId(): string | null {
     if (typeof window === "undefined") return null;
     return (window as any).MP_DEVICE_SESSION_ID || null;
@@ -165,6 +99,10 @@ export default function PaymentPage() {
   function goBack() {
     router.push("/revisao");
   }
+
+  // ==========================================
+  // SALVA PEDIDO NO SUPABASE (pending)
+  // ==========================================
 
   async function saveOrderToSupabase(paymentMethodType: string) {
     if (!customerData) {
@@ -217,108 +155,17 @@ export default function PaymentPage() {
       .from("order_items")
       .insert(orderItems);
 
-  if (itemsError) {
-  console.error("ERRO AO CRIAR ITENS - MESSAGE:", itemsError.message);
-  console.error("ERRO AO CRIAR ITENS - DETAILS:", itemsError.details);
-  console.error("ERRO AO CRIAR ITENS - HINT:", itemsError.hint);
-  console.error("ERRO AO CRIAR ITENS - CODE:", itemsError.code);
-  console.error("ERRO AO CRIAR ITENS - COMPLETO:", JSON.stringify(itemsError));
-
-  throw new Error(
-    itemsError.message || "Erro ao salvar produtos do pedido."
-  );
-}
+    if (itemsError) {
+      console.error("ERRO AO CRIAR ITENS:", itemsError);
+      throw new Error("Erro ao salvar produtos do pedido.");
+    }
 
     return order.id;
   }
 
-  async function handleCardSubmit(formData: any) {
-    setIsProcessingCard(true);
-    setError("");
-
-    if (!customerData) {
-      setError("Dados do cliente não encontrados.");
-      setIsProcessingCard(false);
-      return;
-    }
-
-    try {
-      const orderId = await saveOrderToSupabase("card");
-
-      const deviceId = getDeviceId();
-
-      const response = await fetch("/api/mercado-pago/process", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          token: formData.token,
-          payment_method_id: formData.payment_method_id,
-          installments: formData.installments,
-          transaction_amount: total,
-          device_id: deviceId,
-          payer: {
-            email: customerData.email,
-            first_name: customerData.name.split(" ")[0],
-            last_name: customerData.name.split(" ").slice(1).join(" "),
-          },
-          description: `Pedido FLOWER PROPS #${orderId}`,
-          external_reference: `FLOWER-${orderId}`,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || "Erro ao processar pagamento.");
-      }
-
-      if (result.status === "approved") {
-        await supabase
-          .from("orders")
-          .update({
-            payment_status: "paid",
-            order_status: "confirmed",
-            payment_id: String(result.id),
-          })
-          .eq("id", orderId);
-
-        localStorage.setItem("flower-order-id", String(orderId));
-        localStorage.removeItem("flower-cart");
-
-        router.push("/pedido-confirmado");
-      } else if (result.status === "in_process" || result.status === "pending") {
-        await supabase
-          .from("orders")
-          .update({
-            payment_status: "pending",
-            payment_id: String(result.id),
-          })
-          .eq("id", orderId);
-
-        setError(
-          "Pagamento em análise. Você receberá uma confirmação em breve."
-        );
-        setIsProcessingCard(false);
-      } else {
-        await supabase
-          .from("orders")
-          .update({
-            payment_status: "rejected",
-            payment_id: String(result.id),
-          })
-          .eq("id", orderId);
-
-        setError(
-          "Pagamento não aprovado. Verifique os dados do cartão e tente novamente."
-        );
-        setIsProcessingCard(false);
-      }
-    } catch (err: any) {
-      console.error("Erro no cartão:", err);
-      setError(err?.message || "Erro ao processar pagamento.");
-      setIsProcessingCard(false);
-    }
-  }
+  // ==========================================
+  // PAGAMENTO COM PIX
+  // ==========================================
 
   async function handlePixPayment() {
     setIsFinishing(true);
@@ -375,31 +222,70 @@ export default function PaymentPage() {
     }
   }
 
-  async function finishOrder() {
-    if (cartItems.length === 0) {
-      setError("Seu carrinho está vazio.");
-      return;
-    }
+  // ==========================================
+  // CARTÃO VIA WHATSAPP (CRÉDITO / DÉBITO)
+  // ==========================================
+
+  async function handleCardWhatsApp(type: "credito" | "debito") {
+    setIsFinishing(true);
+    setError("");
 
     if (!customerData) {
       setError("Dados do cliente não encontrados.");
+      setIsFinishing(false);
       return;
     }
 
-    if (paymentMethod === "pix") {
-      await handlePixPayment();
+    try {
+      // Salva o pedido primeiro como "pending"
+      const orderId = await saveOrderToSupabase(
+        type === "credito" ? "card_credito" : "card_debito"
+      );
+
+      // Monta a lista de itens
+      const itemsList = cartItems
+        .map((item) => `• ${item.quantity}x ${item.name}`)
+        .join("\n");
+
+      // Monta a mensagem
+      const message = `Olá! Quero pagar com cartão de ${
+        type === "credito" ? "crédito" : "débito"
+      }.
+
+📦 Pedido: #${orderId}
+💰 Valor: ${formatPrice(total)}
+👤 Cliente: ${customerData.name}
+
+Itens:
+${itemsList}
+
+Aguardo o link de pagamento. Obrigado!`;
+
+      const encodedMessage = encodeURIComponent(message);
+      const whatsappLink = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodedMessage}`;
+
+      // Abre o WhatsApp
+      window.open(whatsappLink, "_blank");
+
+      // Salva o ID do pedido
+      localStorage.setItem("flower-order-id", String(orderId));
+
+      setIsFinishing(false);
+    } catch (err: any) {
+      console.error("Erro ao processar cartão:", err);
+      setError(err?.message || "Erro ao processar. Tente novamente.");
+      setIsFinishing(false);
     }
   }
 
   function copyPixCode() {
     if (!pixData) return;
-
     navigator.clipboard.writeText(pixData.qrCode);
     alert("Código Pix copiado! Cole no seu app do banco.");
   }
 
   // ==========================================
-  // POLLING: DETECTA PAGAMENTO DO PIX AUTOMATICAMENTE
+  // POLLING DO PIX
   // ==========================================
 
   useEffect(() => {
@@ -419,14 +305,9 @@ export default function PaymentPage() {
         }
 
         if (data?.payment_status === "paid") {
-          console.log("✅ Pagamento detectado! Redirecionando...");
-
           clearInterval(interval);
 
-          localStorage.setItem(
-            "flower-order-id",
-            String(pixData.orderId)
-          );
+          localStorage.setItem("flower-order-id", String(pixData.orderId));
           localStorage.removeItem("flower-cart");
 
           router.push("/pedido-confirmado");
@@ -441,7 +322,7 @@ export default function PaymentPage() {
 
   return (
     <main className="payment-page">
-      {/* HEADER PADRONIZADO */}
+      {/* HEADER */}
       <header className="payment-header">
         <div className="payment-header-inner">
           <a href="/" className="payment-logo">
@@ -502,153 +383,224 @@ export default function PaymentPage() {
           </div>
 
           {error && (
-            <div className="account-message error" style={{ marginBottom: 20 }}>
+            <div
+              className="account-message error"
+              style={{ marginBottom: 20 }}
+            >
               {error}
             </div>
           )}
-{/* CARTÃO — CHECKOUT TRANSPARENTE */}
-{!pixData && (
-  <section className="payment-card payment-instructions">
-    <div className="payment-card-heading">
-      <span>01</span>
 
-      <div>
-        <h2>Cartão de crédito</h2>
-        <p>Pagamento seguro pelo Mercado Pago</p>
-      </div>
-    </div>
-
-    <div style={{ marginTop: 24 }}>
-      <CardPayment
-        initialization={{
-          amount: total,
-        }}
-        customization={{
-          paymentMethods: {
-            minInstallments: 1,
-            maxInstallments: 12,
-          },
-        }}
-        onSubmit={handleCardSubmit}
-        onError={(error) => {
-          console.error("ERRO CARD PAYMENT:", error);
-          setError(
-            "Não foi possível processar o cartão. Verifique os dados e tente novamente."
-          );
-        }}
-      />
-    </div>
-  </section>
-)}
-              
-          {/* PIX — INSTRUÇÕES */}
-          {paymentMethod === "pix" && !pixData && (
-            <section className="payment-card payment-instructions">
-              <div className="payment-card-heading">
-                <span>02</span>
-
-                <div>
-                  <h2>Pagamento via Pix</h2>
-                  <p>Você receberá o QR Code após confirmar o pedido.</p>
+          {!pixData && (
+            <>
+              {/* 01 — PIX */}
+              <section className="payment-card payment-instructions">
+                <div className="payment-card-heading">
+                  <span>01</span>
+                  <div>
+                    <h2>Pix</h2>
+                    <p>Pagamento instantâneo, sem sair do site</p>
+                  </div>
                 </div>
-              </div>
 
-              <div className="pix-information">
-                <div className="pix-symbol">PIX</div>
-
-                <div>
-                  <strong>Simples, rápido e seguro</strong>
-                  <p>
-                    Após finalizar, o QR Code será gerado pra você escanear.
-                  </p>
+                <div className="pix-information">
+                  <div className="pix-symbol">PIX</div>
+                  <div>
+                    <strong>Simples, rápido e seguro</strong>
+                    <p>
+                      Após finalizar, o QR Code será gerado pra você
+                      escanear.
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </section>
-          )}
-
-          {/* PIX — QR CODE ATIVO */}
-          {pixData && (
-            <section className="payment-card payment-instructions">
-              <div className="payment-card-heading">
-                <span>02</span>
-
-                <div>
-                  <h2>Escaneie o QR Code</h2>
-                  <p>Abra o app do seu banco e escaneie o código abaixo.</p>
-                </div>
-              </div>
-
-              <div
-                className="pix-qrcode-container"
-                style={{ textAlign: "center", padding: "30px 0" }}
-              >
-                <img
-                  src={`data:image/png;base64,${pixData.qrCodeBase64}`}
-                  alt="QR Code Pix"
-                  style={{
-                    maxWidth: 260,
-                    margin: "0 auto 20px",
-                    display: "block",
-                  }}
-                />
 
                 <button
                   type="button"
-                  className="button button-primary dark"
-                  onClick={copyPixCode}
-                  style={{ marginTop: 10 }}
+                  className="finish-payment-button"
+                  onClick={handlePixPayment}
+                  disabled={isFinishing}
+                  style={{ marginTop: 16 }}
                 >
-                  Copiar código Pix
+                  {isFinishing ? "Gerando Pix..." : "Pagar com Pix"}
+                  {!isFinishing && <span>→</span>}
                 </button>
+              </section>
 
-                <p
+              {/* 02 — CARTÃO DE CRÉDITO VIA WHATSAPP */}
+              <section className="payment-card payment-instructions">
+                <div className="payment-card-heading">
+                  <span>02</span>
+                  <div>
+                    <h2>Cartão de crédito</h2>
+                    <p>Receba o link de pagamento pelo WhatsApp</p>
+                  </div>
+                </div>
+
+                <div
+                  className="pix-information"
+                  style={{ background: "#dbeafe" }}
+                >
+                  <div
+                    className="pix-symbol"
+                    style={{
+                      background: "#1e40af",
+                      fontSize: 22,
+                    }}
+                  >
+                    💳
+                  </div>
+                  <div>
+                    <strong>Link seguro do Mercado Pago</strong>
+                    <p>
+                      Você será redirecionado pro WhatsApp do ateliê pra
+                      receber o link.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className="finish-payment-button"
+                  onClick={() => handleCardWhatsApp("credito")}
+                  disabled={isFinishing}
                   style={{
-                    marginTop: 20,
-                    fontSize: 12,
-                    color: "#68735a",
-                    lineHeight: 1.6,
+                    marginTop: 16,
+                    background: "#1e40af",
                   }}
                 >
-                  Após o pagamento, seu pedido será confirmado automaticamente.
-                </p>
-              </div>
-            </section>
-          )}
+                  {isFinishing
+                    ? "Aguarde..."
+                    : "Pagar com crédito via WhatsApp"}
+                  {!isFinishing && <span>→</span>}
+                </button>
+              </section>
 
-          {/* BOTÃO FINALIZAR (PIX) */}
-          {paymentMethod === "pix" && !pixData && (
-            <>
-              <button
-                type="button"
-                className="finish-payment-button"
-                onClick={finishOrder}
-                disabled={isFinishing}
+              {/* 03 — CARTÃO DE DÉBITO VIA WHATSAPP */}
+              <section className="payment-card payment-instructions">
+                <div className="payment-card-heading">
+                  <span>03</span>
+                  <div>
+                    <h2>Cartão de débito</h2>
+                    <p>Receba o link de pagamento pelo WhatsApp</p>
+                  </div>
+                </div>
+
+                <div
+                  className="pix-information"
+                  style={{ background: "#fef3c7" }}
+                >
+                  <div
+                    className="pix-symbol"
+                    style={{
+                      background: "#854d0e",
+                      fontSize: 22,
+                    }}
+                  >
+                    💳
+                  </div>
+                  <div>
+                    <strong>Link seguro do Mercado Pago</strong>
+                    <p>
+                      Você será redirecionado pro WhatsApp do ateliê pra
+                      receber o link.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className="finish-payment-button"
+                  onClick={() => handleCardWhatsApp("debito")}
+                  disabled={isFinishing}
+                  style={{
+                    marginTop: 16,
+                    background: "#854d0e",
+                  }}
+                >
+                  {isFinishing
+                    ? "Aguarde..."
+                    : "Pagar com débito via WhatsApp"}
+                  {!isFinishing && <span>→</span>}
+                </button>
+              </section>
+
+              <p
+                className="payment-note"
+                style={{ marginTop: 24 }}
               >
-                {isFinishing ? "Gerando Pix..." : "Finalizar pedido"}
-                {!isFinishing && <span>→</span>}
-              </button>
-
-              <p className="payment-note">
-                Ao finalizar, você confirma seu pedido com a FLOWER PROPS.
+                💡 Dica: o Pix é aprovado na hora. Para cartão, você será
+                redirecionado pro WhatsApp do ateliê pra receber o link.
               </p>
             </>
           )}
 
+          {/* QR CODE PIX ATIVO */}
           {pixData && (
-            <button
-              type="button"
-              className="finish-payment-button"
-              onClick={() => {
-                localStorage.removeItem("flower-cart");
-                router.push("/pedido-confirmado");
-              }}
-            >
-              Já paguei, continuar
-              <span>→</span>
-            </button>
+            <>
+              <section className="payment-card payment-instructions">
+                <div className="payment-card-heading">
+                  <span>✓</span>
+                  <div>
+                    <h2>Escaneie o QR Code</h2>
+                    <p>
+                      Abra o app do seu banco e escaneie o código abaixo.
+                    </p>
+                  </div>
+                </div>
+
+                <div
+                  className="pix-qrcode-container"
+                  style={{ textAlign: "center", padding: "30px 0" }}
+                >
+                  <img
+                    src={`data:image/png;base64,${pixData.qrCodeBase64}`}
+                    alt="QR Code Pix"
+                    style={{
+                      maxWidth: 260,
+                      margin: "0 auto 20px",
+                      display: "block",
+                    }}
+                  />
+
+                  <button
+                    type="button"
+                    className="button button-primary dark"
+                    onClick={copyPixCode}
+                    style={{ marginTop: 10 }}
+                  >
+                    Copiar código Pix
+                  </button>
+
+                  <p
+                    style={{
+                      marginTop: 20,
+                      fontSize: 12,
+                      color: "#68735a",
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    Após o pagamento, seu pedido será confirmado
+                    automaticamente.
+                  </p>
+                </div>
+              </section>
+
+              <button
+                type="button"
+                className="finish-payment-button"
+                onClick={() => {
+                  localStorage.removeItem("flower-cart");
+                  router.push("/pedido-confirmado");
+                }}
+              >
+                Já paguei, continuar
+                <span>→</span>
+              </button>
+            </>
           )}
         </section>
 
+        {/* RESUMO */}
         <aside className="payment-summary">
           <div className="payment-summary-heading">
             <span>RESUMO</span>
