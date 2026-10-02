@@ -223,10 +223,10 @@ export default function PaymentPage() {
   }
 
   // ==========================================
-  // CARTÃO VIA WHATSAPP (CRÉDITO / DÉBITO)
+  // CARTÃO DE CRÉDITO VIA WHATSAPP
   // ==========================================
 
-  async function handleCardWhatsApp(type: "credito" | "debito") {
+  async function handleCardWhatsApp() {
     setIsFinishing(true);
     setError("");
 
@@ -238,9 +238,7 @@ export default function PaymentPage() {
 
     try {
       // Salva o pedido primeiro como "pending"
-      const orderId = await saveOrderToSupabase(
-        type === "credito" ? "card_credito" : "card_debito"
-      );
+      const orderId = await saveOrderToSupabase("card_credito");
 
       // Monta a lista de itens
       const itemsList = cartItems
@@ -248,9 +246,7 @@ export default function PaymentPage() {
         .join("\n");
 
       // Monta a mensagem
-      const message = `Olá! Quero pagar com cartão de ${
-        type === "credito" ? "crédito" : "débito"
-      }.
+      const message = `Olá! Quero pagar com cartão de crédito.
 
 📦 Pedido: #${orderId}
 💰 Valor: ${formatPrice(total)}
@@ -461,7 +457,7 @@ Aguardo o link de pagamento. Obrigado!`;
                 <button
                   type="button"
                   className="finish-payment-button"
-                  onClick={() => handleCardWhatsApp("credito")}
+                  onClick={handleCardWhatsApp}
                   disabled={isFinishing}
                   style={{
                     marginTop: 16,
@@ -475,61 +471,10 @@ Aguardo o link de pagamento. Obrigado!`;
                 </button>
               </section>
 
-              {/* 03 — CARTÃO DE DÉBITO VIA WHATSAPP */}
-              <section className="payment-card payment-instructions">
-                <div className="payment-card-heading">
-                  <span>03</span>
-                  <div>
-                    <h2>Cartão de débito</h2>
-                    <p>Receba o link de pagamento pelo WhatsApp</p>
-                  </div>
-                </div>
-
-                <div
-                  className="pix-information"
-                  style={{ background: "#fef3c7" }}
-                >
-                  <div
-                    className="pix-symbol"
-                    style={{
-                      background: "#854d0e",
-                      fontSize: 22,
-                    }}
-                  >
-                    💳
-                  </div>
-                  <div>
-                    <strong>Link seguro do Mercado Pago</strong>
-                    <p>
-                      Você será redirecionado pro WhatsApp do ateliê pra
-                      receber o link.
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  className="finish-payment-button"
-                  onClick={() => handleCardWhatsApp("debito")}
-                  disabled={isFinishing}
-                  style={{
-                    marginTop: 16,
-                    background: "#854d0e",
-                  }}
-                >
-                  {isFinishing
-                    ? "Aguarde..."
-                    : "Pagar com débito via WhatsApp"}
-                  {!isFinishing && <span>→</span>}
-                </button>
-              </section>
-
-              <p
-                className="payment-note"
-                style={{ marginTop: 24 }}
-              >
-                💡 Dica: o Pix é aprovado na hora. Para cartão, você será
-                redirecionado pro WhatsApp do ateliê pra receber o link.
+              <p className="payment-note" style={{ marginTop: 24 }}>
+                💡 Dica: o Pix é aprovado na hora. Para cartão de crédito,
+                você será redirecionado pro WhatsApp do ateliê pra receber
+                o link.
               </p>
             </>
           )}
