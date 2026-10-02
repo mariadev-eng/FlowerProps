@@ -82,10 +82,6 @@ export default function ProdutoPage() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // ==========================================
-  // CARREGA PRODUTO + COMPLEMENTOS + FLORES
-  // ==========================================
-
   useEffect(() => {
     async function loadProduct() {
       if (!productId) {
@@ -118,7 +114,7 @@ export default function ProdutoPage() {
         setCurrentImage(data.image || "");
       }
 
-      // FLORES DA SEMANA
+      // FLORES DA SEMANA — filtra pelas que incluem esse produto
       const { data: flowersData } = await supabase
         .from("weekly_flowers")
         .select("*")
@@ -126,8 +122,13 @@ export default function ProdutoPage() {
         .order("position", { ascending: true });
 
       if (flowersData) {
+        const filtered = flowersData.filter((f) => {
+          const allowed: string[] = f.allowed_products || [];
+          return allowed.includes(data.name);
+        });
+
         setWeeklyFlowers(
-          flowersData.map((f) => ({
+          filtered.map((f) => ({
             name: f.name,
             image: f.image || "",
             extra_price: Number(f.extra_price) || 0,
@@ -155,12 +156,12 @@ export default function ProdutoPage() {
             (s: string) => s.toLowerCase().trim()
           );
 
-          const filtered = (complementsData ?? []).filter(
+          const filteredComp = (complementsData ?? []).filter(
             (c: Product) =>
               !alreadyIncluded.includes(c.name.toLowerCase().trim())
           );
 
-          setComplements(filtered);
+          setComplements(filteredComp);
         }
       } else {
         setComplements([]);
@@ -171,10 +172,6 @@ export default function ProdutoPage() {
 
     loadProduct();
   }, [productId, router]);
-
-  // ==========================================
-  // RECUPERA CARRINHO
-  // ==========================================
 
   useEffect(() => {
     const savedCart = localStorage.getItem("flower-cart");
@@ -190,26 +187,14 @@ export default function ProdutoPage() {
     setIsLoaded(true);
   }, []);
 
-  // ==========================================
-  // SALVA CARRINHO
-  // ==========================================
-
   useEffect(() => {
     if (!isLoaded) return;
     localStorage.setItem("flower-cart", JSON.stringify(cartItems));
   }, [cartItems, isLoaded]);
 
-  // ==========================================
-  // LISTA DE FLORES DISPONÍVEIS
-  // ==========================================
-
   function getAvailableFlowers(): Flower[] {
     return weeklyFlowers;
   }
-
-  // ==========================================
-  // TOTAL DAS FLORES (soma dos adicionais)
-  // ==========================================
 
   function getFlowersExtra(): number {
     return selectedFlowers.reduce(
@@ -217,10 +202,6 @@ export default function ProdutoPage() {
       0
     );
   }
-
-  // ==========================================
-  // SELEÇÃO DE COR
-  // ==========================================
 
   function handleSelectColor(color: ProductColor) {
     setSelectedColor(color);
@@ -231,10 +212,6 @@ export default function ProdutoPage() {
     if (!product?.colors) return [];
     return product.colors.filter((c) => c.active);
   }
-
-  // ==========================================
-  // TOGGLE FLOR (com limite)
-  // ==========================================
 
   function toggleFlower(flower: Flower) {
     let blocked = false;
@@ -275,10 +252,6 @@ export default function ProdutoPage() {
     return selectedFlowers.length >= product.max_flowers;
   }
 
-  // ==========================================
-  // ADICIONA COMPLEMENTO AO CARRINHO
-  // ==========================================
-
   function addComplementToCart(complement: Product) {
     const cartItem: CartItem = {
       ...complement,
@@ -302,10 +275,6 @@ export default function ProdutoPage() {
       return [...current, cartItem];
     });
   }
-
-  // ==========================================
-  // ADICIONA PRODUTO PRINCIPAL AO CARRINHO
-  // ==========================================
 
   function addToCart() {
     if (!product) return;
@@ -366,10 +335,6 @@ export default function ProdutoPage() {
       currency: "BRL",
     });
   }
-
-  // ==========================================
-  // LOADING
-  // ==========================================
 
   if (isLoading || !product) {
     return (

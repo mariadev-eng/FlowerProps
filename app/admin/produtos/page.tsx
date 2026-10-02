@@ -29,6 +29,7 @@ type WeeklyFlower = {
   image: string | null;
   active: boolean;
   extra_price: number | null;
+  allowed_products: string[] | null;
 };
 
 const CATEGORIES = [
@@ -542,36 +543,62 @@ function ProductEditor({
 
 function FloresTab() {
   const [flowers, setFlowers] = useState<WeeklyFlower[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [expandedFlowerId, setExpandedFlowerId] = useState<string | null>(null);
 
-  async function loadFlowers() {
+  async function loadData() {
     setIsLoading(true);
 
-    const { data, error } = await supabase
-      .from("weekly_flowers")
-      .select("*")
-      .order("position", { ascending: true });
+    const [flowersRes, productsRes] = await Promise.all([
+      supabase
+        .from("weekly_flowers")
+        .select("*")
+        .order("position", { ascending: true }),
+      supabase
+        .from("products")
+        .select("id, name")
+        .order("name", { ascending: true }),
+    ]);
 
-    if (error) {
-      console.error("Erro ao carregar flores:", error);
+    if (flowersRes.error) {
+      console.error("Erro ao carregar flores:", flowersRes.error);
       setFlowers([]);
     } else {
-      setFlowers(data ?? []);
+      setFlowers(flowersRes.data ?? []);
+    }
+
+    if (productsRes.error) {
+      console.error("Erro ao carregar produtos:", productsRes.error);
+      setProducts([]);
+    } else {
+      setProducts((productsRes.data ?? []) as Product[]);
     }
 
     setIsLoading(false);
   }
 
   useEffect(() => {
-    loadFlowers();
+    loadData();
   }, []);
 
   function updateFlower(id: string, patch: Partial<WeeklyFlower>) {
     setFlowers((current) =>
       current.map((f) => (f.id === id ? { ...f, ...patch } : f))
     );
+  }
+
+  function toggleProductForFlower(flower: WeeklyFlower, productName: string) {
+    const current = flower.allowed_products || [];
+    const exists = current.includes(productName);
+
+    const updated = exists
+      ? current.filter((p) => p !== productName)
+      : [...current, productName];
+
+    updateFlower(flower.id, { allowed_products: updated });
   }
 
   async function saveFlower(flower: WeeklyFlower) {
@@ -584,6 +611,7 @@ function FloresTab() {
         image: flower.image,
         active: flower.active,
         extra_price: Number(flower.extra_price) || 0,
+        allowed_products: flower.allowed_products || [],
         updated_at: new Date().toISOString(),
       })
       .eq("id", flower.id);
@@ -640,6 +668,10 @@ function FloresTab() {
     setFlowers((current) => current.filter((f) => f.id !== id));
   }
 
+  function countProducts(flower: WeeklyFlower): number {
+    return (flower.allowed_products || []).length;
+  }
+
   return (
     <>
       <p
@@ -647,13 +679,13 @@ function FloresTab() {
           margin: "0 0 20px",
           color: "#7a7a72",
           fontSize: 13,
-          maxWidth: 600,
+          maxWidth: 700,
         }}
       >
-        As flores abaixo aparecem em <strong>todos os produtos</strong> que
-        exigem escolha de flores. Quando uma acabar, é só desativar ou remover
-        aqui. Flores com <strong>preço adicional</strong> (ex: Lírio) somam o
-        valor no total do produto.
+        Marque em <strong>quais produtos</strong> cada flor vai aparecer. Se
+        não marcar nenhum, a flor <strong>não aparece</strong> em nenhum
+        produto. Flores com <strong>preço adicional</strong> (ex: Lírio) somam
+        o valor no total.
       </p>
 
       <div style={{ marginBottom: 16 }}>
@@ -681,119 +713,236 @@ function FloresTab() {
         <div style={emptyStyle}>Nenhuma flor cadastrada.</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {flowers.map((flower) => (
-            <div
-              key={flower.id}
-              style={{
-                display: "flex",
-                gap: 16,
-                alignItems: "center",
-                padding: 16,
-                background: "#fff",
-                border: "1px solid #e0e0dc",
-                borderRadius: 8,
-                flexWrap: "wrap",
-              }}
-            >
-              <FlowerImageUpload
-                image={flower.image}
-                onUpload={(file) => handleUpload(flower.id, file)}
-                isLoading={savingId === flower.id}
-              />
+          {flowers.map((flower) => {
+            const isExpanded = expandedFlowerId === flower.id;
+            const count = countProducts(flower);
 
-              <input
-                type="text"
-                value={flower.name}
-                onChange={(e) =>
-                  updateFlower(flower.id, { name: e.target.value })
-                }
-                style={{ ...inputStyle, flex: "1 1 180px" }}
-              />
-
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                <label
+            return (
+              <div
+                key={flower.id}
+                style={{
+                  background: "#fff",
+                  border: "1px solid #e0e0dc",
+                  borderRadius: 8,
+                  overflow: "hidden",
+                }}
+              >
+                {/* LINHA PRINCIPAL */}
+                <div
                   style={{
-                    fontSize: 10,
-                    color: "#7a7a72",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                    fontWeight: 600,
+                    display: "flex",
+                    gap: 16,
+                    alignItems: "center",
+                    padding: 16,
+                    flexWrap: "wrap",
                   }}
                 >
-                  Adicional (R$)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={flower.extra_price || ""}
-                  onChange={(e) =>
-                    updateFlower(flower.id, {
-                      extra_price: e.target.value
-                        ? Number(e.target.value)
-                        : 0,
-                    })
-                  }
-                  placeholder="0,00"
-                  style={{ ...inputStyle, width: 100 }}
-                />
+                  <FlowerImageUpload
+                    image={flower.image}
+                    onUpload={(file) => handleUpload(flower.id, file)}
+                    isLoading={savingId === flower.id}
+                  />
+
+                  <input
+                    type="text"
+                    value={flower.name}
+                    onChange={(e) =>
+                      updateFlower(flower.id, { name: e.target.value })
+                    }
+                    style={{ ...inputStyle, flex: "1 1 180px" }}
+                  />
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    <label
+                      style={{
+                        fontSize: 10,
+                        color: "#7a7a72",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                        fontWeight: 600,
+                      }}
+                    >
+                      Adicional (R$)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={flower.extra_price || ""}
+                      onChange={(e) =>
+                        updateFlower(flower.id, {
+                          extra_price: e.target.value
+                            ? Number(e.target.value)
+                            : 0,
+                        })
+                      }
+                      placeholder="0,00"
+                      style={{ ...inputStyle, width: 100 }}
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setExpandedFlowerId(isExpanded ? null : flower.id)
+                    }
+                    style={{
+                      padding: "8px 14px",
+                      background: isExpanded ? "#2f2a26" : "#f9f9f7",
+                      color: isExpanded ? "#fff" : "#2f2a26",
+                      border: "1px solid #d1d5db",
+                      borderRadius: 6,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    📦 {count} {count === 1 ? "produto" : "produtos"}
+                  </button>
+
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      fontSize: 12,
+                      color: "#2f2a26",
+                      cursor: "pointer",
+                      userSelect: "none",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={flower.active}
+                      onChange={(e) =>
+                        updateFlower(flower.id, { active: e.target.checked })
+                      }
+                    />
+                    Ativa
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={() => saveFlower(flower)}
+                    disabled={savingId === flower.id}
+                    style={{
+                      padding: "8px 16px",
+                      background: "#166534",
+                      color: "#fff",
+                      border: 0,
+                      borderRadius: 6,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: savingId === flower.id ? "wait" : "pointer",
+                    }}
+                  >
+                    {savingId === flower.id ? "..." : "Salvar"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveFlower(flower.id)}
+                    style={{
+                      padding: "8px 12px",
+                      background: "transparent",
+                      border: "1px solid #fecaca",
+                      color: "#991b1b",
+                      borderRadius: 6,
+                      fontSize: 12,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Remover
+                  </button>
+                </div>
+
+                {/* LISTA DE PRODUTOS (expansível) */}
+                {isExpanded && (
+                  <div
+                    style={{
+                      padding: 16,
+                      background: "#f9f9f7",
+                      borderTop: "1px solid #e0e0dc",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: "#7a7a72",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                        marginBottom: 12,
+                      }}
+                    >
+                      📦 Aparece em quais produtos:
+                    </div>
+
+                    {products.length === 0 ? (
+                      <p style={{ fontSize: 13, color: "#7a7a72", margin: 0 }}>
+                        Nenhum produto cadastrado.
+                      </p>
+                    ) : (
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns:
+                            "repeat(auto-fill, minmax(200px, 1fr))",
+                          gap: 8,
+                        }}
+                      >
+                        {products.map((product) => {
+                          const isChecked = (
+                            flower.allowed_products || []
+                          ).includes(product.name);
+
+                          return (
+                            <label
+                              key={product.id}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 8,
+                                padding: "8px 12px",
+                                background: "#fff",
+                                border: isChecked
+                                  ? "1px solid #166534"
+                                  : "1px solid #e0e0dc",
+                                borderRadius: 6,
+                                cursor: "pointer",
+                                userSelect: "none",
+                                fontSize: 13,
+                                color: "#2f2a26",
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() =>
+                                  toggleProductForFlower(flower, product.name)
+                                }
+                              />
+                              {product.name}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    <p
+                      style={{
+                        margin: "12px 0 0",
+                        fontSize: 11,
+                        color: "#7a7a72",
+                      }}
+                    >
+                      💡 Lembre-se de clicar em <strong>Salvar</strong> depois
+                      de marcar/desmarcar.
+                    </p>
+                  </div>
+                )}
               </div>
-
-              <label
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  fontSize: 12,
-                  color: "#2f2a26",
-                  cursor: "pointer",
-                  userSelect: "none",
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={flower.active}
-                  onChange={(e) =>
-                    updateFlower(flower.id, { active: e.target.checked })
-                  }
-                />
-                Ativa
-              </label>
-
-              <button
-                type="button"
-                onClick={() => saveFlower(flower)}
-                disabled={savingId === flower.id}
-                style={{
-                  padding: "8px 16px",
-                  background: "#166534",
-                  color: "#fff",
-                  border: 0,
-                  borderRadius: 6,
-                  fontSize: 12,
-                  fontWeight: 600,
-                  cursor: savingId === flower.id ? "wait" : "pointer",
-                }}
-              >
-                {savingId === flower.id ? "..." : "Salvar"}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleRemoveFlower(flower.id)}
-                style={{
-                  padding: "8px 12px",
-                  background: "transparent",
-                  border: "1px solid #fecaca",
-                  color: "#991b1b",
-                  borderRadius: 6,
-                  fontSize: 12,
-                  cursor: "pointer",
-                }}
-              >
-                Remover
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -802,13 +951,14 @@ function FloresTab() {
           onClose={() => setShowAddModal(false)}
           onSaved={() => {
             setShowAddModal(false);
-            loadFlowers();
+            loadData();
           }}
           nextPosition={
             flowers.length > 0
               ? Math.max(...flowers.map((f) => f.position)) + 1
               : 1
           }
+          products={products}
         />
       )}
     </>
@@ -823,16 +973,19 @@ function AddFlowerModal({
   onClose,
   onSaved,
   nextPosition,
+  products,
 }: {
   onClose: () => void;
   onSaved: () => void;
   nextPosition: number;
+  products: Product[];
 }) {
   const [name, setName] = useState("");
   const [extraPrice, setExtraPrice] = useState("");
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function handleUpload(file: File) {
@@ -862,6 +1015,15 @@ function AddFlowerModal({
     }
   }
 
+  function toggleProduct(productName: string) {
+    setSelectedProducts((current) => {
+      if (current.includes(productName)) {
+        return current.filter((p) => p !== productName);
+      }
+      return [...current, productName];
+    });
+  }
+
   async function handleSave() {
     if (!name.trim()) {
       alert("Informe o nome da flor.");
@@ -876,6 +1038,7 @@ function AddFlowerModal({
       image: imageUrl,
       active: true,
       extra_price: extraPrice ? Number(extraPrice.replace(",", ".")) : 0,
+      allowed_products: selectedProducts,
     });
 
     setIsSaving(false);
@@ -906,7 +1069,7 @@ function AddFlowerModal({
           top: "50%",
           left: "50%",
           transform: "translate(-50%, -50%)",
-          width: "min(480px, 92%)",
+          width: "min(600px, 92%)",
           maxHeight: "90vh",
           overflowY: "auto",
           background: "#fff",
@@ -958,9 +1121,7 @@ function AddFlowerModal({
             </label>
 
             <div
-              onClick={() =>
-                !isUploading && fileInputRef.current?.click()
-              }
+              onClick={() => !isUploading && fileInputRef.current?.click()}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -1011,17 +1172,9 @@ function AddFlowerModal({
                     color: "#2f2a26",
                   }}
                 >
-                  {imageUrl
-                    ? "Trocar imagem"
-                    : "Clique pra escolher uma imagem"}
+                  {imageUrl ? "Trocar imagem" : "Clique pra escolher uma imagem"}
                 </div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    color: "#7a7a72",
-                    marginTop: 2,
-                  }}
-                >
+                <div style={{ fontSize: 11, color: "#7a7a72", marginTop: 2 }}>
                   JPG, PNG ou WEBP
                 </div>
               </div>
@@ -1087,14 +1240,74 @@ function AddFlowerModal({
               placeholder="15,00"
               style={formInputStyle}
             />
-            <p
+            <p style={{ margin: "6px 0 0", fontSize: 11, color: "#7a7a72" }}>
+              Deixe vazio se a flor não tem valor adicional.
+            </p>
+          </div>
+
+          {/* PRODUTOS */}
+          <div>
+            <label
               style={{
-                margin: "6px 0 0",
+                display: "block",
                 fontSize: 11,
+                fontWeight: 600,
                 color: "#7a7a72",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                marginBottom: 6,
               }}
             >
-              Deixe vazio se a flor não tem valor adicional.
+              Aparece em quais produtos?
+            </label>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+                gap: 8,
+                maxHeight: 240,
+                overflowY: "auto",
+                padding: 8,
+                border: "1px solid #e0e0dc",
+                borderRadius: 8,
+              }}
+            >
+              {products.map((product) => {
+                const isChecked = selectedProducts.includes(product.name);
+
+                return (
+                  <label
+                    key={product.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "6px 10px",
+                      background: isChecked ? "#f0fdf4" : "#fff",
+                      border: isChecked
+                        ? "1px solid #166534"
+                        : "1px solid #e0e0dc",
+                      borderRadius: 6,
+                      cursor: "pointer",
+                      userSelect: "none",
+                      fontSize: 12,
+                      color: "#2f2a26",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => toggleProduct(product.name)}
+                    />
+                    {product.name}
+                  </label>
+                );
+              })}
+            </div>
+
+            <p style={{ margin: "6px 0 0", fontSize: 11, color: "#7a7a72" }}>
+              Se não marcar nenhum, a flor não aparece no site.
             </p>
           </div>
 
@@ -1132,7 +1345,7 @@ function AddFlowerModal({
 }
 
 // ==========================================
-// UPLOAD DE IMAGEM (linha da flor)
+// UPLOAD DE IMAGEM
 // ==========================================
 
 function FlowerImageUpload({
