@@ -51,13 +51,15 @@ type Product = {
 
 type CartItem = Product & {
   quantity: number;
-  selected_flowers?: Array<{ name: string; image: string }>;
+  selected_flowers?: Array<{ name: string; image: string; extra_price?: number }>;
   selected_color?: string;
+  extra_from_flowers?: number;
 };
 
 type Flower = {
   name: string;
   image: string;
+  extra_price?: number;
 };
 
 export default function ProdutoPage() {
@@ -116,10 +118,7 @@ export default function ProdutoPage() {
         setCurrentImage(data.image || "");
       }
 
-      // ==========================================
-      // FLORES DA SEMANA (tabela nova)
-      // ==========================================
-
+      // FLORES DA SEMANA
       const { data: flowersData } = await supabase
         .from("weekly_flowers")
         .select("*")
@@ -131,14 +130,12 @@ export default function ProdutoPage() {
           flowersData.map((f) => ({
             name: f.name,
             image: f.image || "",
+            extra_price: Number(f.extra_price) || 0,
           }))
         );
       }
 
-      // ==========================================
       // COMPLEMENTOS
-      // ==========================================
-
       if (data.category_id !== 4) {
         const { data: complementsData, error: complementsError } =
           await supabase
@@ -203,11 +200,22 @@ export default function ProdutoPage() {
   }, [cartItems, isLoaded]);
 
   // ==========================================
-  // LISTA DE FLORES DISPONÍVEIS (tabela nova)
+  // LISTA DE FLORES DISPONÍVEIS
   // ==========================================
 
   function getAvailableFlowers(): Flower[] {
     return weeklyFlowers;
+  }
+
+  // ==========================================
+  // TOTAL DAS FLORES (soma dos adicionais)
+  // ==========================================
+
+  function getFlowersExtra(): number {
+    return selectedFlowers.reduce(
+      (sum, f) => sum + (f.extra_price || 0),
+      0
+    );
   }
 
   // ==========================================
@@ -316,13 +324,17 @@ export default function ProdutoPage() {
       }
     }
 
+    const extraFromFlowers = getFlowersExtra();
+
     const cartItem: CartItem = {
       ...product,
       quantity: 1,
+      price: product.price + extraFromFlowers,
       selected_flowers:
         selectedFlowers.length > 0 ? selectedFlowers : undefined,
       selected_color: selectedColor?.name,
       image: currentImage || product.image,
+      extra_from_flowers: extraFromFlowers,
     };
 
     setCartItems((current) => {
@@ -373,6 +385,8 @@ export default function ProdutoPage() {
   const hasFlowers = availableFlowers.length > 0;
   const activeColors = getActiveColors();
   const hasColors = activeColors.length > 0;
+  const flowersExtra = getFlowersExtra();
+  const finalPrice = product.price + flowersExtra;
 
   return (
     <main className="product-page">
@@ -416,7 +430,7 @@ export default function ProdutoPage() {
             <span className="eyebrow">FLOWER PROPS</span>
             <h1>{product.name}</h1>
             <div className="product-detail-price">
-              {formatPrice(product.price)}
+              {formatPrice(finalPrice)}
             </div>
           </div>
 
@@ -438,7 +452,22 @@ export default function ProdutoPage() {
             </p>
 
             <div className="product-detail-price">
-              {formatPrice(product.price)}
+              {formatPrice(finalPrice)}
+              {flowersExtra > 0 && (
+                <span
+                  style={{
+                    display: "block",
+                    fontSize: 12,
+                    fontWeight: 500,
+                    color: "#166534",
+                    marginTop: 6,
+                    fontFamily: "system-ui",
+                    letterSpacing: 0,
+                  }}
+                >
+                  (inclui {formatPrice(flowersExtra)} de flores adicionais)
+                </span>
+              )}
             </div>
 
             {hasColors && (
@@ -511,6 +540,8 @@ export default function ProdutoPage() {
                   <div className="product-flowers-grid">
                     {availableFlowers.map((flower) => {
                       const blocked = isFlowerBlocked(flower);
+                      const hasExtra =
+                        flower.extra_price && flower.extra_price > 0;
 
                       return (
                         <button
@@ -537,6 +568,21 @@ export default function ProdutoPage() {
                           <span className="product-flower-card-name">
                             {flower.name}
                           </span>
+
+                          {hasExtra && (
+                            <span
+                              style={{
+                                display: "block",
+                                fontSize: 11,
+                                fontWeight: 700,
+                                color: "#166534",
+                                marginTop: 2,
+                                textAlign: "center",
+                              }}
+                            >
+                              Adicional +{formatPrice(flower.extra_price!)}
+                            </span>
+                          )}
 
                           <span
                             className="product-flower-card-check"
@@ -613,6 +659,7 @@ export default function ProdutoPage() {
             disabled={product.requires_flower_selection && !hasFlowers}
           >
             Adicionar ao carrinho
+            {flowersExtra > 0 && ` (${formatPrice(finalPrice)})`}
             <span>→</span>
           </button>
         </div>

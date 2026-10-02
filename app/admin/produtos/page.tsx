@@ -28,6 +28,7 @@ type WeeklyFlower = {
   name: string;
   image: string | null;
   active: boolean;
+  extra_price: number | null;
 };
 
 const CATEGORIES = [
@@ -51,7 +52,6 @@ export default function AdminProdutosPage() {
 
   return (
     <div>
-      {/* HEADER + SUB-ABAS */}
       <div style={{ marginBottom: 20 }}>
         <h1
           style={{
@@ -86,16 +86,11 @@ export default function AdminProdutosPage() {
         </div>
       </div>
 
-      {/* CONTEÚDO */}
       {activeTab === "produtos" && <ProdutosTab />}
       {activeTab === "flores" && <FloresTab />}
     </div>
   );
 }
-
-// ==========================================
-// SUB-ABA
-// ==========================================
 
 function SubTab({
   active,
@@ -186,7 +181,6 @@ function ProdutosTab() {
 
   return (
     <>
-      {/* FILTROS */}
       <div
         style={{
           display: "flex",
@@ -226,7 +220,6 @@ function ProdutosTab() {
         </button>
       </div>
 
-      {/* TABELA */}
       <div style={tableWrapperStyle}>
         {isLoading ? (
           <div style={emptyStyle}>Carregando produtos...</div>
@@ -315,7 +308,6 @@ function ProdutosTab() {
         )}
       </div>
 
-      {/* PAINEL LATERAL DE EDIÇÃO */}
       {selectedProduct && (
         <ProductEditor
           product={selectedProduct}
@@ -333,7 +325,7 @@ function ProdutosTab() {
 }
 
 // ==========================================
-// EDITOR DE PRODUTO (painel lateral)
+// EDITOR DE PRODUTO
 // ==========================================
 
 function ProductEditor({
@@ -592,6 +584,7 @@ function FloresTab() {
         name: flower.name,
         image: flower.image,
         active: flower.active,
+        extra_price: Number(flower.extra_price) || 0,
         updated_at: new Date().toISOString(),
       })
       .eq("id", flower.id);
@@ -624,10 +617,8 @@ function FloresTab() {
       return;
     }
 
-    // Atualiza a flor com a nova URL
     updateFlower(id, { image: result.url });
 
-    // Salva no banco
     await supabase
       .from("weekly_flowers")
       .update({ image: result.url, updated_at: new Date().toISOString() })
@@ -651,6 +642,7 @@ function FloresTab() {
         name: newFlowerName.trim(),
         image: null,
         active: true,
+        extra_price: 0,
       })
       .select()
       .single();
@@ -694,10 +686,10 @@ function FloresTab() {
       >
         As flores abaixo aparecem em <strong>todos os produtos</strong> que
         exigem escolha de flores. Quando uma acabar, é só desativar ou remover
-        aqui.
+        aqui. Flores com <strong>preço adicional</strong> (ex: Lírio) somam o
+        valor no total do produto.
       </p>
 
-      {/* LISTA */}
       {isLoading ? (
         <div style={emptyStyle}>Carregando flores...</div>
       ) : (
@@ -713,26 +705,52 @@ function FloresTab() {
                 background: "#fff",
                 border: "1px solid #e0e0dc",
                 borderRadius: 8,
+                flexWrap: "wrap",
               }}
             >
-              {/* Imagem */}
               <FlowerImageUpload
                 image={flower.image}
                 onUpload={(file) => handleUpload(flower.id, file)}
                 isLoading={savingId === flower.id}
               />
 
-              {/* Nome */}
               <input
                 type="text"
                 value={flower.name}
                 onChange={(e) =>
                   updateFlower(flower.id, { name: e.target.value })
                 }
-                style={{ ...inputStyle, flex: 1 }}
+                style={{ ...inputStyle, flex: "1 1 180px" }}
               />
 
-              {/* Ativo */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <label
+                  style={{
+                    fontSize: 10,
+                    color: "#7a7a72",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    fontWeight: 600,
+                  }}
+                >
+                  Adicional (R$)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={flower.extra_price || ""}
+                  onChange={(e) =>
+                    updateFlower(flower.id, {
+                      extra_price: e.target.value
+                        ? Number(e.target.value)
+                        : 0,
+                    })
+                  }
+                  placeholder="0,00"
+                  style={{ ...inputStyle, width: 100 }}
+                />
+              </div>
+
               <label
                 style={{
                   display: "flex",
@@ -754,7 +772,6 @@ function FloresTab() {
                 Ativa
               </label>
 
-              {/* Salvar */}
               <button
                 type="button"
                 onClick={() => saveFlower(flower)}
@@ -773,7 +790,6 @@ function FloresTab() {
                 {savingId === flower.id ? "..." : "Salvar"}
               </button>
 
-              {/* Remover */}
               <button
                 type="button"
                 onClick={() => handleRemoveFlower(flower.id)}
@@ -794,7 +810,6 @@ function FloresTab() {
         </div>
       )}
 
-      {/* ADICIONAR NOVA */}
       <div
         style={{
           marginTop: 20,
@@ -805,6 +820,7 @@ function FloresTab() {
           display: "flex",
           gap: 12,
           alignItems: "center",
+          flexWrap: "wrap",
         }}
       >
         <input
@@ -838,7 +854,7 @@ function FloresTab() {
 }
 
 // ==========================================
-// COMPONENTE: UPLOAD DE IMAGEM
+// UPLOAD DE IMAGEM
 // ==========================================
 
 function FlowerImageUpload({
