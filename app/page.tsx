@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { UserRound } from "lucide-react";
+import { UserRound, ShoppingBag } from "lucide-react";
 import { useRouter } from "next/navigation";
 import ProductCard from "./components/ProductCard";
 import Cart from "./components/Cart";
@@ -371,16 +371,16 @@ export default function Home() {
             <UserMenu />
 
             <button
-              type="button"
-              aria-label="Carrinho"
-              onClick={() => setIsCartOpen(true)}
-              className="cart-button"
-            >
-              ♡
-              {cartQuantity > 0 && (
-                <span className="cart-count">{cartQuantity}</span>
-              )}
-            </button>
+  type="button"
+  aria-label="Carrinho"
+  onClick={() => setIsCartOpen(true)}
+  className="cart-button"
+>
+  <ShoppingBag size={20} strokeWidth={1.5} />
+  {cartQuantity > 0 && (
+    <span className="cart-count">{cartQuantity}</span>
+  )}
+</button>
           </div>
         </div>
 
