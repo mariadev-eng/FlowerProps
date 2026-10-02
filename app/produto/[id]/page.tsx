@@ -407,7 +407,6 @@ export default function ProdutoPage() {
             {product.requires_flower_selection && (
               <div className="product-message">
                 <div className="product-message-header">
-                  <span className="product-message-icon">💌</span>
                   <div>
                     <span className="product-message-label">
                       Uma mensagem especial
@@ -496,7 +495,7 @@ export default function ProdutoPage() {
 
             {product.requires_flower_selection && (
               <p className="product-detail-note">
-                🌸 Imagem ilustrativa — sua composição será feita com as
+                 Imagem ilustrativa — sua composição será feita com as
                 flores escolhidas por você.
               </p>
             )}
