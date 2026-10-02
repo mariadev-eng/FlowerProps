@@ -43,6 +43,13 @@ export default function AccountPage() {
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error" | "">("");
 
+  // 🆕 Se já tá logado, redireciona pra home
+  useEffect(() => {
+    if (!loadingUser && user) {
+      router.replace("/");
+    }
+  }, [user, loadingUser, router]);
+
   function clearMessages() {
     setMessage("");
     setMessageType("");
@@ -90,9 +97,9 @@ export default function AccountPage() {
     setMessageType("success");
 
     setTimeout(() => {
-  router.push("/");
-  router.refresh();
-}, 600);
+      router.push("/");
+      router.refresh();
+    }, 600);
   }
 
   async function handleRegister(event: React.FormEvent<HTMLFormElement>) {
@@ -168,11 +175,11 @@ export default function AccountPage() {
 
     setMessage("Conta criada com sucesso! Bem-vindo à FLOWER.");
     setMessageType("success");
-    
-setTimeout(() => {
-  router.push("/");
-  router.refresh();
-}, 1000);
+
+    setTimeout(() => {
+      router.push("/");
+      router.refresh();
+    }, 1000);
   }
 
   async function handleForgotPassword() {
@@ -207,12 +214,6 @@ setTimeout(() => {
     setMessageType("success");
   }
 
-  async function handleSignOut() {
-    await signOut();
-    router.push("/");
-    router.refresh();
-  }
-
   // ==========================================
   // LOADING (aguarda o useUser carregar)
   // ==========================================
@@ -237,159 +238,12 @@ setTimeout(() => {
   }
 
   // ==========================================
-  // JÁ LOGADO → MOSTRA PAINEL DA CONTA
+  // SE JÁ TÁ LOGADO, NÃO RENDERIZA NADA
+  // (o useEffect acima redireciona pra home)
   // ==========================================
 
   if (user) {
-    return (
-      <main className="account-page">
-        <header className="account-header">
-          <Link href="/" className="account-logo" aria-label="FLOWER">
-            FLOWER
-          </Link>
-
-          <button
-            type="button"
-            className="account-back"
-            onClick={handleSignOut}
-            style={{
-              background: "transparent",
-              border: 0,
-              cursor: "pointer",
-              fontSize: 11,
-              fontWeight: 500,
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-              color: "#68735a",
-            }}
-          >
-            Sair
-          </button>
-        </header>
-
-        <div
-          className="account-container"
-          style={{ gridTemplateColumns: "1fr", maxWidth: 720 }}
-        >
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 24,
-              padding: "40px 0",
-            }}
-          >
-            <div style={{ textAlign: "center" }}>
-              <span className="eyebrow">MINHA CONTA</span>
-              <h1
-                style={{
-                  fontFamily: "var(--serif)",
-                  fontSize: "clamp(36px, 5vw, 56px)",
-                  fontWeight: 500,
-                  margin: "12px 0 8px",
-                  color: "#3f493b",
-                  lineHeight: 1,
-                }}
-              >
-                Olá, {user.user_metadata?.name?.split(" ")[0] || "flor"}.
-              </h1>
-              <p
-                style={{
-                  color: "#7a7a72",
-                  fontSize: 13,
-                  margin: 0,
-                }}
-              >
-                {user.email}
-              </p>
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-                gap: 16,
-                marginTop: 24,
-              }}
-            >
-              <Link
-                href="/conta/pedidos"
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 8,
-                  padding: 24,
-                  background: "#fff",
-                  border: "1px solid #e0e0dc",
-                  borderRadius: 8,
-                  textDecoration: "none",
-                  color: "inherit",
-                  transition: "all 0.2s",
-                }}
-              >
-                <span style={{ fontSize: 24 }}>📦</span>
-                <strong
-                  style={{
-                    fontFamily: "var(--serif)",
-                    fontSize: 22,
-                    fontWeight: 500,
-                    color: "#3f493b",
-                  }}
-                >
-                  Meus pedidos
-                </strong>
-                <span
-                  style={{
-                    fontSize: 12,
-                    color: "#7a7a72",
-                    lineHeight: 1.6,
-                  }}
-                >
-                  Veja o histórico das suas compras e o status de cada pedido.
-                </span>
-              </Link>
-
-              <Link
-                href="/conta/assinaturas"
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 8,
-                  padding: 24,
-                  background: "#fff",
-                  border: "1px solid #e0e0dc",
-                  borderRadius: 8,
-                  textDecoration: "none",
-                  color: "inherit",
-                  transition: "all 0.2s",
-                }}
-              >
-                <span style={{ fontSize: 24 }}>📅</span>
-                <strong
-                  style={{
-                    fontFamily: "var(--serif)",
-                    fontSize: 22,
-                    fontWeight: 500,
-                    color: "#3f493b",
-                  }}
-                >
-                  Minhas assinaturas
-                </strong>
-                <span
-                  style={{
-                    fontSize: 12,
-                    color: "#7a7a72",
-                    lineHeight: 1.6,
-                  }}
-                >
-                  Acompanhe suas assinaturas e renove quando quiser.
-                </span>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </main>
-    );
+    return null;
   }
 
   // ==========================================
