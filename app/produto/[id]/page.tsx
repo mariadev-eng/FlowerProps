@@ -425,7 +425,7 @@ export default function ProdutoPage() {
                       setCustomMessage(e.target.value);
                     }
                   }}
-                  placeholder="Ex: Feliz aniversário, te amo! 🌸"
+                  placeholder="Ex: Feliz aniversário, te amo!"
                   maxLength={MESSAGE_MAX}
                   rows={3}
                   className="product-message-input"
