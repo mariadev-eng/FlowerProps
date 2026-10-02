@@ -61,9 +61,20 @@ type Expense = {
   created_at: string;
 };
 
-type TabType = "geral" | "pedidos" | "assinaturas" | "financeiro";
+type TabType =
+  | "geral"
+  | "pedidos"
+  | "assinaturas"
+  | "financeiro"
+  | "maisVendidos";
 
-type PeriodType = "today" | "7days" | "30days" | "thisMonth" | "lastMonth" | "all";
+type PeriodType =
+  | "today"
+  | "7days"
+  | "30days"
+  | "thisMonth"
+  | "lastMonth"
+  | "all";
 
 const PERIOD_LABELS: Record<PeriodType, string> = {
   today: "Hoje",
@@ -87,6 +98,8 @@ const STATUS_LABELS: Record<string, string> = {
 const PAYMENT_LABELS: Record<string, string> = {
   pix: "Pix",
   card: "Cartão",
+  card_credito: "Cartão de crédito",
+  card_debito: "Cartão de débito",
   boleto: "Boleto",
   checkout_pro: "Checkout Pro",
   dinheiro: "Dinheiro",
@@ -140,6 +153,7 @@ export default function ContabilPage() {
             display: "flex",
             gap: 4,
             borderBottom: "1px solid #e0e0dc",
+            overflowX: "auto",
           }}
         >
           <SubTab
@@ -161,6 +175,12 @@ export default function ContabilPage() {
             📅 Assinaturas
           </SubTab>
           <SubTab
+            active={activeTab === "maisVendidos"}
+            onClick={() => setActiveTab("maisVendidos")}
+          >
+            🏆 Mais vendidos
+          </SubTab>
+          <SubTab
             active={activeTab === "financeiro"}
             onClick={() => setActiveTab("financeiro")}
           >
@@ -172,6 +192,7 @@ export default function ContabilPage() {
       {activeTab === "geral" && <GeralTab />}
       {activeTab === "pedidos" && <PedidosTab />}
       {activeTab === "assinaturas" && <AssinaturasTab />}
+      {activeTab === "maisVendidos" && <MaisVendidosTab />}
       {activeTab === "financeiro" && <FinanceiroTab />}
     </div>
   );
@@ -204,6 +225,7 @@ function SubTab({
         fontWeight: active ? 600 : 500,
         cursor: "pointer",
         marginBottom: -1,
+        whiteSpace: "nowrap",
       }}
     >
       {children}
@@ -212,7 +234,7 @@ function SubTab({
 }
 
 // ==========================================
-// HELPERS
+// HELPERS DE PERÍODO
 // ==========================================
 
 function getPeriodDates(period: PeriodType): { start: Date | null; end: Date } {
@@ -900,6 +922,243 @@ function AssinaturasTab() {
 }
 
 // ==========================================
+// ABA: MAIS VENDIDOS
+// ==========================================
+
+type ProductRank = {
+  name: string;
+  quantity: number;
+  revenue: number;
+  ordersCount: number;
+};
+
+function MaisVendidosTab() {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [period, setPeriod] = useState<PeriodType>("thisMonth");
+
+  async function loadOrders() {
+    setIsLoading(true);
+
+    const { start, end } = getPeriodDates(period);
+
+    let query = supabase
+      .from("orders")
+      .select(`*, order_items:order_items(*)`)
+      .eq("payment_status", "paid")
+      .order("created_at", { ascending: false });
+
+    if (start) query = query.gte("created_at", start.toISOString());
+    query = query.lte("created_at", end.toISOString());
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error("Erro:", error);
+      setOrders([]);
+    } else {
+      setOrders(data ?? []);
+    }
+
+    setIsLoading(false);
+  }
+
+  useEffect(() => {
+    loadOrders();
+  }, [period]);
+
+  // ==========================================
+  // RANKING
+  // ==========================================
+
+  const ranking = useMemo<ProductRank[]>(() => {
+    const map = new Map<string, ProductRank>();
+
+    orders.forEach((order) => {
+      (order.order_items || []).forEach((item) => {
+        const existing = map.get(item.product_name) || {
+          name: item.product_name,
+          quantity: 0,
+          revenue: 0,
+          ordersCount: 0,
+        };
+
+        existing.quantity += item.quantity;
+        existing.revenue += Number(item.subtotal);
+        existing.ordersCount += 1;
+
+        map.set(item.product_name, existing);
+      });
+    });
+
+    return Array.from(map.values()).sort((a, b) => b.quantity - a.quantity);
+  }, [orders]);
+
+  const totalVendido = ranking.reduce((sum, p) => sum + p.quantity, 0);
+  const totalReceita = ranking.reduce((sum, p) => sum + p.revenue, 0);
+
+  // ==========================================
+  // EXPORTAR CSV
+  // ==========================================
+
+  function exportCSV() {
+    const headers = [
+      "Posição",
+      "Produto",
+      "Quantidade vendida",
+      "Receita gerada",
+      "Nº de pedidos",
+    ];
+
+    const rows = ranking.map((p, i) => [
+      `${i + 1}º`,
+      p.name,
+      String(p.quantity),
+      formatPrice(p.revenue),
+      String(p.ordersCount),
+    ]);
+
+    downloadCSV(headers, rows, "flower-mais-vendidos.csv");
+  }
+
+  function getMedal(position: number) {
+    if (position === 0) return "🥇";
+    if (position === 1) return "🥈";
+    if (position === 2) return "🥉";
+    return `${position + 1}º`;
+  }
+
+  return (
+    <>
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          marginBottom: 20,
+          flexWrap: "wrap",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <select
+          value={period}
+          onChange={(e) => setPeriod(e.target.value as PeriodType)}
+          style={selectStyle}
+        >
+          {Object.entries(PERIOD_LABELS).map(([key, label]) => (
+            <option key={key} value={label && key}>
+              {label}
+            </option>
+          ))}
+        </select>
+
+        {ranking.length > 0 && (
+          <button type="button" onClick={exportCSV} style={exportBtnStyle}>
+            📄 Exportar CSV
+          </button>
+        )}
+      </div>
+
+      {isLoading ? (
+        <div style={emptyStyle}>Carregando dados...</div>
+      ) : ranking.length === 0 ? (
+        <div style={emptyStyle}>
+          Nenhuma venda registrada no período selecionado.
+        </div>
+      ) : (
+        <>
+          {/* CARDS DE RESUMO */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+              gap: 16,
+              marginBottom: 24,
+            }}
+          >
+            <StatCard
+              title="Produtos diferentes"
+              value={String(ranking.length)}
+              color="#2f2a26"
+            />
+            <StatCard
+              title="Itens vendidos"
+              value={String(totalVendido)}
+              color="#1e40af"
+            />
+            <StatCard
+              title="Receita total"
+              value={formatPrice(totalReceita)}
+              color="#166534"
+            />
+          </div>
+
+          {/* TABELA DE RANKING */}
+          <div style={tableWrapperStyle}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: "#f9f9f7" }}>
+                  <th style={{ ...thStyle, width: 80 }}>Posição</th>
+                  <th style={thStyle}>Produto</th>
+                  <th style={{ ...thStyle, textAlign: "right" }}>
+                    Quantidade
+                  </th>
+                  <th style={{ ...thStyle, textAlign: "right" }}>Receita</th>
+                  <th style={{ ...thStyle, textAlign: "right" }}>
+                    Pedidos
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {ranking.map((product, i) => (
+                  <tr key={product.name} style={{ borderTop: "1px solid #f0f0ec" }}>
+                    <td style={{ ...tdStyle, textAlign: "center", fontSize: 20 }}>
+                      {getMedal(i)}
+                    </td>
+                    <td style={{ ...tdStyle, fontWeight: 600 }}>
+                      {product.name}
+                    </td>
+                    <td
+                      style={{
+                        ...tdStyle,
+                        textAlign: "right",
+                        fontWeight: 700,
+                        color: "#1e40af",
+                      }}
+                    >
+                      {product.quantity}
+                    </td>
+                    <td
+                      style={{
+                        ...tdStyle,
+                        textAlign: "right",
+                        fontWeight: 700,
+                        color: "#166534",
+                      }}
+                    >
+                      {formatPrice(product.revenue)}
+                    </td>
+                    <td
+                      style={{
+                        ...tdStyle,
+                        textAlign: "right",
+                        color: "#7a7a72",
+                      }}
+                    >
+                      {product.ordersCount}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+// ==========================================
 // ABA: FINANCEIRO
 // ==========================================
 
@@ -916,7 +1175,6 @@ function FinanceiroTab() {
 
     const { start, end } = getPeriodDates(period);
 
-    // Pedidos pagos
     let ordersQuery = supabase
       .from("orders")
       .select("*")
@@ -928,7 +1186,6 @@ function FinanceiroTab() {
     const { data: ordersData } = await ordersQuery;
     setOrders(ordersData ?? []);
 
-    // Assinaturas pagas
     let subsQuery = supabase
       .from("subscription_orders")
       .select("*")
@@ -940,7 +1197,6 @@ function FinanceiroTab() {
     const { data: subsData } = await subsQuery;
     setSubscriptions(subsData ?? []);
 
-    // Despesas
     let expQuery = supabase
       .from("expenses")
       .select("*")
@@ -959,10 +1215,6 @@ function FinanceiroTab() {
   useEffect(() => {
     loadData();
   }, [period]);
-
-  // ==========================================
-  // CÁLCULOS
-  // ==========================================
 
   const receitaProdutos = orders.reduce((sum, o) => sum + Number(o.total), 0);
   const receitaAssinaturas = subscriptions.reduce(
@@ -1251,7 +1503,6 @@ function FinanceiroTab() {
         )}
       </div>
 
-      {/* MODAL DE CADASTRO */}
       {showForm && (
         <ExpenseFormModal
           onClose={() => setShowForm(false)}
@@ -1331,7 +1582,6 @@ function ExpenseFormModal({
     try {
       let receiptUrl: string | null = null;
 
-      // Upload da nota fiscal (se tiver)
       if (receiptFile) {
         const formData = new FormData();
         formData.append("file", receiptFile);
