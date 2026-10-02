@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { UserRound } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import UserMenu from "../components/UserMenu";
 
 type Subscription = {
   id: number;
@@ -117,13 +118,7 @@ export default function AssinaturasPage() {
           </nav>
 
           <div className="header-actions">
-            <button
-              type="button"
-              aria-label="Minha conta"
-              onClick={() => router.push("/conta")}
-            >
-              <UserRound size={20} strokeWidth={1.5} />
-            </button>
+            <UserMenu />
           </div>
         </div>
       </header>

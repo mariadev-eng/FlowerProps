@@ -90,9 +90,9 @@ export default function AccountPage() {
     setMessageType("success");
 
     setTimeout(() => {
-      router.push("/conta");
-      router.refresh();
-    }, 600);
+  router.push("/");
+  router.refresh();
+}, 600);
   }
 
   async function handleRegister(event: React.FormEvent<HTMLFormElement>) {
@@ -168,11 +168,11 @@ export default function AccountPage() {
 
     setMessage("Conta criada com sucesso! Bem-vindo à FLOWER.");
     setMessageType("success");
-
-    setTimeout(() => {
-      router.push("/conta");
-      router.refresh();
-    }, 1000);
+    
+setTimeout(() => {
+  router.push("/");
+  router.refresh();
+}, 1000);
   }
 
   async function handleForgotPassword() {

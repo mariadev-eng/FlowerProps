@@ -7,6 +7,7 @@ import ProductCard from "./components/ProductCard";
 import Cart from "./components/Cart";
 import { supabase } from "../lib/supabase";
 import Link from "next/link";
+import UserMenu from "./components/UserMenu";
 
 type Product = {
   id: number;
@@ -367,13 +368,7 @@ export default function Home() {
               ⌕
             </button>
 
-            <button
-              type="button"
-              aria-label="Minha conta"
-              onClick={() => router.push("/conta")}
-            >
-              <UserRound size={20} strokeWidth={1.5} />
-            </button>
+            <UserMenu />
 
             <button
               type="button"
