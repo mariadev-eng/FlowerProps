@@ -4992,3 +4992,128 @@ body:has(.cart-drawer.active) {
     padding: 5px 10px;
   }
 }
+/* =========================================================
+   MENSAGEM PERSONALIZADA — DELICADA
+   ========================================================= */
+
+.product-message {
+  margin-top: 24px;
+  padding: 20px;
+  background: linear-gradient(135deg, #fdfcf9 0%, #f9f7f3 100%);
+  border: 1px solid #ebe5dd;
+  border-radius: 12px;
+  position: relative;
+  box-shadow: 0 2px 8px rgba(63, 73, 59, 0.04);
+}
+
+.product-message::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 20px;
+  right: 20px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #d4c9b8, transparent);
+}
+
+.product-message-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.product-message-icon {
+  font-size: 20px;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 2px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.08));
+}
+
+.product-message-label {
+  display: block;
+  font-family: var(--serif);
+  font-size: 17px;
+  font-weight: 500;
+  color: #3f493b;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.product-message-sublabel {
+  display: block;
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 400;
+  color: #9b9284;
+  margin-top: 2px;
+  letter-spacing: 0.02em;
+}
+
+.product-message-input {
+  width: 100%;
+  min-height: 80px;
+  padding: 14px 16px;
+  border: 1px solid #e3dbd0;
+  border-radius: 8px;
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.6;
+  color: #3f493b;
+  resize: vertical;
+  outline: none;
+  background: #fffefc;
+  box-sizing: border-box;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease,
+    background 0.25s ease;
+}
+
+.product-message-input:focus {
+  border-color: #a8b09a;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(155, 165, 139, 0.12);
+}
+
+.product-message-input::placeholder {
+  color: #c4bdb0;
+  font-style: italic;
+  font-family: var(--serif);
+  font-size: 14px;
+}
+
+.product-message-count {
+  display: block;
+  text-align: right;
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 500;
+  color: #b8afa3;
+  margin-top: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: color 0.2s ease;
+}
+
+.product-message-count.limit {
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+/* Mobile */
+
+@media (max-width: 900px) {
+  .product-message {
+    padding: 16px;
+    margin-top: 20px;
+  }
+
+  .product-message-label {
+    font-size: 16px;
+  }
+
+  .product-message-input {
+    min-height: 70px;
+    font-size: 13px;
+  }
+}

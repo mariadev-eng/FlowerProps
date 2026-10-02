@@ -55,6 +55,7 @@ type CartItem = Product & {
   selected_flowers?: Array<{ name: string; image: string; extra_price?: number }>;
   selected_color?: string;
   extra_from_flowers?: number;
+  custom_message?: string;
 };
 
 type Flower = {
@@ -77,6 +78,8 @@ export default function ProdutoPage() {
   );
   const [currentImage, setCurrentImage] = useState<string>("");
   const [error, setError] = useState("");
+  const [customMessage, setCustomMessage] = useState("");
+  const MESSAGE_MAX = 100;
 
   const [complements, setComplements] = useState<Product[]>([]);
   const [weeklyFlowers, setWeeklyFlowers] = useState<Flower[]>([]);
@@ -115,7 +118,6 @@ export default function ProdutoPage() {
         setCurrentImage(data.image || "");
       }
 
-      // FLORES DA SEMANA — filtra pelas que incluem esse produto
       const { data: flowersData } = await supabase
         .from("weekly_flowers")
         .select("*")
@@ -137,7 +139,6 @@ export default function ProdutoPage() {
         );
       }
 
-      // COMPLEMENTOS
       if (data.category_id !== 4) {
         const { data: complementsData, error: complementsError } =
           await supabase
@@ -147,10 +148,7 @@ export default function ProdutoPage() {
             .order("complement_order", { ascending: true });
 
         if (complementsError) {
-          console.error(
-            "Erro ao carregar complementos:",
-            complementsError
-          );
+          console.error("Erro ao carregar complementos:", complementsError);
           setComplements([]);
         } else {
           const alreadyIncluded = (data.included_complements || []).map(
@@ -305,6 +303,7 @@ export default function ProdutoPage() {
       selected_color: selectedColor?.name,
       image: currentImage || product.image,
       extra_from_flowers: extraFromFlowers,
+      custom_message: customMessage.trim() || undefined,
     };
 
     setCartItems((current) => {
@@ -394,6 +393,7 @@ export default function ProdutoPage() {
             </div>
           </div>
 
+          {/* 🖼️ IMAGEM + MENSAGEM */}
           <div className="product-detail-image-wrapper">
             <div className="product-detail-image">
               {currentImage ? (
@@ -402,8 +402,48 @@ export default function ProdutoPage() {
                 <div className="product-detail-placeholder">🌸</div>
               )}
             </div>
+
+            {/* 💌 MENSAGEM PERSONALIZADA (só produtos com flores) */}
+            {product.requires_flower_selection && (
+              <div className="product-message">
+                <div className="product-message-header">
+                  <span className="product-message-icon">💌</span>
+                  <div>
+                    <span className="product-message-label">
+                      Uma mensagem especial
+                    </span>
+                    <span className="product-message-sublabel">
+                      Escreva algo pro destinatário (opcional)
+                    </span>
+                  </div>
+                </div>
+
+                <textarea
+                  id="custom-message"
+                  value={customMessage}
+                  onChange={(e) => {
+                    if (e.target.value.length <= MESSAGE_MAX) {
+                      setCustomMessage(e.target.value);
+                    }
+                  }}
+                  placeholder="Ex: Feliz aniversário, te amo! 🌸"
+                  maxLength={MESSAGE_MAX}
+                  rows={3}
+                  className="product-message-input"
+                />
+
+                <span
+                  className={`product-message-count ${
+                    customMessage.length >= MESSAGE_MAX ? "limit" : ""
+                  }`}
+                >
+                  {customMessage.length}/{MESSAGE_MAX}
+                </span>
+              </div>
+            )}
           </div>
 
+          {/* INFO */}
           <div className="product-detail-info">
             <span className="eyebrow">FLOWER PROPS</span>
             <h1>{product.name}</h1>
@@ -499,8 +539,9 @@ export default function ProdutoPage() {
                 ) : (
                   <div className="product-flowers-grid">
                     {availableFlowers.map((flower) => {
-  const blocked = isFlowerBlocked(flower);
-  const hasExtra = Number(flower.extra_price) > 0;
+                      const blocked = isFlowerBlocked(flower);
+                      const hasExtra = Number(flower.extra_price) > 0;
+
                       return (
                         <button
                           key={flower.name}
