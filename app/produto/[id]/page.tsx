@@ -639,20 +639,7 @@ export default function ProdutoPage() {
                 >
                   <div>
                     <div
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 700,
-                        color: "#7a7a72",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.05em",
-                        marginBottom: 4,
-                      }}
-                    >
-                      {selectedFlowers.length > 0
-                        ? "✓ Escolhidas"
-                        : "Passo 2"}
-                    </div>
-                    <div
+                      
                       style={{
                         fontFamily: "var(--serif)",
                         fontSize: 18,
@@ -708,20 +695,8 @@ export default function ProdutoPage() {
                 >
                   <div>
                     <div
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 700,
-                        color: "#7a7a72",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.05em",
-                        marginBottom: 4,
-                      }}
-                    >
-                      {selectedPapers.length > 0 && selectedRibbon
-                        ? "✓ Escolhida"
-                        : "Passo 3"}
-                    </div>
-                    <div
+                
+          
                       style={{
                         fontFamily: "var(--serif)",
                         fontSize: 18,
