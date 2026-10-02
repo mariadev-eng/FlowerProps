@@ -28,6 +28,7 @@ type Product = {
   is_complement?: boolean;
   complement_order?: number;
   max_flowers?: number | null;
+  requires_packaging?: boolean | null;
   flower_1_name: string | null;
   flower_1_image: string | null;
   flower_2_name: string | null;
@@ -56,12 +57,35 @@ type CartItem = Product & {
   selected_color?: string;
   extra_from_flowers?: number;
   custom_message?: string;
+  selected_papers?: Array<{
+    id: string;
+    name: string;
+    model: string | null;
+    image: string | null;
+  }>;
+  selected_ribbon?: {
+    id: string;
+    name: string;
+    image: string | null;
+  } | null;
 };
 
 type Flower = {
   name: string;
   image: string;
   extra_price?: number;
+};
+
+type PackagingOption = {
+  id: string;
+  type: "paper" | "ribbon";
+  name: string;
+  model: string | null;
+  packaging_unit: string | null;
+  description: string | null;
+  image: string | null;
+  active: boolean;
+  display_order: number;
 };
 
 export default function ProdutoPage() {
@@ -85,6 +109,19 @@ export default function ProdutoPage() {
   const [weeklyFlowers, setWeeklyFlowers] = useState<Flower[]>([]);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
+
+  // 🆕 Finalização
+  const [packagingPapers, setPackagingPapers] = useState<PackagingOption[]>([]);
+  const [packagingRibbons, setPackagingRibbons] = useState<PackagingOption[]>([]);
+  const [selectedPapers, setSelectedPapers] = useState<PackagingOption[]>([]);
+  const [selectedRibbon, setSelectedRibbon] = useState<PackagingOption | null>(
+    null
+  );
+
+  // 🆕 Controle dos drawers
+  const [isFlowersDrawerOpen, setIsFlowersDrawerOpen] = useState(false);
+  const [isFinalizationDrawerOpen, setIsFinalizationDrawerOpen] =
+    useState(false);
 
   useEffect(() => {
     async function loadProduct() {
@@ -137,6 +174,24 @@ export default function ProdutoPage() {
             extra_price: Number(f.extra_price) || 0,
           }))
         );
+      }
+
+      // PAPELARIA E FITAS
+      if (data.requires_packaging) {
+        const { data: packagingData } = await supabase
+          .from("packaging_options")
+          .select("*")
+          .eq("active", true)
+          .order("display_order", { ascending: true });
+
+        if (packagingData) {
+          setPackagingPapers(
+            packagingData.filter((p) => p.type === "paper")
+          );
+          setPackagingRibbons(
+            packagingData.filter((p) => p.type === "ribbon")
+          );
+        }
       }
 
       if (data.category_id !== 4) {
@@ -251,6 +306,33 @@ export default function ProdutoPage() {
     return selectedFlowers.length >= product.max_flowers;
   }
 
+  // ==========================================
+  // 🆕 FINALIZAÇÃO — PAPELARIA E FITA
+  // ==========================================
+
+  function togglePaper(paper: PackagingOption) {
+    setSelectedPapers((current) => {
+      const exists = current.find((p) => p.id === paper.id);
+
+      if (exists) {
+        return current.filter((p) => p.id !== paper.id);
+      }
+
+      if (current.length >= 2) {
+        setError("Você pode escolher no máximo 2 papéis.");
+        return current;
+      }
+
+      return [...current, paper];
+    });
+  }
+
+  function toggleRibbon(ribbon: PackagingOption) {
+    setSelectedRibbon((current) =>
+      current?.id === ribbon.id ? null : ribbon
+    );
+  }
+
   function addComplementToCart(complement: Product) {
     const cartItem: CartItem = {
       ...complement,
@@ -292,6 +374,19 @@ export default function ProdutoPage() {
       }
     }
 
+    // 🆕 Valida finalização
+    if (product.requires_packaging) {
+      if (selectedPapers.length === 0) {
+        setError("Escolha a finalização do seu produto (papelaria).");
+        return;
+      }
+
+      if (!selectedRibbon) {
+        setError("Escolha a finalização do seu produto (fita).");
+        return;
+      }
+    }
+
     const extraFromFlowers = getFlowersExtra();
 
     const cartItem: CartItem = {
@@ -304,6 +399,22 @@ export default function ProdutoPage() {
       image: currentImage || product.image,
       extra_from_flowers: extraFromFlowers,
       custom_message: customMessage.trim() || undefined,
+      selected_papers:
+        selectedPapers.length > 0
+          ? selectedPapers.map((p) => ({
+              id: p.id,
+              name: p.name,
+              model: p.model,
+              image: p.image,
+            }))
+          : undefined,
+      selected_ribbon: selectedRibbon
+        ? {
+            id: selectedRibbon.id,
+            name: selectedRibbon.name,
+            image: selectedRibbon.image,
+          }
+        : null,
     };
 
     setCartItems((current) => {
@@ -403,7 +514,7 @@ export default function ProdutoPage() {
               )}
             </div>
 
-            {/* 💌 MENSAGEM PERSONALIZADA (só produtos com flores) */}
+            {/* 💌 MENSAGEM PERSONALIZADA */}
             {product.requires_flower_selection && (
               <div className="product-message">
                 <div className="product-message-header">
@@ -495,104 +606,148 @@ export default function ProdutoPage() {
 
             {product.requires_flower_selection && (
               <p className="product-detail-note">
-               Imagem ilustrativa — sua composição será feita com as
-                flores escolhidas por você.
+                Imagem ilustrativa — sua composição será feita com as flores
+                escolhidas por você.
               </p>
             )}
 
+            {/* 🌸 BOTÃO: ESCOLHA SUAS FLORES */}
             {product.requires_flower_selection && (
-              <div className="product-flowers">
-                <div className="product-flowers-heading">
-                  <h2>Escolha suas flores</h2>
-                  <span>
-                    {selectedFlowers.length}{" "}
-                    {product.max_flowers
-                      ? `/ ${product.max_flowers} `
-                      : ""}
-                    {selectedFlowers.length === 1
-                      ? "flor escolhida"
-                      : "flores escolhidas"}
-                  </span>
-                </div>
-
-                {product.max_flowers && (
-                  <p className="product-flowers-limit">
-                    Escolha somente {product.max_flowers}{" "}
-                    {product.max_flowers === 1 ? "flor" : "flores"}.
-                  </p>
-                )}
-
-                <p className="product-flowers-note">
-                  As flores são da estação — a composição final pode
-                  variar conforme a disponibilidade da semana.
-                </p>
-
-                {!hasFlowers ? (
-                  <div className="product-flowers-empty">
-                    <p>
-                      🌸 Flores da semana em atualização.
-                      <br />
-                      Volte em breve ou entre em contato pelo WhatsApp.
-                    </p>
+              <div style={{ marginTop: 24 }}>
+                <button
+                  type="button"
+                  onClick={() => setIsFlowersDrawerOpen(true)}
+                  disabled={!hasFlowers}
+                  style={{
+                    width: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    padding: "16px 20px",
+                    background: "#fff",
+                    border:
+                      selectedFlowers.length > 0
+                        ? "2px solid #166534"
+                        : "1px solid #d1d5db",
+                    borderRadius: 8,
+                    cursor: !hasFlowers ? "not-allowed" : "pointer",
+                    textAlign: "left",
+                    fontFamily: "inherit",
+                    opacity: !hasFlowers ? 0.5 : 1,
+                  }}
+                >
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: "#7a7a72",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                        marginBottom: 4,
+                      }}
+                    >
+                      {selectedFlowers.length > 0
+                        ? "✓ Escolhidas"
+                        : "Passo 2"}
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: "var(--serif)",
+                        fontSize: 18,
+                        fontWeight: 500,
+                        color: "#3f493b",
+                      }}
+                    >
+                      Escolha suas flores
+                    </div>
+                    {selectedFlowers.length > 0 && (
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: "#166534",
+                          marginTop: 4,
+                        }}
+                      >
+                        {selectedFlowers.length}{" "}
+                        {selectedFlowers.length === 1
+                          ? "flor escolhida"
+                          : "flores escolhidas"}
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <div className="product-flowers-grid">
-                    {availableFlowers.map((flower) => {
-                      const blocked = isFlowerBlocked(flower);
-                      const hasExtra = Number(flower.extra_price) > 0;
+                  <span style={{ fontSize: 20, color: "#9ca3af" }}>→</span>
+                </button>
+              </div>
+            )}
 
-                      return (
-                        <button
-                          key={flower.name}
-                          type="button"
-                          className={`product-flower-card ${
-                            isSelected(flower) ? "active" : ""
-                          } ${blocked ? "blocked" : ""}`}
-                          onClick={() => toggleFlower(flower)}
-                          disabled={blocked}
-                          aria-pressed={isSelected(flower)}
-                        >
-                          <div className="product-flower-card-image">
-                            {flower.image ? (
-                              <img
-                                src={flower.image}
-                                alt={flower.name}
-                              />
-                            ) : (
-                              <span>🌸</span>
-                            )}
-                          </div>
-
-                          <span className="product-flower-card-name">
-                            {flower.name}
-                          </span>
-
-                          {hasExtra && (
-                            <span
-                              style={{
-                                display: "block",
-                                fontSize: 11,
-                                fontWeight: 700,
-                                color: "#166534",
-                                marginTop: 2,
-                                textAlign: "center",
-                              }}
-                            >
-                              Adicional +{formatPrice(flower.extra_price!)}
-                            </span>
-                          )}
-
-                          <span
-                            className="product-flower-card-check"
-                            aria-hidden="true"
-                          >
-                            {isSelected(flower) ? "✓" : ""}
-                          </span>
-                        </button>
-                      );
-                    })}
+            {/* 🎀 BOTÃO: ESCOLHA A FINALIZAÇÃO */}
+            {product.requires_packaging && (
+              <div style={{ marginTop: 16 }}>
+                <button
+                  type="button"
+                  onClick={() => setIsFinalizationDrawerOpen(true)}
+                  style={{
+                    width: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    padding: "16px 20px",
+                    background: "#fff",
+                    border:
+                      selectedPapers.length > 0 && selectedRibbon
+                        ? "2px solid #166534"
+                        : "1px solid #d1d5db",
+                    borderRadius: 8,
+                    cursor: "pointer",
+                    textAlign: "left",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: "#7a7a72",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                        marginBottom: 4,
+                      }}
+                    >
+                      {selectedPapers.length > 0 && selectedRibbon
+                        ? "✓ Escolhida"
+                        : "Passo 3"}
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: "var(--serif)",
+                        fontSize: 18,
+                        fontWeight: 500,
+                        color: "#3f493b",
+                      }}
+                    >
+                      Escolha a finalização do seu produto
+                    </div>
+                    {(selectedPapers.length > 0 || selectedRibbon) && (
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: "#166534",
+                          marginTop: 4,
+                        }}
+                      >
+                        {selectedPapers.length > 0 &&
+                          selectedPapers.map((p) => p.name).join(", ")}
+                        {selectedPapers.length > 0 && selectedRibbon && " · "}
+                        {selectedRibbon && `Fita: ${selectedRibbon.name}`}
+                      </div>
+                    )}
                   </div>
-                )}
+                  <span style={{ fontSize: 20, color: "#9ca3af" }}>→</span>
+                </button>
               </div>
             )}
 
@@ -662,6 +817,596 @@ export default function ProdutoPage() {
           </button>
         </div>
       </section>
+
+      {/* ========================================== */}
+      {/* 🌸 DRAWER: ESCOLHA SUAS FLORES */}
+      {/* ========================================== */}
+      {product.requires_flower_selection && isFlowersDrawerOpen && (
+        <DrawerShell onClose={() => setIsFlowersDrawerOpen(false)}>
+          <DrawerHeader
+            title="Escolha suas flores"
+            subtitle={`${selectedFlowers.length} ${
+              selectedFlowers.length === 1
+                ? "flor escolhida"
+                : "flores escolhidas"
+            }`}
+            onClose={() => setIsFlowersDrawerOpen(false)}
+          />
+
+          <div style={{ padding: 20, flex: 1, overflowY: "auto" }}>
+            {!hasFlowers ? (
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: 40,
+                  color: "#7a7a72",
+                }}
+              >
+                Flores da semana em atualização.
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3, 1fr)",
+                  gap: 10,
+                }}
+              >
+                {availableFlowers.map((flower) => {
+                  const blocked = isFlowerBlocked(flower);
+                  const hasExtra = Number(flower.extra_price) > 0;
+
+                  return (
+                    <button
+                      key={flower.name}
+                      type="button"
+                      onClick={() => toggleFlower(flower)}
+                      disabled={blocked}
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: 6,
+                        padding: 10,
+                        background: isSelected(flower) ? "#f0fdf4" : "#fff",
+                        border: isSelected(flower)
+                          ? "2px solid #166534"
+                          : "1px solid #e0e0dc",
+                        borderRadius: 8,
+                        cursor: blocked ? "not-allowed" : "pointer",
+                        opacity: blocked ? 0.4 : 1,
+                        position: "relative",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 56,
+                          height: 56,
+                          borderRadius: "50%",
+                          overflow: "hidden",
+                          background: "#f2ece6",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: 22,
+                        }}
+                      >
+                        {flower.image ? (
+                          <img
+                            src={flower.image}
+                            alt={flower.name}
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "cover",
+                            }}
+                          />
+                        ) : (
+                          <span>🌸</span>
+                        )}
+                      </div>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          color: "#2f2a26",
+                          textAlign: "center",
+                          lineHeight: 1.2,
+                        }}
+                      >
+                        {flower.name}
+                      </span>
+                      {hasExtra && (
+                        <span
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 700,
+                            color: "#166534",
+                          }}
+                        >
+                          +{formatPrice(flower.extra_price!)}
+                        </span>
+                      )}
+                      {isSelected(flower) && (
+                        <span
+                          style={{
+                            position: "absolute",
+                            top: 6,
+                            right: 6,
+                            width: 18,
+                            height: 18,
+                            borderRadius: "50%",
+                            background: "#166534",
+                            color: "#fff",
+                            fontSize: 11,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          ✓
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <DrawerFooter
+            onConfirm={() => setIsFlowersDrawerOpen(false)}
+            disabled={selectedFlowers.length === 0}
+          />
+        </DrawerShell>
+      )}
+
+      {/* ========================================== */}
+      {/* 🎀 DRAWER: ESCOLHA A FINALIZAÇÃO */}
+      {/* ========================================== */}
+      {product.requires_packaging && isFinalizationDrawerOpen && (
+        <DrawerShell onClose={() => setIsFinalizationDrawerOpen(false)}>
+          <DrawerHeader
+            title="Escolha a finalização do seu produto"
+            subtitle={`${selectedPapers.length}/2 papéis · ${
+              selectedRibbon ? "1 fita" : "0 fita"
+            }`}
+            onClose={() => setIsFinalizationDrawerOpen(false)}
+          />
+
+          <div style={{ padding: 20, flex: 1, overflowY: "auto" }}>
+            {/* PAPELARIA */}
+            <div style={{ marginBottom: 32 }}>
+              <h3
+                style={{
+                  margin: "0 0 4px",
+                  fontFamily: "var(--serif)",
+                  fontSize: 18,
+                  fontWeight: 500,
+                  color: "#3f493b",
+                }}
+              >
+                Papelaria
+              </h3>
+              <p
+                style={{
+                  margin: "0 0 12px",
+                  fontSize: 11,
+                  color: "#7a7a72",
+                }}
+              >
+                Escolha até 2 tipos de papel
+              </p>
+
+              {packagingPapers.length === 0 ? (
+                <div
+                  style={{
+                    textAlign: "center",
+                    padding: 20,
+                    color: "#7a7a72",
+                  }}
+                >
+                  Nenhum papel cadastrado.
+                </div>
+              ) : (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(3, 1fr)",
+                    gap: 10,
+                  }}
+                >
+                  {packagingPapers.map((paper) => {
+                    const isSel = selectedPapers.some((p) => p.id === paper.id);
+
+                    return (
+                      <button
+                        key={paper.id}
+                        type="button"
+                        onClick={() => togglePaper(paper)}
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          gap: 6,
+                          padding: 10,
+                          background: isSel ? "#f0fdf4" : "#fff",
+                          border: isSel
+                            ? "2px solid #166534"
+                            : "1px solid #e0e0dc",
+                          borderRadius: 8,
+                          cursor: "pointer",
+                          position: "relative",
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: 56,
+                            height: 56,
+                            borderRadius: "50%",
+                            overflow: "hidden",
+                            background: "#f2ece6",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: 22,
+                          }}
+                        >
+                          {paper.image ? (
+                            <img
+                              src={paper.image}
+                              alt={paper.name}
+                              style={{
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "cover",
+                              }}
+                            />
+                          ) : (
+                            <span>📄</span>
+                          )}
+                        </div>
+                        <span
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 600,
+                            color: "#2f2a26",
+                            textAlign: "center",
+                            lineHeight: 1.2,
+                          }}
+                        >
+                          {paper.name}
+                        </span>
+                        {paper.model && (
+                          <span
+                            style={{
+                              fontSize: 10,
+                              color: "#7a7a72",
+                              textAlign: "center",
+                            }}
+                          >
+                            {paper.model}
+                          </span>
+                        )}
+                        {isSel && (
+                          <span
+                            style={{
+                              position: "absolute",
+                              top: 6,
+                              right: 6,
+                              width: 18,
+                              height: 18,
+                              borderRadius: "50%",
+                              background: "#166534",
+                              color: "#fff",
+                              fontSize: 11,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            ✓
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* FITA */}
+            <div>
+              <h3
+                style={{
+                  margin: "0 0 4px",
+                  fontFamily: "var(--serif)",
+                  fontSize: 18,
+                  fontWeight: 500,
+                  color: "#3f493b",
+                }}
+              >
+                Fita
+              </h3>
+              <p
+                style={{
+                  margin: "0 0 12px",
+                  fontSize: 11,
+                  color: "#7a7a72",
+                }}
+              >
+                Escolha 1 fita
+              </p>
+
+              {packagingRibbons.length === 0 ? (
+                <div
+                  style={{
+                    textAlign: "center",
+                    padding: 20,
+                    color: "#7a7a72",
+                  }}
+                >
+                  Nenhuma fita cadastrada.
+                </div>
+              ) : (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(3, 1fr)",
+                    gap: 10,
+                  }}
+                >
+                  {packagingRibbons.map((ribbon) => {
+                    const isSel = selectedRibbon?.id === ribbon.id;
+
+                    return (
+                      <button
+                        key={ribbon.id}
+                        type="button"
+                        onClick={() => toggleRibbon(ribbon)}
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          gap: 6,
+                          padding: 10,
+                          background: isSel ? "#f0fdf4" : "#fff",
+                          border: isSel
+                            ? "2px solid #166534"
+                            : "1px solid #e0e0dc",
+                          borderRadius: 8,
+                          cursor: "pointer",
+                          position: "relative",
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: 56,
+                            height: 56,
+                            borderRadius: "50%",
+                            overflow: "hidden",
+                            background: "#f2ece6",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: 22,
+                          }}
+                        >
+                          {ribbon.image ? (
+                            <img
+                              src={ribbon.image}
+                              alt={ribbon.name}
+                              style={{
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "cover",
+                              }}
+                            />
+                          ) : (
+                            <span>🎀</span>
+                          )}
+                        </div>
+                        <span
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 600,
+                            color: "#2f2a26",
+                            textAlign: "center",
+                            lineHeight: 1.2,
+                          }}
+                        >
+                          {ribbon.name}
+                        </span>
+                        {ribbon.description && (
+                          <span
+                            style={{
+                              fontSize: 10,
+                              color: "#7a7a72",
+                              textAlign: "center",
+                            }}
+                          >
+                            {ribbon.description}
+                          </span>
+                        )}
+                        {isSel && (
+                          <span
+                            style={{
+                              position: "absolute",
+                              top: 6,
+                              right: 6,
+                              width: 18,
+                              height: 18,
+                              borderRadius: "50%",
+                              background: "#166534",
+                              color: "#fff",
+                              fontSize: 11,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            ✓
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DrawerFooter
+            onConfirm={() => setIsFinalizationDrawerOpen(false)}
+            disabled={selectedPapers.length === 0 || !selectedRibbon}
+          />
+        </DrawerShell>
+      )}
     </main>
+  );
+}
+
+// ==========================================
+// COMPONENTES DE DRAWER
+// ==========================================
+
+function DrawerShell({
+  onClose,
+  children,
+}: {
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <>
+      <div        onClick={onClose}
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.4)",
+          zIndex: 100,
+        }}
+      />
+
+      <aside
+        style={{
+          position: "fixed",
+          top: 0,
+          right: 0,
+          bottom: 0,
+          width: "min(560px, 100%)",
+          background: "#fff",
+          zIndex: 101,
+          display: "flex",
+          flexDirection: "column",
+          boxShadow: "-4px 0 24px rgba(0,0,0,0.12)",
+        }}
+      >
+        {children}
+      </aside>
+    </>
+  );
+}
+
+function DrawerHeader({
+  title,
+  subtitle,
+  onClose,
+}: {
+  title: string;
+  subtitle?: string;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "20px 24px",
+        borderBottom: "1px solid #e0e0dc",
+        flexShrink: 0,
+      }}
+    >
+      <div>
+        <h2
+          style={{
+            margin: 0,
+            fontFamily: "var(--serif)",
+            fontSize: 22,
+            fontWeight: 500,
+            color: "#3f493b",
+          }}
+        >
+          {title}
+        </h2>
+        {subtitle && (
+          <p
+            style={{
+              margin: "4px 0 0",
+              fontSize: 12,
+              color: "#7a7a72",
+            }}
+          >
+            {subtitle}
+          </p>
+        )}
+      </div>
+
+      <button
+        type="button"
+        onClick={onClose}
+        style={{
+          background: "transparent",
+          border: 0,
+          fontSize: 28,
+          cursor: "pointer",
+          color: "#2f2a26",
+          lineHeight: 1,
+          padding: 4,
+        }}
+      >
+        ×
+      </button>
+    </div>
+  );
+}
+
+function DrawerFooter({
+  onConfirm,
+  disabled,
+}: {
+  onConfirm: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div
+      style={{
+        padding: "16px 24px",
+        borderTop: "1px solid #e0e0dc",
+        flexShrink: 0,
+        background: "#fff",
+      }}
+    >
+      <button
+        type="button"
+        onClick={onConfirm}
+        disabled={disabled}
+        style={{
+          width: "100%",
+          padding: "14px 20px",
+          background: disabled ? "#a3a3a3" : "#166534",
+          color: "#fff",
+          border: 0,
+          borderRadius: 6,
+          fontSize: 13,
+          fontWeight: 700,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+          cursor: disabled ? "not-allowed" : "pointer",
+        }}
+      >
+        Confirmar
+      </button>
+    </div>
   );
 }

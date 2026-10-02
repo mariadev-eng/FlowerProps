@@ -20,6 +20,7 @@ type Product = {
   is_complement: boolean | null;
   included_complements: string[] | null;
   max_flowers: number | null;
+  requires_packaging: boolean | null;  // 🆕
 };
 
 type WeeklyFlower = {
@@ -365,6 +366,7 @@ function ProductEditor({
         is_complement: form.is_complement,
         included_complements: form.included_complements || [],
         max_flowers: form.max_flowers,
+        requires_packaging: form.requires_packaging,
       })
       .eq("id", form.id);
 
@@ -491,6 +493,11 @@ function ProductEditor({
             value={!!form.requires_flower_selection}
             onChange={(v) => updateField("requires_flower_selection", v)}
           />
+          <ToggleField
+           label="Exige finalização (papelaria + fita)"
+           value={!!form.requires_packaging}
+           onChange={(v) => updateField("requires_packaging", v)}
+/>
 
           <ToggleField
             label="É complemento"
