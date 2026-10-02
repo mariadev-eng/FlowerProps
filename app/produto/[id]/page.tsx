@@ -495,7 +495,7 @@ export default function ProdutoPage() {
 
             {product.requires_flower_selection && (
               <p className="product-detail-note">
-                 Imagem ilustrativa — sua composição será feita com as
+               Imagem ilustrativa — sua composição será feita com as
                 flores escolhidas por você.
               </p>
             )}
