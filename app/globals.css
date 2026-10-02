@@ -652,7 +652,10 @@ em {
   background: rgba(255, 255, 255, 0.92);
   color: var(--green-dark);
   font-size: 21px;
+  border: 0;
+  cursor: pointer;
   transition: background 0.25s ease, transform 0.25s ease;
+  z-index: 3;
 }
 
 .favorite:hover {
@@ -660,6 +663,9 @@ em {
   transform: scale(1.05);
 }
 
+.favorite.active {
+  background: #fef2f2;
+}
 .product-info {
   padding: 20px 2px 0;
 }

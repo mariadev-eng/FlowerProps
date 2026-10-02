@@ -1,6 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { Heart } from "lucide-react";
+import { useFavorites } from "@/hooks/useFavorites";
 
 type Product = {
   id: number;
@@ -19,6 +21,9 @@ type ProductCardProps = {
 
 export default function ProductCard({ product }: ProductCardProps) {
   const router = useRouter();
+  const { toggleFavorite, isFavorite } = useFavorites();
+
+  const favorited = isFavorite(product.id);
 
   function formatPrice(value: number) {
     return value.toLocaleString("pt-BR", {
@@ -49,13 +54,26 @@ export default function ProductCard({ product }: ProductCardProps) {
           FLOWER · {product.name}
         </span>
 
+        {/* 🆕 CORAÇÃO DE FAVORITOS */}
         <button
           type="button"
-          className="favorite"
-          aria-label={`Favoritar ${product.name}`}
-          onClick={(e) => e.stopPropagation()}
+          className={`favorite ${favorited ? "active" : ""}`}
+          aria-label={
+            favorited
+              ? `Remover ${product.name} dos favoritos`
+              : `Favoritar ${product.name}`
+          }
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleFavorite(product.id);
+          }}
         >
-          ♡
+          <Heart
+            size={18}
+            strokeWidth={1.8}
+            fill={favorited ? "#dc2626" : "none"}
+            color={favorited ? "#dc2626" : "#3f493b"}
+          />
         </button>
       </div>
 
