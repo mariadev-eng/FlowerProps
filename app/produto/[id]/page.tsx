@@ -504,10 +504,8 @@ export default function ProdutoPage() {
                 ) : (
                   <div className="product-flowers-grid">
                     {availableFlowers.map((flower) => {
-                      const blocked = isFlowerBlocked(flower);
-                      const hasExtra =
-                        flower.extra_price && flower.extra_price > 0;
-
+  const blocked = isFlowerBlocked(flower);
+  const hasExtra = Number(flower.extra_price) > 0;
                       return (
                         <button
                           key={flower.name}
