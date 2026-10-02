@@ -4,6 +4,11 @@ import type { NextRequest } from "next/server";
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // 🆕 Não bloqueia rotas de API
+  if (pathname.startsWith("/api")) {
+    return NextResponse.next();
+  }
+
   // Só protege rotas /admin/*, exceto /admin/login
   if (pathname.startsWith("/admin") && !pathname.startsWith("/admin/login")) {
     const authCookie = request.cookies.get("flower-admin-auth");
@@ -19,5 +24,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  matcher: ["/admin/:path*", "/api/:path*"],
 };
