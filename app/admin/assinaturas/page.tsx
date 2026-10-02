@@ -35,6 +35,8 @@ type SubscriptionOrder = {
   updated_at: string;
 };
 
+type TabType = "vencendo" | "recentes" | "controle";
+
 const STATUS_LABEL: Record<string, string> = {
   paid: "Pago",
   pending: "Pendente",
@@ -49,7 +51,12 @@ const STATUS_COLOR: Record<string, { bg: string; color: string }> = {
   rejected: { bg: "#fee2e2", color: "#991b1b" },
 };
 
-// WhatsApp template
+const FREQUENCY_LABEL: Record<string, string> = {
+  weekly: "Semanal",
+  biweekly: "Quinzenal",
+  monthly: "Mensal",
+};
+
 function buildWhatsAppMessage(name: string) {
   return `Olá, ${name}! 🌸
 
@@ -69,14 +76,14 @@ Qualquer dúvida, é só chamar! 💐`;
 export default function AdminAssinaturasPage() {
   const [subscriptions, setSubscriptions] = useState<SubscriptionOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [activeTab, setActiveTab] = useState<TabType>("vencendo");
   const [selectedSubscription, setSelectedSubscription] =
     useState<SubscriptionOrder | null>(null);
 
-  // ==========================================
-  // CARREGA
-  // ==========================================
+  // Filtros da sub-aba Controle
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [frequencyFilter, setFrequencyFilter] = useState<string>("all");
 
   async function loadSubscriptions() {
     setIsLoading(true);
@@ -101,38 +108,38 @@ export default function AdminAssinaturasPage() {
   }, []);
 
   // ==========================================
-  // CÁLCULOS DE VENCIMENTO
+  // CÁLCULOS
   // ==========================================
 
   function getDaysUntilRenewal(sub: SubscriptionOrder): number | null {
     if (!sub.next_renewal_at) return null;
     const now = new Date();
     const renewal = new Date(sub.next_renewal_at);
-    const diffMs = renewal.getTime() - now.getTime();
-    return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    return Math.ceil(
+      (renewal.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+    );
   }
 
   function isExpiringSoon(sub: SubscriptionOrder): boolean {
     const days = getDaysUntilRenewal(sub);
-    if (days === null) return false;
-    return days >= 0 && days <= 7;
+    return days !== null && days >= 0 && days <= 7;
   }
 
-  function isRenewedRecently(sub: SubscriptionOrder): boolean {
+  function isRecentlyRenewed(sub: SubscriptionOrder): boolean {
     if (!sub.last_payment_at) return false;
     const now = new Date();
     const last = new Date(sub.last_payment_at);
     const diffDays =
       (now.getTime() - last.getTime()) / (1000 * 60 * 60 * 24);
-    return diffDays <= 30 && diffDays >= 0;
+    return diffDays >= 0 && diffDays <= 30;
   }
 
   // ==========================================
-  // LISTAS SEPARADAS
+  // LISTAS
   // ==========================================
 
   const expiringSoon = subscriptions
-    .filter((s) => isExpiringSoon(s))
+    .filter(isExpiringSoon)
     .sort((a, b) => {
       const dA = getDaysUntilRenewal(a) ?? 999;
       const dB = getDaysUntilRenewal(b) ?? 999;
@@ -140,21 +147,21 @@ export default function AdminAssinaturasPage() {
     });
 
   const recentlyRenewed = subscriptions
-    .filter((s) => isRenewedRecently(s) && !isExpiringSoon(s))
+    .filter((s) => isRecentlyRenewed(s) && !isExpiringSoon(s))
     .sort((a, b) => {
       const dA = new Date(a.last_payment_at!).getTime();
       const dB = new Date(b.last_payment_at!).getTime();
       return dB - dA;
     });
 
-  // ==========================================
-  // LISTA COMPLETA (com filtros)
-  // ==========================================
-
   const filtered = subscriptions.filter((sub) => {
-    if (statusFilter !== "all" && sub.payment_status !== statusFilter) {
+    if (statusFilter !== "all" && sub.payment_status !== statusFilter)
       return false;
-    }
+    if (
+      frequencyFilter !== "all" &&
+      sub.plan_frequency !== frequencyFilter
+    )
+      return false;
 
     if (searchTerm.trim()) {
       const search = searchTerm.toLowerCase().trim();
@@ -167,21 +174,15 @@ export default function AdminAssinaturasPage() {
   });
 
   // ==========================================
-  // WHATSAPP
+  // HELPERS
   // ==========================================
 
   function getWhatsAppLink(phone: string, name: string) {
-  const digits = phone.replace(/\D/g, "");
-  const withCountry = digits.startsWith("55") ? digits : `55${digits}`;
-  const message = encodeURIComponent(buildWhatsAppMessage(name));
-  
-  // 🆕 Usa o protocolo whatsapp:// que força o app desktop
-  return `whatsapp://send?phone=${withCountry}&text=${message}`;
-}
-
-  // ==========================================
-  // HELPERS
-  // ==========================================
+    const digits = phone.replace(/\D/g, "");
+    const withCountry = digits.startsWith("55") ? digits : `55${digits}`;
+    const message = encodeURIComponent(buildWhatsAppMessage(name));
+    return `https://wa.me/${withCountry}?text=${message}`;
+  }
 
   function formatPrice(value: number) {
     return value.toLocaleString("pt-BR", {
@@ -201,12 +202,35 @@ export default function AdminAssinaturasPage() {
   }
 
   function formatFrequency(freq: string) {
-    const map: Record<string, string> = {
-      weekly: "Semanal",
-      biweekly: "Quinzenal",
-      monthly: "Mensal",
-    };
-    return map[freq] || freq;
+    return FREQUENCY_LABEL[freq] || freq;
+  }
+
+  function exportCSV() {
+    const headers = [
+      "Cliente",
+      "Email",
+      "Telefone",
+      "Plano",
+      "Frequência",
+      "Valor",
+      "Último pagamento",
+      "Próxima renovação",
+      "Status",
+    ];
+
+    const rows = filtered.map((s) => [
+      s.customer_name,
+      s.customer_email,
+      s.customer_phone,
+      s.plan_name,
+      formatFrequency(s.plan_frequency),
+      formatPrice(s.plan_price),
+      formatDate(s.last_payment_at),
+      formatDate(s.next_renewal_at),
+      STATUS_LABEL[s.payment_status] || s.payment_status,
+    ]);
+
+    downloadCSV(headers, rows, "flower-assinaturas.csv");
   }
 
   // ==========================================
@@ -215,8 +239,7 @@ export default function AdminAssinaturasPage() {
 
   return (
     <div>
-      {/* HEADER */}
-      <div style={{ marginBottom: 24 }}>
+      <div style={{ marginBottom: 20 }}>
         <h1
           style={{
             margin: "0 0 4px",
@@ -227,391 +250,92 @@ export default function AdminAssinaturasPage() {
         >
           Assinaturas
         </h1>
-        <p style={{ margin: 0, color: "#7a7a72", fontSize: 13 }}>
+        <p style={{ margin: "0 0 16px", color: "#7a7a72", fontSize: 13 }}>
           {subscriptions.length}{" "}
           {subscriptions.length === 1 ? "assinatura" : "assinaturas"} no total
         </p>
+
+        <div
+          style={{
+            display: "flex",
+            gap: 4,
+            borderBottom: "1px solid #e0e0dc",
+          }}
+        >
+          <SubTab
+            active={activeTab === "vencendo"}
+            onClick={() => setActiveTab("vencendo")}
+            count={expiringSoon.length}
+            countColor="#dc2626"
+          >
+            🔴 Vencendo
+          </SubTab>
+          <SubTab
+            active={activeTab === "recentes"}
+            onClick={() => setActiveTab("recentes")}
+            count={recentlyRenewed.length}
+            countColor="#16a34a"
+          >
+            🟢 Recentes
+          </SubTab>
+          <SubTab
+            active={activeTab === "controle"}
+            onClick={() => setActiveTab("controle")}
+            count={subscriptions.length}
+            countColor="#2f2a26"
+          >
+            📋 Controle
+          </SubTab>
+        </div>
       </div>
 
       {isLoading ? (
         <div style={emptyStyle}>Carregando assinaturas...</div>
       ) : (
         <>
-          {/* ==========================================
-              🔴 RENOVANDO EM BREVE
-          ========================================== */}
-          {expiringSoon.length > 0 && (
-            <div style={{ marginBottom: 32 }}>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  marginBottom: 12,
-                }}
-              >
-                <span
-                  style={{
-                    width: 10,
-                    height: 10,
-                    borderRadius: "50%",
-                    background: "#dc2626",
-                  }}
-                />
-                <h2
-                  style={{
-                    margin: 0,
-                    fontSize: 14,
-                    fontWeight: 700,
-                    color: "#991b1b",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                  }}
-                >
-                  Renovando em breve ({expiringSoon.length})
-                </h2>
-              </div>
-
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {expiringSoon.map((sub) => {
-                  const days = getDaysUntilRenewal(sub) ?? 0;
-                  const urgency = days <= 3 ? "#dc2626" : "#f59e0b";
-
-                  return (
-                    <div
-                      key={sub.id}
-                      style={{
-                        background: "#fff",
-                        border: `2px solid ${urgency}`,
-                        borderRadius: 8,
-                        padding: 16,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: 16,
-                        flexWrap: "wrap",
-                      }}
-                    >
-                      <div style={{ flex: 1, minWidth: 200 }}>
-                        <div
-                          style={{
-                            fontSize: 15,
-                            fontWeight: 600,
-                            color: "#2f2a26",
-                          }}
-                        >
-                          {sub.customer_name}
-                        </div>
-                        <div
-                          style={{
-                            fontSize: 12,
-                            color: "#7a7a72",
-                            marginTop: 2,
-                          }}
-                        >
-                          {sub.plan_name} ·{" "}
-                          {formatFrequency(sub.plan_frequency)} ·{" "}
-                          {formatPrice(sub.plan_price)}
-                        </div>
-                      </div>
-
-                      <div style={{ textAlign: "center" }}>
-                        <div
-                          style={{
-                            fontSize: 22,
-                            fontWeight: 700,
-                            color: urgency,
-                          }}
-                        >
-                          {days} {days === 1 ? "dia" : "dias"}
-                        </div>
-                        <div
-                          style={{
-                            fontSize: 10,
-                            color: "#7a7a72",
-                            textTransform: "uppercase",
-                            letterSpacing: "0.05em",
-                          }}
-                        >
-                          Vence {formatDate(sub.next_renewal_at)}
-                        </div>
-                      </div>
-
-                      <a
-                        href={getWhatsAppLink(
-                          sub.customer_phone,
-                          sub.customer_name
-                        )}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          padding: "10px 20px",
-                          background: "#25D366",
-                          color: "#fff",
-                          borderRadius: 6,
-                          fontSize: 12,
-                          fontWeight: 700,
-                          textDecoration: "none",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        💬 Cobrar renovação
-                      </a>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+          {activeTab === "vencendo" && (
+            <VencendoTab
+              subscriptions={expiringSoon}
+              onSelect={setSelectedSubscription}
+              getDaysUntilRenewal={getDaysUntilRenewal}
+              getWhatsAppLink={getWhatsAppLink}
+              formatPrice={formatPrice}
+              formatFrequency={formatFrequency}
+              formatDate={formatDate}
+            />
           )}
 
-          {/* ==========================================
-              🟢 ASSINATURAS RECENTES
-          ========================================== */}
-          {recentlyRenewed.length > 0 && (
-            <div style={{ marginBottom: 32 }}>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  marginBottom: 12,
-                }}
-              >
-                <span
-                  style={{
-                    width: 10,
-                    height: 10,
-                    borderRadius: "50%",
-                    background: "#16a34a",
-                  }}
-                />
-                <h2
-                  style={{
-                    margin: 0,
-                    fontSize: 14,
-                    fontWeight: 700,
-                    color: "#166534",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                  }}
-                >
-                  Assinaturas recentes ({recentlyRenewed.length})
-                </h2>
-              </div>
-
-              <div
-                style={{
-                  background: "#fff",
-                  border: "1px solid #e0e0dc",
-                  borderRadius: 8,
-                  overflow: "hidden",
-                }}
-              >
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                  <thead>
-                    <tr style={{ background: "#f9f9f7" }}>
-                      <th style={thStyle}>Cliente</th>
-                      <th style={thStyle}>Plano</th>
-                      <th style={thStyle}>Valor</th>
-                      <th style={thStyle}>Último pagamento</th>
-                      <th style={thStyle}>Próxima renovação</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentlyRenewed.map((sub) => (
-                      <tr
-                        key={sub.id}
-                        onClick={() => setSelectedSubscription(sub)}
-                        style={{
-                          borderTop: "1px solid #f0f0ec",
-                          cursor: "pointer",
-                        }}
-                        onMouseEnter={(e) =>
-                          (e.currentTarget.style.background = "#f9f9f7")
-                        }
-                        onMouseLeave={(e) =>
-                          (e.currentTarget.style.background = "transparent")
-                        }
-                      >
-                        <td style={tdStyle}>
-                          <div style={{ fontWeight: 500 }}>
-                            {sub.customer_name}
-                          </div>
-                          <div style={{ fontSize: 11, color: "#7a7a72" }}>
-                            {sub.customer_email}
-                          </div>
-                        </td>
-                        <td style={tdStyle}>
-                          {sub.plan_name} · {formatFrequency(sub.plan_frequency)}
-                        </td>
-                        <td style={tdStyle}>{formatPrice(sub.plan_price)}</td>
-                        <td style={{ ...tdStyle, color: "#166534", fontWeight: 600 }}>
-                          {formatDate(sub.last_payment_at)}
-                        </td>
-                        <td style={{ ...tdStyle, color: "#7a7a72" }}>
-                          {formatDate(sub.next_renewal_at)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+          {activeTab === "recentes" && (
+            <RecentesTab
+              subscriptions={recentlyRenewed}
+              onSelect={setSelectedSubscription}
+              formatPrice={formatPrice}
+              formatFrequency={formatFrequency}
+              formatDate={formatDate}
+            />
           )}
 
-          {/* ==========================================
-              📋 TODAS AS ASSINATURAS
-          ========================================== */}
-          <div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 16,
-                marginBottom: 12,
-                flexWrap: "wrap",
-              }}
-            >
-              <h2
-                style={{
-                  margin: 0,
-                  fontSize: 14,
-                  fontWeight: 700,
-                  color: "#2f2a26",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.05em",
-                }}
-              >
-                Todas as assinaturas ({filtered.length})
-              </h2>
-
-              <div style={{ display: "flex", gap: 8 }}>
-                <input
-                  type="search"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Buscar por nome ou email..."
-                  style={inputStyle}
-                />
-
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  style={selectStyle}
-                >
-                  <option value="all">Todos os status</option>
-                  <option value="paid">Pago</option>
-                  <option value="pending">Pendente</option>
-                  <option value="cancelled">Cancelado</option>
-                  <option value="rejected">Recusado</option>
-                </select>
-
-                <button
-                  type="button"
-                  onClick={loadSubscriptions}
-                  style={refreshBtnStyle}
-                >
-                  ↻
-                </button>
-              </div>
-            </div>
-
-            <div style={tableWrapperStyle}>
-              {filtered.length === 0 ? (
-                <div style={emptyStyle}>Nenhuma assinatura encontrada.</div>
-              ) : (
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                  <thead>
-                    <tr style={{ background: "#f9f9f7" }}>
-                      <th style={thStyle}>Cliente</th>
-                      <th style={thStyle}>Plano</th>
-                      <th style={thStyle}>Frequência</th>
-                      <th style={thStyle}>Dia</th>
-                      <th style={thStyle}>Valor</th>
-                      <th style={thStyle}>Status</th>
-                      <th style={thStyle}>Próxima renovação</th>
-                      <th style={thStyle}>Criado em</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map((sub) => {
-                      const statusStyle =
-                        STATUS_COLOR[sub.payment_status] ||
-                        STATUS_COLOR.pending;
-
-                      return (
-                        <tr
-                          key={sub.id}
-                          onClick={() => setSelectedSubscription(sub)}
-                          style={{
-                            borderTop: "1px solid #f0f0ec",
-                            cursor: "pointer",
-                          }}
-                          onMouseEnter={(e) =>
-                            (e.currentTarget.style.background = "#f9f9f7")
-                          }
-                          onMouseLeave={(e) =>
-                            (e.currentTarget.style.background = "transparent")
-                          }
-                        >
-                          <td style={tdStyle}>
-                            <div style={{ fontWeight: 500 }}>
-                              {sub.customer_name}
-                            </div>
-                            <div style={{ fontSize: 11, color: "#7a7a72" }}>
-                              {sub.customer_email}
-                            </div>
-                          </td>
-                          <td style={tdStyle}>{sub.plan_name}</td>
-                          <td style={tdStyle}>
-                            {formatFrequency(sub.plan_frequency)}
-                          </td>
-                          <td style={tdStyle}>
-                            {sub.delivery_day === "saturday"
-                              ? "Sábado"
-                              : "Domingo"}
-                          </td>
-                          <td style={{ ...tdStyle, fontWeight: 500 }}>
-                            {formatPrice(sub.plan_price)}
-                          </td>
-                          <td style={tdStyle}>
-                            <span
-                              style={{
-                                padding: "3px 8px",
-                                borderRadius: 4,
-                                fontSize: 11,
-                                fontWeight: 600,
-                                background: statusStyle.bg,
-                                color: statusStyle.color,
-                              }}
-                            >
-                              {STATUS_LABEL[sub.payment_status] ||
-                                sub.payment_status}
-                            </span>
-                          </td>
-                          <td style={{ ...tdStyle, color: "#7a7a72" }}>
-                            {sub.next_renewal_at
-                              ? formatDate(sub.next_renewal_at)
-                              : "—"}
-                          </td>
-                          <td style={{ ...tdStyle, color: "#7a7a72", fontSize: 12 }}>
-                            {formatDate(sub.created_at)}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
+          {activeTab === "controle" && (
+            <ControleTab
+              subscriptions={filtered}
+              totalCount={subscriptions.length}
+              onSelect={setSelectedSubscription}
+              searchTerm={searchTerm}
+              setSearchTerm={setSearchTerm}
+              statusFilter={statusFilter}
+              setStatusFilter={setStatusFilter}
+              frequencyFilter={frequencyFilter}
+              setFrequencyFilter={setFrequencyFilter}
+              onExportCSV={exportCSV}
+              onReload={loadSubscriptions}
+              formatPrice={formatPrice}
+              formatFrequency={formatFrequency}
+              formatDate={formatDate}
+            />
+          )}
         </>
       )}
 
-      {/* ==========================================
-          PAINEL LATERAL — DETALHES
-      ========================================== */}
       {selectedSubscription && (
         <SubscriptionDetailPanel
           subscription={selectedSubscription}
@@ -624,6 +348,432 @@ export default function AdminAssinaturasPage() {
         />
       )}
     </div>
+  );
+}
+
+// ==========================================
+// SUB-ABA
+// ==========================================
+
+function SubTab({
+  active,
+  onClick,
+  count,
+  countColor,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  count: number;
+  countColor: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "10px 16px",
+        background: "transparent",
+        border: 0,
+        borderBottom: active ? "2px solid #2f2a26" : "2px solid transparent",
+        color: active ? "#2f2a26" : "#7a7a72",
+        fontSize: 13,
+        fontWeight: active ? 600 : 500,
+        cursor: "pointer",
+        marginBottom: -1,
+      }}
+    >
+      {children}
+      <span
+        style={{
+          padding: "1px 7px",
+          borderRadius: 10,
+          fontSize: 10,
+          fontWeight: 700,
+          background: countColor,
+          color: "#fff",
+        }}
+      >
+        {count}
+      </span>
+    </button>
+  );
+}
+
+// ==========================================
+// SUB-ABA: VENCENDO
+// ==========================================
+
+function VencendoTab({
+  subscriptions,
+  onSelect,
+  getDaysUntilRenewal,
+  getWhatsAppLink,
+  formatPrice,
+  formatFrequency,
+  formatDate,
+}: {
+  subscriptions: SubscriptionOrder[];
+  onSelect: (s: SubscriptionOrder) => void;
+  getDaysUntilRenewal: (s: SubscriptionOrder) => number | null;
+  getWhatsAppLink: (phone: string, name: string) => string;
+  formatPrice: (v: number) => string;
+  formatFrequency: (f: string) => string;
+  formatDate: (v: string | null) => string;
+}) {
+  if (subscriptions.length === 0) {
+    return (
+      <div style={emptyStyle}>
+        ✅ Nenhuma assinatura vencendo nos próximos 7 dias.
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {subscriptions.map((sub) => {
+        const days = getDaysUntilRenewal(sub) ?? 0;
+        const urgency = days <= 3 ? "#dc2626" : "#f59e0b";
+
+        return (
+          <div
+            key={sub.id}
+            style={{
+              background: "#fff",
+              border: `2px solid ${urgency}`,
+              borderRadius: 8,
+              padding: 16,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 16,
+              flexWrap: "wrap",
+            }}
+          >
+            <div
+              style={{ flex: 1, minWidth: 200, cursor: "pointer" }}
+              onClick={() => onSelect(sub)}
+            >
+              <div
+                style={{
+                  fontSize: 15,
+                  fontWeight: 600,
+                  color: "#2f2a26",
+                }}
+              >
+                {sub.customer_name}
+              </div>
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "#7a7a72",
+                  marginTop: 2,
+                }}
+              >
+                {sub.plan_name} · {formatFrequency(sub.plan_frequency)} ·{" "}
+                {formatPrice(sub.plan_price)}
+              </div>
+            </div>
+
+            <div style={{ textAlign: "center" }}>
+              <div
+                style={{
+                  fontSize: 22,
+                  fontWeight: 700,
+                  color: urgency,
+                }}
+              >
+                {days} {days === 1 ? "dia" : "dias"}
+              </div>
+              <div
+                style={{
+                  fontSize: 10,
+                  color: "#7a7a72",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                Vence {formatDate(sub.next_renewal_at)}
+              </div>
+            </div>
+
+            <a
+              href={getWhatsAppLink(sub.customer_phone, sub.customer_name)}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                padding: "10px 20px",
+                background: "#25D366",
+                color: "#fff",
+                borderRadius: 6,
+                fontSize: 12,
+                fontWeight: 700,
+                textDecoration: "none",
+                whiteSpace: "nowrap",
+              }}
+            >
+              💬 Cobrar renovação
+            </a>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ==========================================
+// SUB-ABA: RECENTES
+// ==========================================
+
+function RecentesTab({
+  subscriptions,
+  onSelect,
+  formatPrice,
+  formatFrequency,
+  formatDate,
+}: {
+  subscriptions: SubscriptionOrder[];
+  onSelect: (s: SubscriptionOrder) => void;
+  formatPrice: (v: number) => string;
+  formatFrequency: (f: string) => string;
+  formatDate: (v: string | null) => string;
+}) {
+  if (subscriptions.length === 0) {
+    return (
+      <div style={emptyStyle}>
+        Nenhuma assinatura renovada nos últimos 30 dias.
+      </div>
+    );
+  }
+
+  return (
+    <div style={tableWrapperStyle}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <thead>
+          <tr style={{ background: "#f9f9f7" }}>
+            <th style={thStyle}>Cliente</th>
+            <th style={thStyle}>Plano</th>
+            <th style={thStyle}>Valor</th>
+            <th style={thStyle}>Último pagamento</th>
+            <th style={thStyle}>Próxima renovação</th>
+          </tr>
+        </thead>
+        <tbody>
+          {subscriptions.map((sub) => (
+            <tr
+              key={sub.id}
+              onClick={() => onSelect(sub)}
+              style={{
+                borderTop: "1px solid #f0f0ec",
+                cursor: "pointer",
+              }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.background = "#f9f9f7")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.background = "transparent")
+              }
+            >
+              <td style={tdStyle}>
+                <div style={{ fontWeight: 500 }}>{sub.customer_name}</div>
+                <div style={{ fontSize: 11, color: "#7a7a72" }}>
+                  {sub.customer_email}
+                </div>
+              </td>
+              <td style={tdStyle}>
+                {sub.plan_name} · {formatFrequency(sub.plan_frequency)}
+              </td>
+              <td style={tdStyle}>{formatPrice(sub.plan_price)}</td>
+              <td style={{ ...tdStyle, color: "#166534", fontWeight: 600 }}>
+                {formatDate(sub.last_payment_at)}
+              </td>
+              <td style={{ ...tdStyle, color: "#7a7a72" }}>
+                {formatDate(sub.next_renewal_at)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ==========================================
+// SUB-ABA: CONTROLE
+// ==========================================
+
+function ControleTab({
+  subscriptions,
+  totalCount,
+  onSelect,
+  searchTerm,
+  setSearchTerm,
+  statusFilter,
+  setStatusFilter,
+  frequencyFilter,
+  setFrequencyFilter,
+  onExportCSV,
+  onReload,
+  formatPrice,
+  formatFrequency,
+  formatDate,
+}: {
+  subscriptions: SubscriptionOrder[];
+  totalCount: number;
+  onSelect: (s: SubscriptionOrder) => void;
+  searchTerm: string;
+  setSearchTerm: (v: string) => void;
+  statusFilter: string;
+  setStatusFilter: (v: string) => void;
+  frequencyFilter: string;
+  setFrequencyFilter: (v: string) => void;
+  onExportCSV: () => void;
+  onReload: () => void;
+  formatPrice: (v: number) => string;
+  formatFrequency: (f: string) => string;
+  formatDate: (v: string | null) => string;
+}) {
+  return (
+    <>
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          marginBottom: 16,
+          flexWrap: "wrap",
+        }}
+      >
+        <input
+          type="search"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Buscar por nome ou email..."
+          style={inputStyle}
+        />
+
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          style={selectStyle}
+        >
+          <option value="all">Todos os status</option>
+          <option value="paid">Pago</option>
+          <option value="pending">Pendente</option>
+          <option value="cancelled">Cancelado</option>
+          <option value="rejected">Recusado</option>
+        </select>
+
+        <select
+          value={frequencyFilter}
+          onChange={(e) => setFrequencyFilter(e.target.value)}
+          style={selectStyle}
+        >
+          <option value="all">Todas as frequências</option>
+          <option value="weekly">Semanal</option>
+          <option value="biweekly">Quinzenal</option>
+          <option value="monthly">Mensal</option>
+        </select>
+
+        <button type="button" onClick={onReload} style={refreshBtnStyle}>
+          ↻
+        </button>
+
+        <button type="button" onClick={onExportCSV} style={exportBtnStyle}>
+          📄 Exportar CSV
+        </button>
+      </div>
+
+      <p
+        style={{
+          margin: "0 0 12px",
+          fontSize: 12,
+          color: "#7a7a72",
+        }}
+      >
+        Mostrando {subscriptions.length} de {totalCount}{" "}
+        {totalCount === 1 ? "assinatura" : "assinaturas"}
+      </p>
+
+      <div style={tableWrapperStyle}>
+        {subscriptions.length === 0 ? (
+          <div style={emptyStyle}>Nenhuma assinatura encontrada.</div>
+        ) : (
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: "#f9f9f7" }}>
+                <th style={thStyle}>Cliente</th>
+                <th style={thStyle}>Plano</th>
+                <th style={thStyle}>Valor</th>
+                <th style={thStyle}>Status</th>
+                <th style={thStyle}>Renovação</th>
+                <th style={thStyle}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {subscriptions.map((sub) => {
+                const statusStyle =
+                  STATUS_COLOR[sub.payment_status] || STATUS_COLOR.pending;
+
+                return (
+                  <tr
+                    key={sub.id}
+                    onClick={() => onSelect(sub)}
+                    style={{
+                      borderTop: "1px solid #f0f0ec",
+                      cursor: "pointer",
+                    }}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.background = "#f9f9f7")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.background = "transparent")
+                    }
+                  >
+                    <td style={tdStyle}>
+                      <div style={{ fontWeight: 500 }}>
+                        {sub.customer_name}
+                      </div>
+                      <div style={{ fontSize: 11, color: "#7a7a72" }}>
+                        {sub.customer_email}
+                      </div>
+                    </td>
+                    <td style={tdStyle}>
+                      {sub.plan_name} · {formatFrequency(sub.plan_frequency)}
+                    </td>
+                    <td style={tdStyle}>{formatPrice(sub.plan_price)}</td>
+                    <td style={tdStyle}>
+                      <span
+                        style={{
+                          padding: "3px 8px",
+                          borderRadius: 4,
+                          fontSize: 11,
+                          fontWeight: 600,
+                          background: statusStyle.bg,
+                          color: statusStyle.color,
+                        }}
+                      >
+                        {STATUS_LABEL[sub.payment_status] ||
+                          sub.payment_status}
+                      </span>
+                    </td>
+                    <td style={{ ...tdStyle, color: "#7a7a72" }}>
+                      {sub.next_renewal_at
+                        ? formatDate(sub.next_renewal_at)
+                        : "—"}
+                    </td>
+                    <td style={{ ...tdStyle, color: "#9ca3af" }}>→</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </>
   );
 }
 
@@ -708,7 +858,6 @@ function SubscriptionDetailPanel({
         </div>
 
         <div style={{ padding: 24 }}>
-          {/* STATUS + RENOVAÇÃO */}
           <div
             style={{
               marginBottom: 24,
@@ -816,7 +965,6 @@ function SubscriptionDetailPanel({
             )}
           </div>
 
-          {/* CONTATO */}
           <Section title="Contato">
             <Field label="Nome" value={subscription.customer_name} />
             <Field
@@ -831,7 +979,6 @@ function SubscriptionDetailPanel({
             />
           </Section>
 
-          {/* PLANO */}
           <Section title="Plano">
             <Field label="Nome" value={subscription.plan_name} />
             <Field
@@ -844,15 +991,13 @@ function SubscriptionDetailPanel({
             />
             <Field
               label="Dia da entrega"
-              value={subscription.delivery_day === "saturday" ? "Sábado" : "Domingo"}
+              value={
+                subscription.delivery_day === "saturday" ? "Sábado" : "Domingo"
+              }
             />
-            <Field
-              label="Valor"
-              value={formatPrice(subscription.plan_price)}
-            />
+            <Field label="Valor" value={formatPrice(subscription.plan_price)} />
           </Section>
 
-          {/* PAGAMENTO */}
           <Section title="Pagamento">
             <Field label="Método" value={subscription.payment_method} />
             <Field
@@ -868,7 +1013,6 @@ function SubscriptionDetailPanel({
             )}
           </Section>
 
-          {/* ENDEREÇO */}
           {subscription.delivery_method === "delivery" && (
             <Section title="Endereço de entrega">
               {subscription.cep && <Field label="CEP" value={subscription.cep} />}
@@ -905,8 +1049,35 @@ function SubscriptionDetailPanel({
 }
 
 // ==========================================
-// COMPONENTES AUXILIARES
+// AUXILIARES
 // ==========================================
+
+function downloadCSV(headers: string[], rows: string[][], filename: string) {
+  const escapeCSV = (value: string) => {
+    if (value.includes(",") || value.includes('"') || value.includes("\n")) {
+      return `"${value.replace(/"/g, '""')}"`;
+    }
+    return value;
+  };
+
+  const csv = [
+    headers.map(escapeCSV).join(","),
+    ...rows.map((row) => row.map(escapeCSV).join(",")),
+  ].join("\n");
+
+  const blob = new Blob(["\uFEFF" + csv], {
+    type: "text/csv;charset=utf-8;",
+  });
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
 
 const thStyle: React.CSSProperties = {
   padding: "12px 16px",
@@ -949,11 +1120,23 @@ const refreshBtnStyle: React.CSSProperties = {
   cursor: "pointer",
 };
 
+const exportBtnStyle: React.CSSProperties = {
+  height: 38,
+  padding: "0 16px",
+  background: "#166534",
+  color: "#fff",
+  border: 0,
+  borderRadius: 6,
+  fontSize: 13,
+  fontWeight: 600,
+  cursor: "pointer",
+};
+
 const tableWrapperStyle: React.CSSProperties = {
   background: "#fff",
   border: "1px solid #e0e0dc",
   borderRadius: 8,
-  overflow: "hidden",
+  overflow: "auto",
 };
 
 const emptyStyle: React.CSSProperties = {
@@ -961,6 +1144,9 @@ const emptyStyle: React.CSSProperties = {
   textAlign: "center",
   color: "#7a7a72",
   fontSize: 13,
+  background: "#fff",
+  border: "1px solid #e0e0dc",
+  borderRadius: 8,
 };
 
 function Section({
