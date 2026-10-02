@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { UserRound } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { validateCep, type DeliveryMethod } from "@/lib/checkcep";
+
 type SubscriptionData = {
   id: number;
   name: string;
@@ -232,7 +233,14 @@ export default function AssinaturaCheckoutPage() {
     const newErrors: Partial<Record<keyof FormData, string>> = {};
 
     if (!formData.name.trim()) newErrors.name = "Informe seu nome.";
-    if (!formData.phone.trim()) newErrors.phone = "Informe seu telefone.";
+
+    const phoneDigits = formData.phone.replace(/\D/g, "");
+    if (!formData.phone.trim()) {
+      newErrors.phone = "Informe seu telefone.";
+    } else if (phoneDigits.length < 11) {
+      newErrors.phone = "Telefone incompleto. Use (22) 99999-9999.";
+    }
+
     if (!formData.email.trim()) newErrors.email = "Informe seu e-mail.";
     else if (!formData.email.includes("@"))
       newErrors.email = "E-mail inválido.";

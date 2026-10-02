@@ -114,7 +114,7 @@ export default function CheckoutPage() {
   }
 
   function formatPhone(value: string) {
-    const numbers = value.replace(/\D/g, "").slice(0, 10);
+    const numbers = value.replace(/\D/g, "").slice(0, 11);
 
     if (numbers.length <= 2) {
       return numbers.length ? `(${numbers}` : "";
@@ -124,7 +124,13 @@ export default function CheckoutPage() {
       return `(${numbers.slice(0, 2)}) ${numbers.slice(2)}`;
     }
 
-    return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 6)}-${numbers.slice(6)}`;
+    if (numbers.length <= 10) {
+      return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 6)}-${numbers.slice(
+        6
+      )}`;
+    }
+
+    return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(7)}`;
   }
 
   function formatCep(value: string) {
@@ -250,8 +256,8 @@ export default function CheckoutPage() {
 
     if (!formData.phone.trim()) {
       newErrors.phone = "Informe seu telefone.";
-    } else if (phoneNumbers.length !== 10) {
-      newErrors.phone = "Informe um telefone válido.";
+    } else if (phoneNumbers.length < 11) {
+      newErrors.phone = "Telefone incompleto. Use (22) 99999-9999.";
     }
 
     if (!formData.email.trim()) {
@@ -370,7 +376,7 @@ export default function CheckoutPage() {
                     type="tel"
                     value={formData.phone}
                     onChange={(event) => handlePhoneChange(event.target.value)}
-                    placeholder="(00) 00000-0000"
+                    placeholder="(22) 99999-9999"
                     inputMode="numeric"
                     maxLength={15}
                     className={showErrors && errors.phone ? "input-error" : ""}
@@ -483,7 +489,9 @@ export default function CheckoutPage() {
                     <input
                       type="text"
                       value={formData.number}
-                      onChange={(event) => handleChange("number", event.target.value)}
+                      onChange={(event) =>
+                        handleChange("number", event.target.value)
+                      }
                       placeholder="000"
                       className={showErrors && errors.number ? "input-error" : ""}
                     />
