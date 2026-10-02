@@ -544,8 +544,7 @@ function FloresTab() {
   const [flowers, setFlowers] = useState<WeeklyFlower[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
-  const [newFlowerName, setNewFlowerName] = useState("");
-  const [isAdding, setIsAdding] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
 
   async function loadFlowers() {
     setIsLoading(true);
@@ -625,39 +624,6 @@ function FloresTab() {
       .eq("id", id);
   }
 
-  async function handleAddFlower() {
-    if (!newFlowerName.trim()) return;
-
-    setIsAdding(true);
-
-    const nextPosition =
-      flowers.length > 0
-        ? Math.max(...flowers.map((f) => f.position)) + 1
-        : 1;
-
-    const { data, error } = await supabase
-      .from("weekly_flowers")
-      .insert({
-        position: nextPosition,
-        name: newFlowerName.trim(),
-        image: null,
-        active: true,
-        extra_price: 0,
-      })
-      .select()
-      .single();
-
-    setIsAdding(false);
-
-    if (error) {
-      alert("Erro ao adicionar: " + error.message);
-      return;
-    }
-
-    setFlowers((current) => [...current, data]);
-    setNewFlowerName("");
-  }
-
   async function handleRemoveFlower(id: string) {
     if (!confirm("Remover essa flor?")) return;
 
@@ -690,8 +656,29 @@ function FloresTab() {
         valor no total do produto.
       </p>
 
+      <div style={{ marginBottom: 16 }}>
+        <button
+          type="button"
+          onClick={() => setShowAddModal(true)}
+          style={{
+            padding: "10px 20px",
+            background: "#166534",
+            color: "#fff",
+            border: 0,
+            borderRadius: 6,
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: "pointer",
+          }}
+        >
+          ➕ Adicionar flor
+        </button>
+      </div>
+
       {isLoading ? (
         <div style={emptyStyle}>Carregando flores...</div>
+      ) : flowers.length === 0 ? (
+        <div style={emptyStyle}>Nenhuma flor cadastrada.</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {flowers.map((flower) => (
@@ -810,51 +797,342 @@ function FloresTab() {
         </div>
       )}
 
+      {showAddModal && (
+        <AddFlowerModal
+          onClose={() => setShowAddModal(false)}
+          onSaved={() => {
+            setShowAddModal(false);
+            loadFlowers();
+          }}
+          nextPosition={
+            flowers.length > 0
+              ? Math.max(...flowers.map((f) => f.position)) + 1
+              : 1
+          }
+        />
+      )}
+    </>
+  );
+}
+
+// ==========================================
+// MODAL: ADICIONAR FLOR
+// ==========================================
+
+function AddFlowerModal({
+  onClose,
+  onSaved,
+  nextPosition,
+}: {
+  onClose: () => void;
+  onSaved: () => void;
+  nextPosition: number;
+}) {
+  const [name, setName] = useState("");
+  const [extraPrice, setExtraPrice] = useState("");
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleUpload(file: File) {
+    setIsUploading(true);
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const response = await fetch("/api/admin/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.url) {
+        throw new Error(result.error || "Erro no upload");
+      }
+
+      setImageUrl(result.url);
+    } catch (err: any) {
+      console.error("Erro no upload:", err);
+      alert("Erro no upload: " + (err?.message || "desconhecido"));
+    } finally {
+      setIsUploading(false);
+    }
+  }
+
+  async function handleSave() {
+    if (!name.trim()) {
+      alert("Informe o nome da flor.");
+      return;
+    }
+
+    setIsSaving(true);
+
+    const { error } = await supabase.from("weekly_flowers").insert({
+      position: nextPosition,
+      name: name.trim(),
+      image: imageUrl,
+      active: true,
+      extra_price: extraPrice ? Number(extraPrice.replace(",", ".")) : 0,
+    });
+
+    setIsSaving(false);
+
+    if (error) {
+      alert("Erro ao adicionar: " + error.message);
+      return;
+    }
+
+    onSaved();
+  }
+
+  return (
+    <>
+      <div
+        onClick={onClose}
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.4)",
+          zIndex: 40,
+        }}
+      />
+
       <div
         style={{
-          marginTop: 20,
-          padding: 16,
-          background: "#f9f9f7",
-          border: "1px dashed #d1d5db",
-          borderRadius: 8,
-          display: "flex",
-          gap: 12,
-          alignItems: "center",
-          flexWrap: "wrap",
+          position: "fixed",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: "min(480px, 92%)",
+          maxHeight: "90vh",
+          overflowY: "auto",
+          background: "#fff",
+          borderRadius: 12,
+          zIndex: 50,
+          padding: 24,
         }}
       >
-        <input
-          type="text"
-          value={newFlowerName}
-          onChange={(e) => setNewFlowerName(e.target.value)}
-          placeholder="Nome da nova flor"
-          style={{ ...inputStyle, flex: 1 }}
-        />
-
-        <button
-          type="button"
-          onClick={handleAddFlower}
-          disabled={isAdding || !newFlowerName.trim()}
+        <div
           style={{
-            padding: "10px 20px",
-            background: "#2f2a26",
-            color: "#fff",
-            border: 0,
-            borderRadius: 6,
-            fontSize: 12,
-            fontWeight: 600,
-            cursor: isAdding ? "wait" : "pointer",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 20,
           }}
         >
-          {isAdding ? "..." : "+ Adicionar"}
-        </button>
+          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
+            Adicionar nova flor
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              background: "transparent",
+              border: 0,
+              fontSize: 24,
+              cursor: "pointer",
+            }}
+          >
+            ×
+          </button>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* FOTO */}
+          <div>
+            <label
+              style={{
+                display: "block",
+                fontSize: 11,
+                fontWeight: 600,
+                color: "#7a7a72",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                marginBottom: 6,
+              }}
+            >
+              Foto
+            </label>
+
+            <div
+              onClick={() =>
+                !isUploading && fileInputRef.current?.click()
+              }
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 16,
+                padding: 16,
+                background: "#f9f9f7",
+                border: "1px dashed #d1d5db",
+                borderRadius: 8,
+                cursor: isUploading ? "wait" : "pointer",
+              }}
+            >
+              <div
+                style={{
+                  width: 64,
+                  height: 64,
+                  borderRadius: 8,
+                  overflow: "hidden",
+                  background: "#f2ece6",
+                  border: "1px solid #e0e0dc",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                {isUploading ? (
+                  <span style={{ fontSize: 11, color: "#7a7a72" }}>...</span>
+                ) : imageUrl ? (
+                  <img
+                    src={imageUrl}
+                    alt="Preview"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                  />
+                ) : (
+                  <span style={{ fontSize: 24, color: "#9ca3af" }}>+</span>
+                )}
+              </div>
+
+              <div style={{ flex: 1 }}>
+                <div
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: "#2f2a26",
+                  }}
+                >
+                  {imageUrl
+                    ? "Trocar imagem"
+                    : "Clique pra escolher uma imagem"}
+                </div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "#7a7a72",
+                    marginTop: 2,
+                  }}
+                >
+                  JPG, PNG ou WEBP
+                </div>
+              </div>
+            </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleUpload(file);
+                e.target.value = "";
+              }}
+              style={{ display: "none" }}
+            />
+          </div>
+
+          {/* NOME */}
+          <div>
+            <label
+              style={{
+                display: "block",
+                fontSize: 11,
+                fontWeight: 600,
+                color: "#7a7a72",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                marginBottom: 6,
+              }}
+            >
+              Nome da flor *
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ex: Lírio, Rosa, Girassol..."
+              style={formInputStyle}
+              autoFocus
+            />
+          </div>
+
+          {/* ADICIONAL */}
+          <div>
+            <label
+              style={{
+                display: "block",
+                fontSize: 11,
+                fontWeight: 600,
+                color: "#7a7a72",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                marginBottom: 6,
+              }}
+            >
+              Adicional (R$)
+            </label>
+            <input
+              type="text"
+              value={extraPrice}
+              onChange={(e) => setExtraPrice(e.target.value)}
+              placeholder="15,00"
+              style={formInputStyle}
+            />
+            <p
+              style={{
+                margin: "6px 0 0",
+                fontSize: 11,
+                color: "#7a7a72",
+              }}
+            >
+              Deixe vazio se a flor não tem valor adicional.
+            </p>
+          </div>
+
+          {/* BOTÃO */}
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={isSaving || isUploading || !name.trim()}
+            style={{
+              marginTop: 8,
+              padding: "12px 20px",
+              background:
+                isSaving || isUploading || !name.trim()
+                  ? "#a3a3a3"
+                  : "#166534",
+              color: "#fff",
+              border: 0,
+              borderRadius: 6,
+              fontSize: 13,
+              fontWeight: 700,
+              letterSpacing: "0.05em",
+              textTransform: "uppercase",
+              cursor:
+                isSaving || isUploading || !name.trim()
+                  ? "not-allowed"
+                  : "pointer",
+            }}
+          >
+            {isSaving ? "Salvando..." : "Adicionar flor"}
+          </button>
+        </div>
       </div>
     </>
   );
 }
 
 // ==========================================
-// UPLOAD DE IMAGEM
+// UPLOAD DE IMAGEM (linha da flor)
 // ==========================================
 
 function FlowerImageUpload({
@@ -1169,4 +1447,16 @@ const closeBtnStyle: React.CSSProperties = {
   fontSize: 24,
   cursor: "pointer",
   lineHeight: 1,
+};
+
+const formInputStyle: React.CSSProperties = {
+  width: "100%",
+  height: 44,
+  padding: "0 14px",
+  border: "1px solid #d1d5db",
+  borderRadius: 6,
+  fontSize: 14,
+  outline: "none",
+  fontFamily: "inherit",
+  boxSizing: "border-box",
 };
