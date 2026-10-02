@@ -7,6 +7,7 @@ const TABS = [
   { href: "/admin/caixa", label: "Caixa" },
   { href: "/admin/assinaturas", label: "Assinaturas" },
   { href: "/admin/produtos", label: "Produtos" },
+  { href: "/admin/contabil", label: "Contábil" },
 ];
 
 export default function AdminLayout({
@@ -17,7 +18,6 @@ export default function AdminLayout({
   const pathname = usePathname();
   const router = useRouter();
 
-  // Telas que NÃO devem mostrar o layout (login e impressão)
   if (pathname.startsWith("/admin/login")) {
     return <>{children}</>;
   }
