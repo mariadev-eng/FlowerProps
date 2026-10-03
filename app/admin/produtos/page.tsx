@@ -142,7 +142,7 @@ function ProdutosTab() {
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   async function loadProducts() {
     setIsLoading(true);
 
@@ -228,7 +228,26 @@ function ProdutosTab() {
         >
           {isLoading ? "..." : "↻"}
         </button>
-      </div>
+       {/* 🆕 BOTÃO ADICIONAR PRODUTO */}
+        <button
+          type="button"
+          onClick={() => setIsAddModalOpen(true)}
+          style={{
+            height: 38,
+            padding: "0 18px",
+            background: "#166534",
+            color: "#fff",
+            border: 0,
+            borderRadius: 6,
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: "pointer",
+            marginLeft: "auto",
+          }}
+        >
+          ➕ Adicionar produto
+        </button>
+        </div>
 
       <div style={tableWrapperStyle}>
         {isLoading ? (
@@ -365,6 +384,15 @@ function ProdutosTab() {
           }}
         />
       )}
+            {isAddModalOpen && (
+        <AddProductModal
+          onClose={() => setIsAddModalOpen(false)}
+          onCreated={(newProduct) => {
+            setProducts((current) => [...current, newProduct]);
+            setIsAddModalOpen(false);
+          }}
+        />
+      )}
     </>
   );
 }
@@ -399,7 +427,7 @@ function ProductEditor({
   async function handleSave() {
     setIsSaving(true);
     setSuccessMsg("");
-
+console.log("🎨 ANTES DE SALVAR:", form.colors);
     const { error } = await supabase
       .from("products")
       .update({
@@ -2200,7 +2228,460 @@ function ToggleField({
     </label>
   );
 }
+// ==========================================
+// MODAL: ADICIONAR PRODUTO
+// ==========================================
 
+function AddProductModal({
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void;
+  onCreated: (product: Product) => void;
+}) {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [price, setPrice] = useState("");
+  const [categoryId, setCategoryId] = useState(1);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [available, setAvailable] = useState(true);
+  const [featured, setFeatured] = useState(false);
+  const [requiresFlowerSelection, setRequiresFlowerSelection] = useState(false);
+  const [requiresPackaging, setRequiresPackaging] = useState(false);
+  const [isComplement, setIsComplement] = useState(false);
+  const [maxFlowers, setMaxFlowers] = useState("");
+  const [includedComplements, setIncludedComplements] = useState("");
+
+  const [isUploading, setIsUploading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleUpload(file: File) {
+    setIsUploading(true);
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/admin/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await res.json();
+
+      if (res.ok && result.url) {
+        setImageUrl(result.url);
+      } else {
+        alert("Erro no upload.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Erro no upload.");
+    } finally {
+      setIsUploading(false);
+    }
+  }
+
+  async function handleCreate() {
+    if (!name.trim()) {
+      alert("Informe o nome do produto.");
+      return;
+    }
+
+    if (!price || Number(price) <= 0) {
+      alert("Informe um preço válido.");
+      return;
+    }
+
+    setIsSaving(true);
+
+    const payload = {
+      name: name.trim(),
+      description: description.trim(),
+      price: Number(price),
+      category_id: Number(categoryId),
+      image: imageUrl,
+      available,
+      featured,
+      requires_flower_selection: requiresFlowerSelection,
+      requires_packaging: requiresPackaging,
+      is_complement: isComplement,
+      max_flowers: maxFlowers ? Number(maxFlowers) : null,
+      included_complements: includedComplements
+        .split(",")
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean),
+      colors: [],
+    };
+
+    const { data, error } = await supabase
+      .from("products")
+      .insert(payload)
+      .select()
+      .single();
+
+    setIsSaving(false);
+
+    if (error || !data) {
+      alert("Erro ao criar produto: " + (error?.message || "desconhecido"));
+      return;
+    }
+
+    onCreated(data as Product);
+  }
+
+  return (
+    <>
+      <div
+        onClick={onClose}
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.4)",
+          zIndex: 60,
+        }}
+      />
+
+      <div
+        style={{
+          position: "fixed",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: "min(560px, 92%)",
+          maxHeight: "90vh",
+          overflowY: "auto",
+          background: "#fff",
+          borderRadius: 12,
+          zIndex: 70,
+          padding: 24,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 20,
+          }}
+        >
+          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
+            Novo produto
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              background: "transparent",
+              border: 0,
+              fontSize: 24,
+              cursor: "pointer",
+            }}
+          >
+            ×
+          </button>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {/* FOTO */}
+          <div>
+            <label
+              style={{
+                display: "block",
+                fontSize: 11,
+                fontWeight: 600,
+                color: "#7a7a72",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                marginBottom: 6,
+              }}
+            >
+              Foto do produto
+            </label>
+
+            <div
+              onClick={() => !isUploading && fileInputRef.current?.click()}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 14,
+                padding: 12,
+                background: "#f9f9f7",
+                border: "1px dashed #d1d5db",
+                borderRadius: 8,
+                cursor: isUploading ? "wait" : "pointer",
+              }}
+            >
+              <div
+                style={{
+                  width: 64,
+                  height: 64,
+                  borderRadius: 8,
+                  overflow: "hidden",
+                  background: "#f2ece6",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                {isUploading ? (
+                  <span style={{ fontSize: 11, color: "#7a7a72" }}>...</span>
+                ) : imageUrl ? (
+                  <img
+                    src={imageUrl}
+                    alt="Preview"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                  />
+                ) : (
+                  <span style={{ fontSize: 22, color: "#9ca3af" }}>+</span>
+                )}
+              </div>
+
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#2f2a26" }}>
+                  {imageUrl ? "Trocar imagem" : "Clique pra escolher"}
+                </div>
+                <div style={{ fontSize: 10, color: "#7a7a72", marginTop: 2 }}>
+                  JPG, PNG ou WEBP
+                </div>
+              </div>
+            </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleUpload(file);
+                e.target.value = "";
+              }}
+              style={{ display: "none" }}
+            />
+          </div>
+
+          {/* NOME */}
+          <div>
+            <label
+              style={{
+                display: "block",
+                fontSize: 11,
+                fontWeight: 600,
+                color: "#7a7a72",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                marginBottom: 6,
+              }}
+            >
+              Nome *
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ex: Urso, Caneca, Vinho..."
+              style={formInputStyle}
+              autoFocus
+            />
+          </div>
+
+          {/* DESCRIÇÃO */}
+          <div>
+            <label
+              style={{
+                display: "block",
+                fontSize: 11,
+                fontWeight: 600,
+                color: "#7a7a72",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                marginBottom: 6,
+              }}
+            >
+              Descrição
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Uma breve descrição do produto..."
+              rows={3}
+              style={{
+                ...formInputStyle,
+                height: "auto",
+                padding: 10,
+                resize: "vertical",
+                fontFamily: "inherit",
+              }}
+            />
+          </div>
+
+          {/* PREÇO + CATEGORIA */}
+          <div style={{ display: "flex", gap: 12 }}>
+            <div style={{ flex: 1 }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: "#7a7a72",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                  marginBottom: 6,
+                }}
+              >
+                Preço (R$) *
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                placeholder="60,00"
+                style={formInputStyle}
+              />
+            </div>
+
+            <div style={{ flex: 1 }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: "#7a7a72",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                  marginBottom: 6,
+                }}
+              >
+                Categoria *
+              </label>
+              <select
+                value={categoryId}
+                onChange={(e) => setCategoryId(Number(e.target.value))}
+                style={formInputStyle}
+              >
+                {CATEGORIES.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* MÁXIMO DE FLORES */}
+          <div>
+            <label
+              style={{
+                display: "block",
+                fontSize: 11,
+                fontWeight: 600,
+                color: "#7a7a72",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                marginBottom: 6,
+              }}
+            >
+              Máximo de flores (vazio = sem limite)
+            </label>
+            <input
+              type="number"
+              value={maxFlowers}
+              onChange={(e) => setMaxFlowers(e.target.value)}
+              placeholder="Ex: 5"
+              style={formInputStyle}
+            />
+          </div>
+
+          {/* COMPLEMENTOS INCLUSOS */}
+          <div>
+            <label
+              style={{
+                display: "block",
+                fontSize: 11,
+                fontWeight: 600,
+                color: "#7a7a72",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                marginBottom: 6,
+              }}
+            >
+              Complementos inclusos (separados por vírgula)
+            </label>
+            <input
+              type="text"
+              value={includedComplements}
+              onChange={(e) => setIncludedComplements(e.target.value)}
+              placeholder="Ex: caneca, chocolate"
+              style={formInputStyle}
+            />
+          </div>
+
+          {/* TOGGLES */}
+          <ToggleField
+            label="Disponível"
+            value={available}
+            onChange={setAvailable}
+          />
+          <ToggleField
+            label="Featured (destaque na home)"
+            value={featured}
+            onChange={setFeatured}
+          />
+          <ToggleField
+            label="Requer escolha de flores"
+            value={requiresFlowerSelection}
+            onChange={setRequiresFlowerSelection}
+          />
+          <ToggleField
+            label="Exige finalização (papelaria + fita)"
+            value={requiresPackaging}
+            onChange={setRequiresPackaging}
+          />
+          <ToggleField
+            label="É complemento"
+            value={isComplement}
+            onChange={setIsComplement}
+          />
+
+          {/* BOTÃO */}
+          <button
+            type="button"
+            onClick={handleCreate}
+            disabled={isSaving || isUploading || !name.trim() || !price}
+            style={{
+              marginTop: 8,
+              padding: "12px 20px",
+              background:
+                isSaving || isUploading || !name.trim() || !price
+                  ? "#a3a3a3"
+                  : "#166534",
+              color: "#fff",
+              border: 0,
+              borderRadius: 6,
+              fontSize: 13,
+              fontWeight: 700,
+              letterSpacing: "0.05em",
+              textTransform: "uppercase",
+              cursor:
+                isSaving || isUploading || !name.trim() || !price
+                  ? "not-allowed"
+                  : "pointer",
+            }}
+          >
+            {isSaving ? "Criando..." : "Criar produto"}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
 // ==========================================
 // ESTILOS
 // ==========================================
