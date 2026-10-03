@@ -7,6 +7,13 @@ import { supabase } from "@/lib/supabase";
 // TIPOS
 // ==========================================
 
+type ProductColor = {
+  name: string;
+  hex: string;
+  image: string;
+  active: boolean;
+};
+
 type Product = {
   id: number;
   name: string;
@@ -20,7 +27,8 @@ type Product = {
   is_complement: boolean | null;
   included_complements: string[] | null;
   max_flowers: number | null;
-  requires_packaging: boolean | null;  // 🆕
+  requires_packaging: boolean | null;
+  colors: ProductColor[] | null;
 };
 
 type WeeklyFlower = {
@@ -235,6 +243,7 @@ function ProdutosTab() {
                 <th style={thStyle}>Produto</th>
                 <th style={thStyle}>Categoria</th>
                 <th style={thStyle}>Preço</th>
+                <th style={thStyle}>Cores</th>
                 <th style={thStyle}>Disponível</th>
                 <th style={thStyle}>Complemento</th>
               </tr>
@@ -245,6 +254,8 @@ function ProdutosTab() {
                   bg: "#f3f4f6",
                   color: "#6b7280",
                 };
+
+                const activeColors = (p.colors || []).filter((c) => c.active);
 
                 return (
                   <tr
@@ -297,6 +308,38 @@ function ProdutosTab() {
                       {formatPrice(p.price)}
                     </td>
                     <td style={tdStyle}>
+                      <div style={{ display: "flex", gap: 4 }}>
+                        {activeColors.slice(0, 5).map((color, i) => (
+                          <span
+                            key={i}
+                            title={color.name}
+                            style={{
+                              display: "block",
+                              width: 18,
+                              height: 18,
+                              borderRadius: "50%",
+                              background: color.hex,
+                              border: "1px solid rgba(0,0,0,0.1)",
+                            }}
+                          />
+                        ))}
+                        {activeColors.length === 0 && (
+                          <span style={{ color: "#9ca3af", fontSize: 12 }}>—</span>
+                        )}
+                        {activeColors.length > 5 && (
+                          <span
+                            style={{
+                              fontSize: 11,
+                              color: "#7a7a72",
+                              alignSelf: "center",
+                            }}
+                          >
+                            +{activeColors.length - 5}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td style={tdStyle}>
                       {p.available ? "✅ Sim" : "❌ Não"}
                     </td>
                     <td style={{ ...tdStyle, color: "#7a7a72" }}>
@@ -339,9 +382,14 @@ function ProductEditor({
   onClose: () => void;
   onSaved: (p: Product) => void;
 }) {
-  const [form, setForm] = useState<Product>(product);
+  const [form, setForm] = useState<Product>({
+    ...product,
+    colors: product.colors || [],
+  });
   const [isSaving, setIsSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
+  const [editingColorIndex, setEditingColorIndex] = useState<number | null>(null);
+  const [isColorModalOpen, setIsColorModalOpen] = useState(false);
 
   function updateField<K extends keyof Product>(key: K, value: Product[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -367,6 +415,7 @@ function ProductEditor({
         included_complements: form.included_complements || [],
         max_flowers: form.max_flowers,
         requires_packaging: form.requires_packaging,
+        colors: form.colors || [],
       })
       .eq("id", form.id);
 
@@ -380,6 +429,59 @@ function ProductEditor({
     setSuccessMsg("✅ Salvo!");
     onSaved(form);
   }
+
+  // ==========================================
+  // VARIAÇÕES DE COR
+  // ==========================================
+
+  function openAddColor() {
+    setEditingColorIndex(null);
+    setIsColorModalOpen(true);
+  }
+
+  function openEditColor(index: number) {
+    setEditingColorIndex(index);
+    setIsColorModalOpen(true);
+  }
+
+  function saveColor(color: ProductColor, index: number | null) {
+    setForm((current) => {
+      const colors = [...(current.colors || [])];
+
+      if (index === null) {
+        colors.push(color);
+      } else {
+        colors[index] = color;
+      }
+
+      return { ...current, colors };
+    });
+
+    setIsColorModalOpen(false);
+    setSuccessMsg("");
+  }
+
+  function removeColor(index: number) {
+    if (!confirm("Remover essa variação de cor?")) return;
+
+    setForm((current) => ({
+      ...current,
+      colors: (current.colors || []).filter((_, i) => i !== index),
+    }));
+    setSuccessMsg("");
+  }
+
+  function toggleColorActive(index: number) {
+    setForm((current) => ({
+      ...current,
+      colors: (current.colors || []).map((c, i) =>
+        i === index ? { ...c, active: !c.active } : c
+      ),
+    }));
+    setSuccessMsg("");
+  }
+
+  const colors = form.colors || [];
 
   return (
     <>
@@ -476,6 +578,220 @@ function ProductEditor({
             }
           />
 
+          {/* ========================================== */}
+          {/* 🎨 VARIAÇÕES DE COR */}
+          {/* ========================================== */}
+          <div
+            style={{
+              marginTop: 8,
+              padding: 16,
+              background: "#f9f9f7",
+              borderRadius: 8,
+              border: "1px solid #e0e0dc",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 12,
+              }}
+            >
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: "#2f2a26",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                🎨 Variações de cor ({colors.length})
+              </h3>
+
+              <button
+                type="button"
+                onClick={openAddColor}
+                style={{
+                  padding: "6px 12px",
+                  background: "#166534",
+                  color: "#fff",
+                  border: 0,
+                  borderRadius: 6,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                ➕ Adicionar
+              </button>
+            </div>
+
+            {colors.length === 0 ? (
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 12,
+                  color: "#7a7a72",
+                  textAlign: "center",
+                  padding: "12px 0",
+                }}
+              >
+                Nenhuma variação cadastrada.
+              </p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {colors.map((color, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: 8,
+                      background: "#fff",
+                      border: "1px solid #e0e0dc",
+                      borderRadius: 6,
+                      opacity: color.active ? 1 : 0.5,
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 6,
+                        overflow: "hidden",
+                        background: "#f2ece6",
+                        flexShrink: 0,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      {color.image ? (
+                        <img
+                          src={color.image}
+                          alt={color.name}
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                          }}
+                        />
+                      ) : (
+                        <span
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            background: color.hex,
+                          }}
+                        />
+                      )}
+                    </div>
+
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 600,
+                          color: "#2f2a26",
+                        }}
+                      >
+                        {color.name}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 10,
+                          color: "#7a7a72",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4,
+                          marginTop: 2,
+                        }}
+                      >
+                        <span
+                          style={{
+                            display: "inline-block",
+                            width: 10,
+                            height: 10,
+                            borderRadius: "50%",
+                            background: color.hex,
+                            border: "1px solid rgba(0,0,0,0.1)",
+                          }}
+                        />
+                        {color.hex}
+                      </div>
+                    </div>
+
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                        fontSize: 11,
+                        cursor: "pointer",
+                        userSelect: "none",
+                        color: "#7a7a72",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={color.active}
+                        onChange={() => toggleColorActive(i)}
+                      />
+                      Ativa
+                    </label>
+
+                    <button
+                      type="button"
+                      onClick={() => openEditColor(i)}
+                      style={{
+                        padding: "4px 8px",
+                        background: "transparent",
+                        border: "1px solid #d1d5db",
+                        borderRadius: 4,
+                        fontSize: 11,
+                        cursor: "pointer",
+                        color: "#2f2a26",
+                      }}
+                    >
+                      Editar
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => removeColor(i)}
+                      style={{
+                        padding: "4px 8px",
+                        background: "transparent",
+                        border: "1px solid #fecaca",
+                        borderRadius: 4,
+                        fontSize: 11,
+                        cursor: "pointer",
+                        color: "#991b1b",
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <p
+              style={{
+                margin: "10px 0 0",
+                fontSize: 10,
+                color: "#9ca3af",
+                textAlign: "center",
+              }}
+            >
+              💡 Clique em <strong>Salvar alterações</strong> abaixo pra aplicar.
+            </p>
+          </div>
+
           <ToggleField
             label="Disponível"
             value={!!form.available}
@@ -493,11 +809,12 @@ function ProductEditor({
             value={!!form.requires_flower_selection}
             onChange={(v) => updateField("requires_flower_selection", v)}
           />
+
           <ToggleField
-           label="Exige finalização (papelaria + fita)"
-           value={!!form.requires_packaging}
-           onChange={(v) => updateField("requires_packaging", v)}
-/>
+            label="Exige finalização (papelaria + fita)"
+            value={!!form.requires_packaging}
+            onChange={(v) => updateField("requires_packaging", v)}
+          />
 
           <ToggleField
             label="É complemento"
@@ -540,6 +857,320 @@ function ProductEditor({
           )}
         </div>
       </aside>
+
+      {isColorModalOpen && (
+        <ColorModal
+          color={
+            editingColorIndex !== null
+              ? colors[editingColorIndex]
+              : { name: "", hex: "#000000", image: "", active: true }
+          }
+          onClose={() => setIsColorModalOpen(false)}
+          onSave={(color) => saveColor(color, editingColorIndex)}
+        />
+      )}
+    </>
+  );
+}
+
+// ==========================================
+// MODAL DE COR
+// ==========================================
+
+function ColorModal({
+  color,
+  onClose,
+  onSave,
+}: {
+  color: ProductColor;
+  onClose: () => void;
+  onSave: (color: ProductColor) => void;
+}) {
+  const [name, setName] = useState(color.name);
+  const [hex, setHex] = useState(color.hex);
+  const [image, setImage] = useState(color.image);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleUpload(file: File) {
+    setIsUploading(true);
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/admin/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await res.json();
+
+      if (res.ok && result.url) {
+        setImage(result.url);
+      } else {
+        alert("Erro no upload.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Erro no upload.");
+    } finally {
+      setIsUploading(false);
+    }
+  }
+
+  function handleSave() {
+    if (!name.trim()) {
+      alert("Informe o nome da cor.");
+      return;
+    }
+
+    if (!hex.trim()) {
+      alert("Informe o código da cor (hex).");
+      return;
+    }
+
+    onSave({
+      name: name.trim(),
+      hex: hex.trim(),
+      image: image.trim(),
+      active: color.active,
+    });
+  }
+
+  return (
+    <>
+      <div
+        onClick={onClose}
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.4)",
+          zIndex: 60,
+        }}
+      />
+
+      <div
+        style={{
+          position: "fixed",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: "min(420px, 92%)",
+          maxHeight: "90vh",
+          overflowY: "auto",
+          background: "#fff",
+          borderRadius: 12,
+          zIndex: 70,
+          padding: 24,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 20,
+          }}
+        >
+          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
+            {color.name ? "Editar variação" : "Nova variação de cor"}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              background: "transparent",
+              border: 0,
+              fontSize: 24,
+              cursor: "pointer",
+            }}
+          >
+            ×
+          </button>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div>
+            <label
+              style={{
+                display: "block",
+                fontSize: 11,
+                fontWeight: 600,
+                color: "#7a7a72",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                marginBottom: 6,
+              }}
+            >
+              Nome da cor *
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ex: Branco, Cinza, Rosa"
+              style={formInputStyle}
+              autoFocus
+            />
+          </div>
+
+          <div>
+            <label
+              style={{
+                display: "block",
+                fontSize: 11,
+                fontWeight: 600,
+                color: "#7a7a72",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                marginBottom: 6,
+              }}
+            >
+              Cor (hex) *
+            </label>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input
+                type="color"
+                value={hex}
+                onChange={(e) => setHex(e.target.value)}
+                style={{
+                  width: 48,
+                  height: 44,
+                  border: "1px solid #d1d5db",
+                  borderRadius: 6,
+                  padding: 4,
+                  cursor: "pointer",
+                  background: "#fff",
+                }}
+              />
+              <input
+                type="text"
+                value={hex}
+                onChange={(e) => setHex(e.target.value)}
+                placeholder="#ffffff"
+                style={{ ...formInputStyle, flex: 1 }}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label
+              style={{
+                display: "block",
+                fontSize: 11,
+                fontWeight: 600,
+                color: "#7a7a72",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                marginBottom: 6,
+              }}
+            >
+              Foto da variação
+            </label>
+
+            <div
+              onClick={() => !isUploading && fileInputRef.current?.click()}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 14,
+                padding: 12,
+                background: "#f9f9f7",
+                border: "1px dashed #d1d5db",
+                borderRadius: 8,
+                cursor: isUploading ? "wait" : "pointer",
+              }}
+            >
+              <div
+                style={{
+                  width: 64,
+                  height: 64,
+                  borderRadius: 8,
+                  overflow: "hidden",
+                  background: "#f2ece6",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                {isUploading ? (
+                  <span style={{ fontSize: 11, color: "#7a7a72" }}>...</span>
+                ) : image ? (
+                  <img
+                    src={image}
+                    alt="Preview"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                  />
+                ) : (
+                  <span style={{ fontSize: 22, color: "#9ca3af" }}>+</span>
+                )}
+              </div>
+
+              <div style={{ flex: 1 }}>
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "#2f2a26",
+                  }}
+                >
+                  {image ? "Trocar imagem" : "Clique pra escolher"}
+                </div>
+                <div
+                  style={{
+                    fontSize: 10,
+                    color: "#7a7a72",
+                    marginTop: 2,
+                  }}
+                >
+                  JPG, PNG ou WEBP
+                </div>
+              </div>
+            </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleUpload(file);
+                e.target.value = "";
+              }}
+              style={{ display: "none" }}
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={isUploading || !name.trim()}
+            style={{
+              marginTop: 8,
+              padding: "12px 20px",
+              background:
+                isUploading || !name.trim() ? "#a3a3a3" : "#166534",
+              color: "#fff",
+              border: 0,
+              borderRadius: 6,
+              fontSize: 13,
+              fontWeight: 700,
+              letterSpacing: "0.05em",
+              textTransform: "uppercase",
+              cursor:
+                isUploading || !name.trim() ? "not-allowed" : "pointer",
+            }}
+          >
+            {isUploading ? "Enviando..." : "Salvar variação"}
+          </button>
+        </div>
+      </div>
     </>
   );
 }
@@ -734,7 +1365,6 @@ function FloresTab() {
                   overflow: "hidden",
                 }}
               >
-                {/* LINHA PRINCIPAL */}
                 <div
                   style={{
                     display: "flex",
@@ -862,7 +1492,6 @@ function FloresTab() {
                   </button>
                 </div>
 
-                {/* LISTA DE PRODUTOS (expansível) */}
                 {isExpanded && (
                   <div
                     style={{
@@ -1111,7 +1740,6 @@ function AddFlowerModal({
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {/* FOTO */}
           <div>
             <label
               style={{
@@ -1200,7 +1828,6 @@ function AddFlowerModal({
             />
           </div>
 
-          {/* NOME */}
           <div>
             <label
               style={{
@@ -1225,7 +1852,6 @@ function AddFlowerModal({
             />
           </div>
 
-          {/* ADICIONAL */}
           <div>
             <label
               style={{
@@ -1252,7 +1878,6 @@ function AddFlowerModal({
             </p>
           </div>
 
-          {/* PRODUTOS */}
           <div>
             <label
               style={{
@@ -1318,7 +1943,6 @@ function AddFlowerModal({
             </p>
           </div>
 
-          {/* BOTÃO */}
           <button
             type="button"
             onClick={handleSave}
@@ -1352,7 +1976,7 @@ function AddFlowerModal({
 }
 
 // ==========================================
-// UPLOAD DE IMAGEM
+// UPLOAD DE IMAGEM (FLORES)
 // ==========================================
 
 function FlowerImageUpload({

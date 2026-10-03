@@ -3,9 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { UserRound } from "lucide-react";
-import { supabase } from "../../../lib/supabase";
-import UserMenu from "../../components/UserMenu";
+import { supabase } from "@/lib/supabase";
+import UserMenu from "@/app/components/UserMenu";
+
+// ==========================================
+// TIPOS
+// ==========================================
 
 type ProductColor = {
   name: string;
@@ -88,6 +91,10 @@ type PackagingOption = {
   display_order: number;
 };
 
+// ==========================================
+// PÁGINA
+// ==========================================
+
 export default function ProdutoPage() {
   const params = useParams();
   const router = useRouter();
@@ -97,9 +104,7 @@ export default function ProdutoPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   const [selectedFlowers, setSelectedFlowers] = useState<Flower[]>([]);
-  const [selectedColor, setSelectedColor] = useState<ProductColor | null>(
-    null
-  );
+  const [selectedColor, setSelectedColor] = useState<ProductColor | null>(null);
   const [currentImage, setCurrentImage] = useState<string>("");
   const [error, setError] = useState("");
   const [customMessage, setCustomMessage] = useState("");
@@ -110,18 +115,19 @@ export default function ProdutoPage() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // 🆕 Finalização
+  // Finalização
   const [packagingPapers, setPackagingPapers] = useState<PackagingOption[]>([]);
   const [packagingRibbons, setPackagingRibbons] = useState<PackagingOption[]>([]);
   const [selectedPapers, setSelectedPapers] = useState<PackagingOption[]>([]);
-  const [selectedRibbon, setSelectedRibbon] = useState<PackagingOption | null>(
-    null
-  );
+  const [selectedRibbon, setSelectedRibbon] = useState<PackagingOption | null>(null);
 
-  // 🆕 Controle dos drawers
+  // Drawers
   const [isFlowersDrawerOpen, setIsFlowersDrawerOpen] = useState(false);
-  const [isFinalizationDrawerOpen, setIsFinalizationDrawerOpen] =
-    useState(false);
+  const [isFinalizationDrawerOpen, setIsFinalizationDrawerOpen] = useState(false);
+
+  // ==========================================
+  // CARREGAR PRODUTO
+  // ==========================================
 
   useEffect(() => {
     async function loadProduct() {
@@ -144,17 +150,19 @@ export default function ProdutoPage() {
 
       setProduct(data);
 
+      // 🎨 CORES — seleciona a primeira ativa por padrão
       const activeColors = (data.colors || []).filter(
         (c: ProductColor) => c.active
       );
 
       if (activeColors.length > 0) {
         setSelectedColor(activeColors[0]);
-        setCurrentImage(activeColors[0].image);
+        setCurrentImage(activeColors[0].image || data.image || "");
       } else {
         setCurrentImage(data.image || "");
       }
 
+      // 🌸 FLORES DA SEMANA
       const { data: flowersData } = await supabase
         .from("weekly_flowers")
         .select("*")
@@ -176,7 +184,7 @@ export default function ProdutoPage() {
         );
       }
 
-      // PAPELARIA E FITAS
+      // 🎀 FINALIZAÇÃO — papelaria + fitas
       if (data.requires_packaging) {
         const { data: packagingData } = await supabase
           .from("packaging_options")
@@ -185,22 +193,18 @@ export default function ProdutoPage() {
           .order("display_order", { ascending: true });
 
         if (packagingData) {
-          setPackagingPapers(
-            packagingData.filter((p) => p.type === "paper")
-          );
-          setPackagingRibbons(
-            packagingData.filter((p) => p.type === "ribbon")
-          );
+          setPackagingPapers(packagingData.filter((p) => p.type === "paper"));
+          setPackagingRibbons(packagingData.filter((p) => p.type === "ribbon"));
         }
       }
 
+      // 🎁 COMPLEMENTOS
       if (data.category_id !== 4) {
-        const { data: complementsData, error: complementsError } =
-          await supabase
-            .from("products")
-            .select("*")
-            .eq("is_complement", true)
-            .order("complement_order", { ascending: true });
+        const { data: complementsData, error: complementsError } = await supabase
+          .from("products")
+          .select("*")
+          .eq("is_complement", true)
+          .order("complement_order", { ascending: true });
 
         if (complementsError) {
           console.error("Erro ao carregar complementos:", complementsError);
@@ -211,8 +215,7 @@ export default function ProdutoPage() {
           );
 
           const filteredComp = (complementsData ?? []).filter(
-            (c: Product) =>
-              !alreadyIncluded.includes(c.name.toLowerCase().trim())
+            (c: Product) => !alreadyIncluded.includes(c.name.toLowerCase().trim())
           );
 
           setComplements(filteredComp);
@@ -226,6 +229,10 @@ export default function ProdutoPage() {
 
     loadProduct();
   }, [productId, router]);
+
+  // ==========================================
+  // CARRINHO — localStorage
+  // ==========================================
 
   useEffect(() => {
     const savedCart = localStorage.getItem("flower-cart");
@@ -246,20 +253,21 @@ export default function ProdutoPage() {
     localStorage.setItem("flower-cart", JSON.stringify(cartItems));
   }, [cartItems, isLoaded]);
 
+  // ==========================================
+  // HELPERS
+  // ==========================================
+
   function getAvailableFlowers(): Flower[] {
     return weeklyFlowers;
   }
 
   function getFlowersExtra(): number {
-    return selectedFlowers.reduce(
-      (sum, f) => sum + (f.extra_price || 0),
-      0
-    );
+    return selectedFlowers.reduce((sum, f) => sum + (f.extra_price || 0), 0);
   }
 
   function handleSelectColor(color: ProductColor) {
     setSelectedColor(color);
-    setCurrentImage(color.image);
+    setCurrentImage(color.image || product?.image || "");
   }
 
   function getActiveColors(): ProductColor[] {
@@ -307,7 +315,7 @@ export default function ProdutoPage() {
   }
 
   // ==========================================
-  // 🆕 FINALIZAÇÃO — PAPELARIA E FITA
+  // FINALIZAÇÃO — PAPELARIA E FITA
   // ==========================================
 
   function togglePaper(paper: PackagingOption) {
@@ -328,10 +336,12 @@ export default function ProdutoPage() {
   }
 
   function toggleRibbon(ribbon: PackagingOption) {
-    setSelectedRibbon((current) =>
-      current?.id === ribbon.id ? null : ribbon
-    );
+    setSelectedRibbon((current) => (current?.id === ribbon.id ? null : ribbon));
   }
+
+  // ==========================================
+  // COMPLEMENTOS
+  // ==========================================
 
   function addComplementToCart(complement: Product) {
     const cartItem: CartItem = {
@@ -347,15 +357,17 @@ export default function ProdutoPage() {
 
       if (existingIndex >= 0) {
         return current.map((item, i) =>
-          i === existingIndex
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
+          i === existingIndex ? { ...item, quantity: item.quantity + 1 } : item
         );
       }
 
       return [...current, cartItem];
     });
   }
+
+  // ==========================================
+  // ADICIONAR AO CARRINHO
+  // ==========================================
 
   function addToCart() {
     if (!product) return;
@@ -374,7 +386,6 @@ export default function ProdutoPage() {
       }
     }
 
-    // 🆕 Valida finalização
     if (product.requires_packaging) {
       if (selectedPapers.length === 0) {
         setError("Escolha a finalização do seu produto (papelaria).");
@@ -393,8 +404,7 @@ export default function ProdutoPage() {
       ...product,
       quantity: 1,
       price: product.price + extraFromFlowers,
-      selected_flowers:
-        selectedFlowers.length > 0 ? selectedFlowers : undefined,
+      selected_flowers: selectedFlowers.length > 0 ? selectedFlowers : undefined,
       selected_color: selectedColor?.name,
       image: currentImage || product.image,
       extra_from_flowers: extraFromFlowers,
@@ -428,9 +438,7 @@ export default function ProdutoPage() {
 
       if (existingIndex >= 0) {
         return current.map((item, i) =>
-          i === existingIndex
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
+          i === existingIndex ? { ...item, quantity: item.quantity + 1 } : item
         );
       }
 
@@ -446,6 +454,10 @@ export default function ProdutoPage() {
       currency: "BRL",
     });
   }
+
+  // ==========================================
+  // LOADING
+  // ==========================================
 
   if (isLoading || !product) {
     return (
@@ -463,6 +475,10 @@ export default function ProdutoPage() {
   const hasColors = activeColors.length > 0;
   const flowersExtra = getFlowersExtra();
   const finalPrice = product.price + flowersExtra;
+
+  // ==========================================
+  // RENDER
+  // ==========================================
 
   return (
     <main className="product-page">
@@ -499,9 +515,7 @@ export default function ProdutoPage() {
           <div className="product-detail-top">
             <span className="eyebrow">FLOWER PROPS</span>
             <h1>{product.name}</h1>
-            <div className="product-detail-price">
-              {formatPrice(finalPrice)}
-            </div>
+            <div className="product-detail-price">{formatPrice(finalPrice)}</div>
           </div>
 
           {/* 🖼️ IMAGEM + MENSAGEM */}
@@ -514,7 +528,6 @@ export default function ProdutoPage() {
               )}
             </div>
 
-            {/* 💌 MENSAGEM PERSONALIZADA */}
             {product.requires_flower_selection && (
               <div className="product-message">
                 <div className="product-message-header">
@@ -557,9 +570,7 @@ export default function ProdutoPage() {
           <div className="product-detail-info">
             <span className="eyebrow">FLOWER PROPS</span>
             <h1>{product.name}</h1>
-            <p className="product-detail-description">
-              {product.description}
-            </p>
+            <p className="product-detail-description">{product.description}</p>
 
             <div className="product-detail-price">
               {formatPrice(finalPrice)}
@@ -580,6 +591,7 @@ export default function ProdutoPage() {
               )}
             </div>
 
+            {/* 🎨 VARIAÇÕES DE COR */}
             {hasColors && (
               <div className="product-colors">
                 <div className="product-colors-dots">
@@ -601,6 +613,19 @@ export default function ProdutoPage() {
                     </button>
                   ))}
                 </div>
+
+                {selectedColor && (
+                  <span
+                    style={{
+                      display: "block",
+                      fontSize: 12,
+                      color: "#7a7a72",
+                      marginTop: 8,
+                    }}
+                  >
+                    Cor: <strong style={{ color: "#3f493b" }}>{selectedColor.name}</strong>
+                  </span>
+                )}
               </div>
             )}
 
@@ -723,12 +748,11 @@ export default function ProdutoPage() {
               </div>
             )}
 
-            {error && (
-              <div className="account-message error">{error}</div>
-            )}
+            {error && <div className="account-message error">{error}</div>}
           </div>
         </div>
 
+        {/* COMPLEMENTOS */}
         {complements.length > 0 && product.category_id !== 4 && (
           <div className="product-complements">
             <div className="product-complements-heading">
@@ -738,16 +762,10 @@ export default function ProdutoPage() {
 
             <div className="product-complements-carousel">
               {complements.map((complement) => (
-                <div
-                  key={complement.id}
-                  className="product-complement-card"
-                >
+                <div key={complement.id} className="product-complement-card">
                   <div className="product-complement-image">
                     {complement.image ? (
-                      <img
-                        src={complement.image}
-                        alt={complement.name}
-                      />
+                      <img src={complement.image} alt={complement.name} />
                     ) : (
                       <span>🎁</span>
                     )}
@@ -798,22 +816,14 @@ export default function ProdutoPage() {
           <DrawerHeader
             title="Escolha suas flores"
             subtitle={`${selectedFlowers.length} ${
-              selectedFlowers.length === 1
-                ? "flor escolhida"
-                : "flores escolhidas"
+              selectedFlowers.length === 1 ? "flor escolhida" : "flores escolhidas"
             }`}
             onClose={() => setIsFlowersDrawerOpen(false)}
           />
 
           <div style={{ padding: 20, flex: 1, overflowY: "auto" }}>
             {!hasFlowers ? (
-              <div
-                style={{
-                  textAlign: "center",
-                  padding: 40,
-                  color: "#7a7a72",
-                }}
-              >
+              <div style={{ textAlign: "center", padding: 40, color: "#7a7a72" }}>
                 Flores da semana em atualização.
               </div>
             ) : (
@@ -833,9 +843,7 @@ export default function ProdutoPage() {
                     <button
                       key={flower.name}
                       type="button"
-                      className={`drawer-item-card ${
-                        selected ? "active" : ""
-                      }`}
+                      className={`drawer-item-card ${selected ? "active" : ""}`}
                       onClick={() => toggleFlower(flower)}
                       disabled={blocked}
                       style={{
@@ -850,9 +858,7 @@ export default function ProdutoPage() {
                           <span>🌸</span>
                         )}
                       </div>
-                      <span className="drawer-item-card-name">
-                        {flower.name}
-                      </span>
+                      <span className="drawer-item-card-name">{flower.name}</span>
                       {hasExtra && (
                         <span
                           style={{
@@ -910,24 +916,12 @@ export default function ProdutoPage() {
               >
                 Papelaria
               </h3>
-              <p
-                style={{
-                  margin: "0 0 12px",
-                  fontSize: 11,
-                  color: "#7a7a72",
-                }}
-              >
+              <p style={{ margin: "0 0 12px", fontSize: 11, color: "#7a7a72" }}>
                 Escolha até 2 tipos de papel
               </p>
 
               {packagingPapers.length === 0 ? (
-                <div
-                  style={{
-                    textAlign: "center",
-                    padding: 20,
-                    color: "#7a7a72",
-                  }}
-                >
+                <div style={{ textAlign: "center", padding: 20, color: "#7a7a72" }}>
                   Nenhum papel cadastrado.
                 </div>
               ) : (
@@ -939,17 +933,13 @@ export default function ProdutoPage() {
                   }}
                 >
                   {packagingPapers.map((paper) => {
-                    const isSel = selectedPapers.some(
-                      (p) => p.id === paper.id
-                    );
+                    const isSel = selectedPapers.some((p) => p.id === paper.id);
 
                     return (
                       <button
                         key={paper.id}
                         type="button"
-                        className={`drawer-item-card ${
-                          isSel ? "active" : ""
-                        }`}
+                        className={`drawer-item-card ${isSel ? "active" : ""}`}
                         onClick={() => togglePaper(paper)}
                       >
                         <div className="drawer-item-card-image">
@@ -959,17 +949,13 @@ export default function ProdutoPage() {
                             <span>📄</span>
                           )}
                         </div>
-                        <span className="drawer-item-card-name">
-                          {paper.name}
-                        </span>
+                        <span className="drawer-item-card-name">{paper.name}</span>
                         {paper.model && (
                           <span className="drawer-item-card-model">
                             {paper.model}
                           </span>
                         )}
-                        {isSel && (
-                          <span className="drawer-item-card-check">✓</span>
-                        )}
+                        {isSel && <span className="drawer-item-card-check">✓</span>}
                       </button>
                     );
                   })}
@@ -990,24 +976,12 @@ export default function ProdutoPage() {
               >
                 Fita
               </h3>
-              <p
-                style={{
-                  margin: "0 0 12px",
-                  fontSize: 11,
-                  color: "#7a7a72",
-                }}
-              >
+              <p style={{ margin: "0 0 12px", fontSize: 11, color: "#7a7a72" }}>
                 Escolha 1 fita
               </p>
 
               {packagingRibbons.length === 0 ? (
-                <div
-                  style={{
-                    textAlign: "center",
-                    padding: 20,
-                    color: "#7a7a72",
-                  }}
-                >
+                <div style={{ textAlign: "center", padding: 20, color: "#7a7a72" }}>
                   Nenhuma fita cadastrada.
                 </div>
               ) : (
@@ -1025,9 +999,7 @@ export default function ProdutoPage() {
                       <button
                         key={ribbon.id}
                         type="button"
-                        className={`drawer-item-card ${
-                          isSel ? "active" : ""
-                        }`}
+                        className={`drawer-item-card ${isSel ? "active" : ""}`}
                         onClick={() => toggleRibbon(ribbon)}
                       >
                         <div className="drawer-item-card-image">
@@ -1037,17 +1009,13 @@ export default function ProdutoPage() {
                             <span>🎀</span>
                           )}
                         </div>
-                        <span className="drawer-item-card-name">
-                          {ribbon.name}
-                        </span>
+                        <span className="drawer-item-card-name">{ribbon.name}</span>
                         {ribbon.description && (
                           <span className="drawer-item-card-model">
                             {ribbon.description}
                           </span>
                         )}
-                        {isSel && (
-                          <span className="drawer-item-card-check">✓</span>
-                        )}
+                        {isSel && <span className="drawer-item-card-check">✓</span>}
                       </button>
                     );
                   })}
@@ -1142,13 +1110,7 @@ function DrawerHeader({
           {title}
         </h2>
         {subtitle && (
-          <p
-            style={{
-              margin: "4px 0 0",
-              fontSize: 12,
-              color: "#7a7a72",
-            }}
-          >
+          <p style={{ margin: "4px 0 0", fontSize: 12, color: "#7a7a72" }}>
             {subtitle}
           </p>
         )}
