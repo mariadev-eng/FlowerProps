@@ -5109,3 +5109,105 @@ body:has(.cart-drawer.active) {
     font-size: 13px;
   }
 }
+/* =========================================================
+   ZOOM NAS IMAGENS DOS DRAWERS (flores, papel, fita)
+   ========================================================= */
+
+.drawer-item-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px;
+  background: #fff;
+  border: 1px solid #e0e0dc;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease,
+    transform 0.2s ease;
+  overflow: visible;
+}
+
+.drawer-item-card:hover {
+  border-color: #c9b8a8;
+  transform: translateY(-2px);
+}
+
+.drawer-item-card.active {
+  background: #f0fdf4;
+  border: 2px solid #166534;
+}
+
+.drawer-item-card-image {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #f2ece6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transform-origin: center;
+  will-change: transform;
+  z-index: 1;
+}
+
+.drawer-item-card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
+}
+
+/* HOVER — zoom na imagem */
+.drawer-item-card:hover .drawer-item-card-image {
+  transform: scale(1.6);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+}
+
+.drawer-item-card-name {
+  position: relative;
+  z-index: 2;
+  font-size: 11px;
+  color: #2f2a26;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.drawer-item-card-model {
+  position: relative;
+  z-index: 2;
+  font-size: 10px;
+  color: #7a7a72;
+  text-align: center;
+}
+
+.drawer-item-card-check {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #166534;
+  color: #fff;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+}
+
+/* No mobile, sem zoom */
+@media (hover: none) {
+  .drawer-item-card:hover .drawer-item-card-image {
+    transform: none;
+    box-shadow: none;
+  }
+}

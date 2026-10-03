@@ -639,7 +639,6 @@ export default function ProdutoPage() {
                 >
                   <div>
                     <div
-                      
                       style={{
                         fontFamily: "var(--serif)",
                         fontSize: 18,
@@ -695,8 +694,6 @@ export default function ProdutoPage() {
                 >
                   <div>
                     <div
-                
-          
                       style={{
                         fontFamily: "var(--serif)",
                         fontSize: 18,
@@ -830,64 +827,30 @@ export default function ProdutoPage() {
                 {availableFlowers.map((flower) => {
                   const blocked = isFlowerBlocked(flower);
                   const hasExtra = Number(flower.extra_price) > 0;
+                  const selected = isSelected(flower);
 
                   return (
                     <button
                       key={flower.name}
                       type="button"
+                      className={`drawer-item-card ${
+                        selected ? "active" : ""
+                      }`}
                       onClick={() => toggleFlower(flower)}
                       disabled={blocked}
                       style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        gap: 6,
-                        padding: 10,
-                        background: isSelected(flower) ? "#f0fdf4" : "#fff",
-                        border: isSelected(flower)
-                          ? "2px solid #166534"
-                          : "1px solid #e0e0dc",
-                        borderRadius: 8,
-                        cursor: blocked ? "not-allowed" : "pointer",
                         opacity: blocked ? 0.4 : 1,
-                        position: "relative",
+                        cursor: blocked ? "not-allowed" : "pointer",
                       }}
                     >
-                      <div
-                        style={{
-                          width: 56,
-                          height: 56,
-                          borderRadius: "50%",
-                          overflow: "hidden",
-                          background: "#f2ece6",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: 22,
-                        }}
-                      >
+                      <div className="drawer-item-card-image">
                         {flower.image ? (
-                          <img
-                            src={flower.image}
-                            alt={flower.name}
-                            style={{
-                              width: "100%",
-                              height: "100%",
-                              objectFit: "cover",
-                            }}
-                          />
+                          <img src={flower.image} alt={flower.name} />
                         ) : (
                           <span>🌸</span>
                         )}
                       </div>
-                      <span
-                        style={{
-                          fontSize: 11,
-                          color: "#2f2a26",
-                          textAlign: "center",
-                          lineHeight: 1.2,
-                        }}
-                      >
+                      <span className="drawer-item-card-name">
                         {flower.name}
                       </span>
                       {hasExtra && (
@@ -896,30 +859,15 @@ export default function ProdutoPage() {
                             fontSize: 10,
                             fontWeight: 700,
                             color: "#166534",
+                            position: "relative",
+                            zIndex: 2,
                           }}
                         >
                           +{formatPrice(flower.extra_price!)}
                         </span>
                       )}
-                      {isSelected(flower) && (
-                        <span
-                          style={{
-                            position: "absolute",
-                            top: 6,
-                            right: 6,
-                            width: 18,
-                            height: 18,
-                            borderRadius: "50%",
-                            background: "#166534",
-                            color: "#fff",
-                            fontSize: 11,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
-                        >
-                          ✓
-                        </span>
+                      {selected && (
+                        <span className="drawer-item-card-check">✓</span>
                       )}
                     </button>
                   );
@@ -991,96 +939,36 @@ export default function ProdutoPage() {
                   }}
                 >
                   {packagingPapers.map((paper) => {
-                    const isSel = selectedPapers.some((p) => p.id === paper.id);
+                    const isSel = selectedPapers.some(
+                      (p) => p.id === paper.id
+                    );
 
                     return (
                       <button
                         key={paper.id}
                         type="button"
+                        className={`drawer-item-card ${
+                          isSel ? "active" : ""
+                        }`}
                         onClick={() => togglePaper(paper)}
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                          gap: 6,
-                          padding: 10,
-                          background: isSel ? "#f0fdf4" : "#fff",
-                          border: isSel
-                            ? "2px solid #166534"
-                            : "1px solid #e0e0dc",
-                          borderRadius: 8,
-                          cursor: "pointer",
-                          position: "relative",
-                        }}
                       >
-                        <div
-                          style={{
-                            width: 56,
-                            height: 56,
-                            borderRadius: "50%",
-                            overflow: "hidden",
-                            background: "#f2ece6",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: 22,
-                          }}
-                        >
+                        <div className="drawer-item-card-image">
                           {paper.image ? (
-                            <img
-                              src={paper.image}
-                              alt={paper.name}
-                              style={{
-                                width: "100%",
-                                height: "100%",
-                                objectFit: "cover",
-                              }}
-                            />
+                            <img src={paper.image} alt={paper.name} />
                           ) : (
                             <span>📄</span>
                           )}
                         </div>
-                        <span
-                          style={{
-                            fontSize: 11,
-                            fontWeight: 600,
-                            color: "#2f2a26",
-                            textAlign: "center",
-                            lineHeight: 1.2,
-                          }}
-                        >
+                        <span className="drawer-item-card-name">
                           {paper.name}
                         </span>
                         {paper.model && (
-                          <span
-                            style={{
-                              fontSize: 10,
-                              color: "#7a7a72",
-                              textAlign: "center",
-                            }}
-                          >
+                          <span className="drawer-item-card-model">
                             {paper.model}
                           </span>
                         )}
                         {isSel && (
-                          <span
-                            style={{
-                              position: "absolute",
-                              top: 6,
-                              right: 6,
-                              width: 18,
-                              height: 18,
-                              borderRadius: "50%",
-                              background: "#166534",
-                              color: "#fff",
-                              fontSize: 11,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                          >
-                            ✓
-                          </span>
+                          <span className="drawer-item-card-check">✓</span>
                         )}
                       </button>
                     );
@@ -1137,90 +1025,28 @@ export default function ProdutoPage() {
                       <button
                         key={ribbon.id}
                         type="button"
+                        className={`drawer-item-card ${
+                          isSel ? "active" : ""
+                        }`}
                         onClick={() => toggleRibbon(ribbon)}
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                          gap: 6,
-                          padding: 10,
-                          background: isSel ? "#f0fdf4" : "#fff",
-                          border: isSel
-                            ? "2px solid #166534"
-                            : "1px solid #e0e0dc",
-                          borderRadius: 8,
-                          cursor: "pointer",
-                          position: "relative",
-                        }}
                       >
-                        <div
-                          style={{
-                            width: 56,
-                            height: 56,
-                            borderRadius: "50%",
-                            overflow: "hidden",
-                            background: "#f2ece6",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: 22,
-                          }}
-                        >
+                        <div className="drawer-item-card-image">
                           {ribbon.image ? (
-                            <img
-                              src={ribbon.image}
-                              alt={ribbon.name}
-                              style={{
-                                width: "100%",
-                                height: "100%",
-                                objectFit: "cover",
-                              }}
-                            />
+                            <img src={ribbon.image} alt={ribbon.name} />
                           ) : (
                             <span>🎀</span>
                           )}
                         </div>
-                        <span
-                          style={{
-                            fontSize: 11,
-                            fontWeight: 600,
-                            color: "#2f2a26",
-                            textAlign: "center",
-                            lineHeight: 1.2,
-                          }}
-                        >
+                        <span className="drawer-item-card-name">
                           {ribbon.name}
                         </span>
                         {ribbon.description && (
-                          <span
-                            style={{
-                              fontSize: 10,
-                              color: "#7a7a72",
-                              textAlign: "center",
-                            }}
-                          >
+                          <span className="drawer-item-card-model">
                             {ribbon.description}
                           </span>
                         )}
                         {isSel && (
-                          <span
-                            style={{
-                              position: "absolute",
-                              top: 6,
-                              right: 6,
-                              width: 18,
-                              height: 18,
-                              borderRadius: "50%",
-                              background: "#166534",
-                              color: "#fff",
-                              fontSize: 11,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                            }}
-                          >
-                            ✓
-                          </span>
+                          <span className="drawer-item-card-check">✓</span>
                         )}
                       </button>
                     );
@@ -1253,7 +1079,8 @@ function DrawerShell({
 }) {
   return (
     <>
-      <div        onClick={onClose}
+      <div
+        onClick={onClose}
         style={{
           position: "fixed",
           inset: 0,
