@@ -143,6 +143,7 @@ function ProdutosTab() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
   async function loadProducts() {
     setIsLoading(true);
 
@@ -228,7 +229,7 @@ function ProdutosTab() {
         >
           {isLoading ? "..." : "↻"}
         </button>
-       {/* 🆕 BOTÃO ADICIONAR PRODUTO */}
+
         <button
           type="button"
           onClick={() => setIsAddModalOpen(true)}
@@ -247,7 +248,7 @@ function ProdutosTab() {
         >
           ➕ Adicionar produto
         </button>
-        </div>
+      </div>
 
       <div style={tableWrapperStyle}>
         {isLoading ? (
@@ -384,7 +385,8 @@ function ProdutosTab() {
           }}
         />
       )}
-            {isAddModalOpen && (
+
+      {isAddModalOpen && (
         <AddProductModal
           onClose={() => setIsAddModalOpen(false)}
           onCreated={(newProduct) => {
@@ -427,7 +429,7 @@ function ProductEditor({
   async function handleSave() {
     setIsSaving(true);
     setSuccessMsg("");
-console.log("🎨 ANTES DE SALVAR:", form.colors);
+
     const { error } = await supabase
       .from("products")
       .update({
@@ -2185,17 +2187,19 @@ function ToggleField({
   onChange: (v: boolean) => void;
 }) {
   return (
-    <label
+    <div
+      onClick={() => onChange(!value)}
       style={{
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
         padding: "10px 14px",
-        background: "#f9f9f7",
-        border: "1px solid #e0e0dc",
+        background: value ? "#f0fdf4" : "#f9f9f7",
+        border: value ? "1px solid #166534" : "1px solid #e0e0dc",
         borderRadius: 6,
         cursor: "pointer",
         userSelect: "none",
+        transition: "background 0.2s, border-color 0.2s",
       }}
     >
       <span style={{ fontSize: 13, color: "#2f2a26", fontWeight: 500 }}>
@@ -2210,6 +2214,7 @@ function ToggleField({
           background: value ? "#166534" : "#d1d5db",
           borderRadius: 10,
           transition: "background 0.2s",
+          flexShrink: 0,
         }}
       >
         <div
@@ -2222,12 +2227,14 @@ function ToggleField({
             background: "#fff",
             borderRadius: "50%",
             transition: "left 0.2s",
+            boxShadow: "0 1px 2px rgba(0,0,0,0.15)",
           }}
         />
       </div>
-    </label>
+    </div>
   );
 }
+
 // ==========================================
 // MODAL: ADICIONAR PRODUTO
 // ==========================================
@@ -2384,7 +2391,6 @@ function AddProductModal({
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          {/* FOTO */}
           <div>
             <label
               style={{
@@ -2466,7 +2472,6 @@ function AddProductModal({
             />
           </div>
 
-          {/* NOME */}
           <div>
             <label
               style={{
@@ -2491,7 +2496,6 @@ function AddProductModal({
             />
           </div>
 
-          {/* DESCRIÇÃO */}
           <div>
             <label
               style={{
@@ -2521,7 +2525,6 @@ function AddProductModal({
             />
           </div>
 
-          {/* PREÇO + CATEGORIA */}
           <div style={{ display: "flex", gap: 12 }}>
             <div style={{ flex: 1 }}>
               <label
@@ -2575,7 +2578,6 @@ function AddProductModal({
             </div>
           </div>
 
-          {/* MÁXIMO DE FLORES */}
           <div>
             <label
               style={{
@@ -2599,7 +2601,6 @@ function AddProductModal({
             />
           </div>
 
-          {/* COMPLEMENTOS INCLUSOS */}
           <div>
             <label
               style={{
@@ -2623,7 +2624,6 @@ function AddProductModal({
             />
           </div>
 
-          {/* TOGGLES */}
           <ToggleField
             label="Disponível"
             value={available}
@@ -2650,7 +2650,6 @@ function AddProductModal({
             onChange={setIsComplement}
           />
 
-          {/* BOTÃO */}
           <button
             type="button"
             onClick={handleCreate}
@@ -2682,6 +2681,7 @@ function AddProductModal({
     </>
   );
 }
+
 // ==========================================
 // ESTILOS
 // ==========================================
