@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { jsPDF } from "jspdf";
+import { toPng } from "html-to-image";
 import { supabase } from "@/lib/supabase";
 
 // ==========================================
@@ -315,7 +317,87 @@ function FilaPedidos() {
       currency: "BRL",
     });
   }
+// ==========================================
+// GERAR PDF + ABRIR WHATSAPP
+// ==========================================
 
+async function handleOrcamento(order: Order) {
+  try {
+    // Cria container temporário com o layout do pedido
+    const container = document.createElement("div");
+    container.style.position = "fixed";
+    container.style.left = "-9999px";
+    container.style.top = "0";
+    container.style.width = "800px";
+    container.style.background = "#fff";
+    container.style.padding = "40px";
+    container.style.fontFamily =
+      "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+    container.style.color = "#2f2a26";
+
+    container.innerHTML = buildOrcamentoHTML(order);
+    document.body.appendChild(container);
+
+    // Converte em imagem
+    const dataUrl = await toPng(container, {
+      quality: 1,
+      pixelRatio: 2,
+      backgroundColor: "#ffffff",
+    });
+
+    // Remove o container temporário
+    document.body.removeChild(container);
+
+    // Cria PDF A4
+    const pdf = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: "a4",
+    });
+
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+
+    // Calcula altura proporcional da imagem
+    const img = new Image();
+    img.src = dataUrl;
+    await new Promise((resolve) => (img.onload = resolve));
+
+    const ratio = img.height / img.width;
+    const imgWidth = pdfWidth;
+    const imgHeight = imgWidth * ratio;
+
+    // Se a imagem for maior que 1 página, divide
+    let heightLeft = imgHeight;
+    let position = 0;
+
+    pdf.addImage(dataUrl, "PNG", 0, position, imgWidth, imgHeight);
+    heightLeft -= pdfHeight;
+
+    while (heightLeft > 0) {
+      position = heightLeft - imgHeight;
+      pdf.addPage();
+      pdf.addImage(dataUrl, "PNG", 0, position, imgWidth, imgHeight);
+      heightLeft -= pdfHeight;
+    }
+
+    // Baixa o PDF
+    pdf.save(`orcamento-pedido-${order.id}.pdf`);
+
+    // Abre WhatsApp Web em nova aba
+    window.open("https://web.whatsapp.com/", "_blank");
+
+    // Avisa o operador
+    setTimeout(() => {
+      alert(
+        `✅ PDF do pedido #${order.id} baixado!\n\nAgora procure "${order.customer_name}" no WhatsApp e anexe o arquivo.`
+      );
+    }, 500);
+  } catch (err) {
+    console.error("Erro ao gerar orçamento:", err);
+    alert("Erro ao gerar o PDF. Verifique o console.");
+  }
+}
   function formatDate(value: string) {
     const date = new Date(value);
     return date.toLocaleString("pt-BR", {
@@ -576,6 +658,16 @@ function FilaPedidos() {
                 >
                   🖨️ Imprimir
                 </button>
+
+                 <button
+                  type="button"
+                  onClick={() => handleOrcamento(order)}
+                  disabled={actionLoading === order.id}
+                  style={btnWhatsAppStyle}
+                  >
+                  📄 Enviar orçamento
+                 </button>
+
 
                 <button
                   type="button"
@@ -2164,6 +2256,183 @@ function CustomizeModal({
 // ==========================================
 // ESTILOS
 // ==========================================
+// ==========================================
+// HTML DO ORÇAMENTO (mesmo layout do impresso)
+// ==========================================
+
+function buildOrcamentoHTML(order: Order): string {
+  const formatPrice = (v: number) =>
+    v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+  const formatDate = (v: string) =>
+    new Date(v).toLocaleString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+  const formatScheduled = (
+    dateStr: string | null,
+    timeStr: string | null
+  ) => {
+    if (!dateStr && !timeStr) return null;
+    const parts: string[] = [];
+    if (dateStr) {
+      const d = new Date(dateStr + "T12:00:00");
+      const dayName = d
+        .toLocaleDateString("pt-BR", { weekday: "long" })
+        .replace(/^\w/, (c) => c.toUpperCase());
+      parts.push(dayName);
+      parts.push(
+        d.toLocaleDateString("pt-BR", {
+          day: "2-digit",
+          month: "2-digit",
+        })
+      );
+    }
+    if (timeStr) parts.push(`às ${timeStr}`);
+    return parts.join(" ");
+  };
+
+  const itensHTML = (order.order_items || [])
+    .map(
+      (item) => `
+      <tr>
+        <td style="padding: 12px 8px; border-bottom: 1px solid #eee; text-align: center; font-weight: 600;">
+          ${item.quantity}x
+        </td>
+        <td style="padding: 12px 8px; border-bottom: 1px solid #eee;">
+          ${item.product_name}
+          ${
+            item.item_type === "subscription"
+              ? '<span style="margin-left: 8px; padding: 2px 6px; background: #ede9fe; color: #6d28d9; border-radius: 3px; font-size: 10px; font-weight: 700; text-transform: uppercase;">Assinatura</span>'
+              : ""
+          }
+        </td>
+        <td style="padding: 12px 8px; border-bottom: 1px solid #eee; text-align: right;">
+          ${formatPrice(item.product_price)}
+        </td>
+        <td style="padding: 12px 8px; border-bottom: 1px solid #eee; text-align: right; font-weight: 600;">
+          ${formatPrice(item.subtotal)}
+        </td>
+      </tr>
+    `
+    )
+    .join("");
+
+  const enderecoHTML =
+    order.delivery_method === "delivery"
+      ? `
+        <div style="margin-top: 8px; font-size: 13px; line-height: 1.6; color: #555;">
+          ${order.street || ""}, ${order.number || ""}${
+          order.complement ? ` — ${order.complement}` : ""
+        }<br/>
+          ${order.neighborhood || ""} — ${order.city || ""}<br/>
+          CEP: ${order.cep || ""}
+        </div>
+      `
+      : `<div style="margin-top: 8px; font-size: 13px; color: #555;">🏪 Retirada no ateliê</div>`;
+
+  const scheduledStr = formatScheduled(
+    order.scheduled_date,
+    order.scheduled_time
+  );
+
+  return `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #2f2a26;">
+      <!-- HEADER -->
+      <div style="text-align: center; border-bottom: 2px solid #2f2a26; padding-bottom: 20px; margin-bottom: 24px;">
+        <div style="font-size: 28px; font-weight: 700; letter-spacing: 0.05em; color: #2f2a26;">FLOWER</div>
+        <div style="font-size: 11px; letter-spacing: 0.2em; color: #7a7a72; margin-top: 4px;">BUQUÊS & ACESSÓRIOS</div>
+        <div style="font-size: 14px; color: #7a7a72; margin-top: 16px;">ORÇAMENTO</div>
+      </div>
+
+      <!-- INFO DO PEDIDO -->
+      <div style="display: flex; justify-content: space-between; margin-bottom: 24px; font-size: 13px;">
+        <div>
+          <div style="font-size: 11px; font-weight: 700; color: #7a7a72; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Pedido</div>
+          <div style="font-size: 18px; font-weight: 700;">#${order.id}</div>
+        </div>
+        <div style="text-align: right;">
+          <div style="font-size: 11px; font-weight: 700; color: #7a7a72; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Data</div>
+          <div>${formatDate(order.created_at)}</div>
+        </div>
+      </div>
+
+      <!-- CLIENTE -->
+      <div style="margin-bottom: 24px; padding: 16px; background: #f9f9f7; border-radius: 8px;">
+        <div style="font-size: 11px; font-weight: 700; color: #7a7a72; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Cliente</div>
+        <div style="font-size: 15px; font-weight: 600;">${order.customer_name}</div>
+        <div style="font-size: 13px; color: #7a7a72; margin-top: 2px;">${order.customer_phone}</div>
+      </div>
+
+      <!-- ITENS -->
+      <div style="margin-bottom: 24px;">
+        <div style="font-size: 11px; font-weight: 700; color: #7a7a72; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Itens do pedido</div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+          <thead>
+            <tr style="background: #f9f9f7;">
+              <th style="padding: 10px 8px; text-align: center; font-size: 11px; font-weight: 700; color: #7a7a72; text-transform: uppercase; letter-spacing: 0.05em; width: 60px;">Qtd</th>
+              <th style="padding: 10px 8px; text-align: left; font-size: 11px; font-weight: 700; color: #7a7a72; text-transform: uppercase; letter-spacing: 0.05em;">Produto</th>
+              <th style="padding: 10px 8px; text-align: right; font-size: 11px; font-weight: 700; color: #7a7a72; text-transform: uppercase; letter-spacing: 0.05em; width: 100px;">Preço</th>
+              <th style="padding: 10px 8px; text-align: right; font-size: 11px; font-weight: 700; color: #7a7a72; text-transform: uppercase; letter-spacing: 0.05em; width: 100px;">Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itensHTML}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- TOTAIS -->
+      <div style="margin-left: auto; width: 320px; padding: 16px; background: #f9f9f7; border-radius: 8px; margin-bottom: 24px;">
+        <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px;">
+          <span>Subtotal</span>
+          <strong>${formatPrice(order.subtotal)}</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 10px;">
+          <span>${order.delivery_method === "delivery" ? "Entrega" : "Retirada"}</span>
+          <strong>${order.delivery_fee > 0 ? formatPrice(order.delivery_fee) : "Grátis"}</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding-top: 10px; border-top: 1px solid #d1d5db; font-size: 16px;">
+          <strong>Total</strong>
+          <strong style="color: #166534;">${formatPrice(order.total)}</strong>
+        </div>
+      </div>
+
+      <!-- ENTREGA -->
+      <div style="margin-bottom: 24px;">
+        <div style="font-size: 11px; font-weight: 700; color: #7a7a72; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">
+          ${order.delivery_method === "delivery" ? "Entrega" : "Retirada"}
+        </div>
+        ${enderecoHTML}
+        ${
+          scheduledStr
+            ? `<div style="margin-top: 8px; font-size: 13px; color: #166534; font-weight: 600;">📅 ${scheduledStr}</div>`
+            : ""
+        }
+      </div>
+
+      ${
+        order.observation
+          ? `
+        <div style="margin-bottom: 24px; padding: 12px; background: #fef3c7; border-radius: 8px; font-size: 13px;">
+          <div style="font-size: 11px; font-weight: 700; color: #854d0e; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Observação</div>
+          ${order.observation}
+        </div>
+      `
+          : ""
+      }
+
+      <!-- FOOTER -->
+      <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e0e0dc; text-align: center; font-size: 11px; color: #7a7a72;">
+        Orçamento gerado em ${new Date().toLocaleDateString("pt-BR")} — FLOWER
+      </div>
+    </div>
+  `;
+} 
 
 const inputStyle: React.CSSProperties = {
   height: 38,
@@ -2242,6 +2511,17 @@ const btnDangerStyle: React.CSSProperties = {
 const btnSuccessStyle: React.CSSProperties = {
   padding: "8px 16px",
   background: "#166534",
+  color: "#fff",
+  border: 0,
+  borderRadius: 6,
+  fontSize: 12,
+  fontWeight: 600,
+  cursor: "pointer",
+};
+
+const btnWhatsAppStyle: React.CSSProperties = {
+  padding: "8px 16px",
+  background: "#25D366",
   color: "#fff",
   border: 0,
   borderRadius: 6,
