@@ -55,6 +55,18 @@ type Product = {
   max_flowers: number | null;
 };
 
+type Subscription = {
+  id: number;
+  name: string;
+  description: string;
+  price: number;
+  frequency: string;
+  deliveries_per_month: number;
+  image: string | null;
+  available: boolean;
+  display_order: number;
+};
+
 type Flower = {
   name: string;
   image: string;
@@ -68,9 +80,11 @@ type Color = {
 };
 
 type CartLine = {
-  id: string; // ID único da linha (produto + customização)
-  product: Product;
+  id: string;
+  kind: "product" | "subscription";      // 👈 NOVO
+  product: Product | Subscription;        // 👈 aceita os dois
   quantity: number;
+  delivery_day?: "saturday" | "sunday";   // 👈 só pra assinatura
   selectedFlowers: Flower[];
   selectedColor: Color | null;
 };
@@ -324,7 +338,13 @@ function FilaPedidos() {
 
     const parts = [];
     if (dayName) parts.push(dayName);
-    if (dateStr) parts.push(new Date(dateStr + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }));
+    if (dateStr)
+      parts.push(
+        new Date(dateStr + "T12:00:00").toLocaleDateString("pt-BR", {
+          day: "2-digit",
+          month: "2-digit",
+        })
+      );
     if (timeStr) parts.push(`às ${timeStr}`);
 
     return parts.join(" ");
@@ -525,6 +545,21 @@ function FilaPedidos() {
                     <div key={item.id}>
                       {i > 0 && " · "}
                       <strong>{item.quantity}x</strong> {item.product_name}
+                      {item.item_type === "subscription" && (
+                        <span
+                          style={{
+                            marginLeft: 6,
+                            padding: "1px 6px",
+                            borderRadius: 3,
+                            fontSize: 10,
+                            fontWeight: 600,
+                            background: "#ede9fe",
+                            color: "#6d28d9",
+                          }}
+                        >
+                          🌸 Assinatura
+                        </span>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -573,8 +608,9 @@ function FilaPedidos() {
 // ==========================================
 
 function NovoPedido({ onCreated }: { onCreated: () => void }) {
-  // Produtos e flores
+  // Produtos e assinaturas
   const [products, setProducts] = useState<Product[]>([]);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [weeklyFlowers, setWeeklyFlowers] = useState<Flower[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
 
@@ -587,6 +623,10 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
 
   // Modal de customização (flores + cor)
   const [editingLine, setEditingLine] = useState<CartLine | null>(null);
+
+  // Modal de assinatura
+  const [pendingSubscription, setPendingSubscription] =
+    useState<Subscription | null>(null);
 
   // Dados do cliente
   const [customerName, setCustomerName] = useState("");
@@ -617,30 +657,37 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
   const [isSaving, setIsSaving] = useState(false);
 
   // ==========================================
-  // CARREGA PRODUTOS + FLORES
+  // CARREGA PRODUTOS + ASSINATURAS + FLORES
   // ==========================================
 
   useEffect(() => {
     async function loadData() {
       setIsLoadingProducts(true);
 
-      const { data: productsData } = await supabase
-        .from("products")
-        .select("*")
-        .eq("available", true)
-        .order("name", { ascending: true });
+      const [productsRes, subscriptionsRes, flowersRes] = await Promise.all([
+        supabase
+          .from("products")
+          .select("*")
+          .eq("available", true)
+          .order("name", { ascending: true }),
+        supabase
+          .from("subscriptions")
+          .select("*")
+          .eq("available", true)
+          .order("display_order", { ascending: true }),
+        supabase
+          .from("weekly_flowers")
+          .select("*")
+          .eq("active", true)
+          .order("position", { ascending: true }),
+      ]);
 
-      setProducts(productsData ?? []);
+      setProducts(productsRes.data ?? []);
+      setSubscriptions(subscriptionsRes.data ?? []);
 
-      const { data: flowersData } = await supabase
-        .from("weekly_flowers")
-        .select("*")
-        .eq("active", true)
-        .order("position", { ascending: true });
-
-      if (flowersData) {
+      if (flowersRes.data) {
         setWeeklyFlowers(
-          flowersData.map((f) => ({
+          flowersRes.data.map((f) => ({
             name: f.name,
             image: f.image || "",
           }))
@@ -654,7 +701,7 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
   }, []);
 
   // ==========================================
-  // FILTRO DE PRODUTOS
+  // FILTRO DE PRODUTOS E ASSINATURAS
   // ==========================================
 
   const filteredProducts = products.filter((p) => {
@@ -663,6 +710,17 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
     }
     if (searchTerm.trim()) {
       if (!p.name.toLowerCase().includes(searchTerm.toLowerCase().trim())) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  const filteredSubscriptions = subscriptions.filter((s) => {
+    // Assinaturas só aparecem quando o filtro for "Todas"
+    if (categoryFilter !== "all") return false;
+    if (searchTerm.trim()) {
+      if (!s.name.toLowerCase().includes(searchTerm.toLowerCase().trim())) {
         return false;
       }
     }
@@ -678,6 +736,7 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
 
     const newLine: CartLine = {
       id,
+      kind: "product",
       product,
       quantity: 1,
       selectedFlowers: [],
@@ -691,6 +750,30 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
     }
 
     setCart((current) => [...current, newLine]);
+  }
+
+  // ==========================================
+  // ADICIONA ASSINATURA AO CARRINHO
+  // ==========================================
+
+  function addSubscriptionToCart(
+    subscription: Subscription,
+    deliveryDay: "saturday" | "sunday"
+  ) {
+    const id = `sub-${subscription.id}-${Date.now()}`;
+
+    const newLine: CartLine = {
+      id,
+      kind: "subscription",
+      product: subscription,
+      quantity: 1,
+      delivery_day: deliveryDay,
+      selectedFlowers: [],
+      selectedColor: null,
+    };
+
+    setCart((current) => [...current, newLine]);
+    setPendingSubscription(null);
   }
 
   function saveEditedLine() {
@@ -746,12 +829,24 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
   }
 
   // ==========================================
+  // CÁLCULO DA PRÓXIMA RENOVAÇÃO
+  // ==========================================
+
+  function calculateNextRenewal(frequency: string): string {
+    const d = new Date();
+    if (frequency === "weekly") d.setDate(d.getDate() + 7);
+    else if (frequency === "biweekly") d.setDate(d.getDate() + 15);
+    else d.setMonth(d.getMonth() + 1); // monthly (default)
+    return d.toISOString();
+  }
+
+  // ==========================================
   // SALVAR PEDIDO
   // ==========================================
 
   async function handleSave() {
     if (cart.length === 0) {
-      alert("Adicione pelo menos 1 produto.");
+      alert("Adicione pelo menos 1 item.");
       return;
     }
 
@@ -765,8 +860,22 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
       return;
     }
 
+    // Valida dia da entrega pra todas as assinaturas
+    const subsInCart = cart.filter((l) => l.kind === "subscription");
+    for (const line of subsInCart) {
+      if (!line.delivery_day) {
+        alert("Escolha o dia da entrega de todas as assinaturas.");
+        return;
+      }
+    }
+
     if (deliveryMethod === "delivery") {
-      if (!street.trim() || !number.trim() || !neighborhood.trim() || !city.trim()) {
+      if (
+        !street.trim() ||
+        !number.trim() ||
+        !neighborhood.trim() ||
+        !city.trim()
+      ) {
         alert("Preencha o endereço completo.");
         return;
       }
@@ -804,15 +913,18 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
 
       if (orderError) throw orderError;
 
-      // 2. Cria os itens
+      // 2. Cria os itens do pedido
       const orderItems = cart.map((line) => ({
         order_id: order.id,
-        product_id: line.product.id,
+        product_id:
+          line.kind === "product"
+            ? (line.product as Product).id
+            : null,
         product_name: line.product.name,
         product_price: line.product.price,
         quantity: line.quantity,
         subtotal: line.product.price * line.quantity,
-        item_type: "product",
+        item_type: line.kind === "product" ? "product" : "subscription",
       }));
 
       const { error: itemsError } = await supabase
@@ -820,6 +932,50 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
         .insert(orderItems);
 
       if (itemsError) throw itemsError;
+
+      // 3. Cria os registros em subscription_orders (se houver assinaturas)
+      const now = new Date().toISOString();
+
+      const subscriptionOrders = subsInCart.map((line) => {
+        const sub = line.product as Subscription;
+        return {
+          user_id: null,
+          plan_name: sub.name,
+          plan_frequency: sub.frequency,
+          plan_price: sub.price,
+          deliveries_per_month: sub.deliveries_per_month,
+          delivery_day: line.delivery_day,
+          customer_name: customerName.trim(),
+          customer_phone: customerPhone.trim(),
+          customer_email: "",
+          delivery_method: deliveryMethod,
+          cep: deliveryMethod === "delivery" ? cep : null,
+          street: deliveryMethod === "delivery" ? street : null,
+          number: deliveryMethod === "delivery" ? number : null,
+          complement: deliveryMethod === "delivery" ? complement : null,
+          neighborhood: deliveryMethod === "delivery" ? neighborhood : null,
+          city: deliveryMethod === "delivery" ? city : null,
+          state: null,
+          payment_method: paymentMethod,
+          payment_status: "paid",
+          last_payment_at: now,
+          next_renewal_at: calculateNextRenewal(sub.frequency),
+        };
+      });
+
+      if (subscriptionOrders.length > 0) {
+        const { error: subsError } = await supabase
+          .from("subscription_orders")
+          .insert(subscriptionOrders);
+
+        if (subsError) {
+          console.error("Erro ao criar assinaturas:", subsError);
+          alert(
+            "Pedido criado, mas houve erro ao registrar as assinaturas: " +
+              subsError.message
+          );
+        }
+      }
 
       alert(`✅ Pedido #${order.id} criado com sucesso!`);
       onCreated();
@@ -837,7 +993,7 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-      {/* COLUNA ESQUERDA — BUSCA + PRODUTOS */}
+      {/* COLUNA ESQUERDA — BUSCA + PRODUTOS + ASSINATURAS */}
       <div>
         <h2
           style={{
@@ -847,7 +1003,7 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
             color: "#2f2a26",
           }}
         >
-          Produtos
+          Itens disponíveis
         </h2>
 
         <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
@@ -855,7 +1011,7 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
             type="search"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Buscar produto..."
+            placeholder="Buscar produto ou assinatura..."
             style={{ ...inputStyle, flex: 1 }}
           />
 
@@ -877,71 +1033,204 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
           style={{
             display: "flex",
             flexDirection: "column",
-            gap: 8,
+            gap: 16,
             maxHeight: 600,
             overflowY: "auto",
           }}
         >
           {isLoadingProducts ? (
             <div style={emptyStyle}>Carregando...</div>
-          ) : filteredProducts.length === 0 ? (
-            <div style={emptyStyle}>Nenhum produto encontrado.</div>
           ) : (
-            filteredProducts.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => addProductToCart(p)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  padding: 12,
-                  background: "#fff",
-                  border: "1px solid #e0e0dc",
-                  borderRadius: 8,
-                  cursor: "pointer",
-                  textAlign: "left",
-                }}
-              >
-                {p.image && (
-                  <img
-                    src={p.image}
-                    alt={p.name}
-                    style={{
-                      width: 48,
-                      height: 48,
-                      objectFit: "cover",
-                      borderRadius: 6,
-                    }}
-                  />
-                )}
-
-                <div style={{ flex: 1, minWidth: 0 }}>
+            <>
+              {/* ============ PRODUTOS ============ */}
+              {filteredProducts.length > 0 && (
+                <div>
                   <div
                     style={{
-                      fontSize: 13,
-                      fontWeight: 600,
-                      color: "#2f2a26",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: "#7a7a72",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                      marginBottom: 8,
                     }}
                   >
-                    {p.name}
+                    🌸 Produtos
                   </div>
                   <div
-                    style={{
-                      fontSize: 12,
-                      color: "#166534",
-                      fontWeight: 600,
-                      marginTop: 2,
-                    }}
+                    style={{ display: "flex", flexDirection: "column", gap: 8 }}
                   >
-                    {formatPrice(p.price)}
+                    {filteredProducts.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => addProductToCart(p)}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 12,
+                          padding: 12,
+                          background: "#fff",
+                          border: "1px solid #e0e0dc",
+                          borderRadius: 8,
+                          cursor: "pointer",
+                          textAlign: "left",
+                        }}
+                      >
+                        {p.image && (
+                          <img
+                            src={p.image}
+                            alt={p.name}
+                            style={{
+                              width: 48,
+                              height: 48,
+                              objectFit: "cover",
+                              borderRadius: 6,
+                            }}
+                          />
+                        )}
+
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div
+                            style={{
+                              fontSize: 13,
+                              fontWeight: 600,
+                              color: "#2f2a26",
+                            }}
+                          >
+                            {p.name}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: 12,
+                              color: "#166534",
+                              fontWeight: 600,
+                              marginTop: 2,
+                            }}
+                          >
+                            {formatPrice(p.price)}
+                          </div>
+                        </div>
+
+                        <span style={{ fontSize: 20, color: "#9ca3af" }}>
+                          +
+                        </span>
+                      </button>
+                    ))}
                   </div>
                 </div>
+              )}
 
-                <span style={{ fontSize: 20, color: "#9ca3af" }}>+</span>
-              </button>
-            ))
+              {/* ============ ASSINATURAS ============ */}
+              {filteredSubscriptions.length > 0 && (
+                <div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: "#6d28d9",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                      marginBottom: 8,
+                    }}
+                  >
+                    📅 Assinaturas
+                  </div>
+                  <div
+                    style={{ display: "flex", flexDirection: "column", gap: 8 }}
+                  >
+                    {filteredSubscriptions.map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => setPendingSubscription(s)}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 12,
+                          padding: 12,
+                          background: "#faf5ff",
+                          border: "1px solid #e9d5ff",
+                          borderRadius: 8,
+                          cursor: "pointer",
+                          textAlign: "left",
+                        }}
+                      >
+                        {s.image && (
+                          <img
+                            src={s.image}
+                            alt={s.name}
+                            style={{
+                              width: 48,
+                              height: 48,
+                              objectFit: "cover",
+                              borderRadius: 6,
+                            }}
+                          />
+                        )}
+
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 6,
+                            }}
+                          >
+                            <span
+                              style={{
+                                fontSize: 13,
+                                fontWeight: 600,
+                                color: "#2f2a26",
+                              }}
+                            >
+                              {s.name}
+                            </span>
+                            <span
+                              style={{
+                                padding: "1px 6px",
+                                borderRadius: 3,
+                                fontSize: 9,
+                                fontWeight: 700,
+                                background: "#ede9fe",
+                                color: "#6d28d9",
+                                textTransform: "uppercase",
+                                letterSpacing: "0.05em",
+                              }}
+                            >
+                              Assinatura
+                            </span>
+                          </div>
+                          <div
+                            style={{
+                              fontSize: 12,
+                              color: "#6d28d9",
+                              fontWeight: 600,
+                              marginTop: 2,
+                            }}
+                          >
+                            {formatPrice(s.price)} /mês ·{" "}
+                            {s.deliveries_per_month}{" "}
+                            {s.deliveries_per_month === 1
+                              ? "entrega"
+                              : "entregas"}
+                          </div>
+                        </div>
+
+                        <span style={{ fontSize: 20, color: "#a78bfa" }}>
+                          +
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {filteredProducts.length === 0 &&
+                filteredSubscriptions.length === 0 && (
+                  <div style={emptyStyle}>Nenhum item encontrado.</div>
+                )}
+            </>
           )}
         </div>
       </div>
@@ -976,8 +1265,11 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
                 key={line.id}
                 style={{
                   padding: 12,
-                  background: "#fff",
-                  border: "1px solid #e0e0dc",
+                  background: line.kind === "subscription" ? "#faf5ff" : "#fff",
+                  border:
+                    line.kind === "subscription"
+                      ? "1px solid #e9d5ff"
+                      : "1px solid #e0e0dc",
                   borderRadius: 8,
                 }}
               >
@@ -993,17 +1285,43 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div
                       style={{
-                        fontSize: 13,
-                        fontWeight: 600,
-                        color: "#2f2a26",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
                       }}
                     >
-                      {line.product.name}
+                      <span
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 600,
+                          color: "#2f2a26",
+                        }}
+                      >
+                        {line.product.name}
+                      </span>
+                      {line.kind === "subscription" && (
+                        <span
+                          style={{
+                            padding: "1px 6px",
+                            borderRadius: 3,
+                            fontSize: 9,
+                            fontWeight: 700,
+                            background: "#ede9fe",
+                            color: "#6d28d9",
+                            textTransform: "uppercase",
+                          }}
+                        >
+                          Assinatura
+                        </span>
+                      )}
                     </div>
                     <div
                       style={{
                         fontSize: 12,
-                        color: "#166534",
+                        color:
+                          line.kind === "subscription"
+                            ? "#6d28d9"
+                            : "#166534",
                         fontWeight: 600,
                       }}
                     >
@@ -1049,6 +1367,21 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
                     }}
                   >
                     🎨 {line.selectedColor.name}
+                  </div>
+                )}
+
+                {/* Dia da entrega (assinatura) */}
+                {line.kind === "subscription" && line.delivery_day && (
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "#6d28d9",
+                      fontWeight: 600,
+                      marginBottom: 6,
+                    }}
+                  >
+                    📅{" "}
+                    {line.delivery_day === "saturday" ? "Sábado" : "Domingo"}
                   </div>
                 )}
 
@@ -1386,7 +1719,7 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
         </button>
       </div>
 
-      {/* MODAL DE CUSTOMIZAÇÃO */}
+      {/* MODAL DE CUSTOMIZAÇÃO (flores + cor) */}
       {editingLine && (
         <CustomizeModal
           line={editingLine}
@@ -1396,7 +1729,235 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
           onCancel={() => setEditingLine(null)}
         />
       )}
+
+      {/* MODAL DE ASSINATURA (dia da entrega) */}
+      {pendingSubscription && (
+        <SubscriptionModal
+          subscription={pendingSubscription}
+          onConfirm={addSubscriptionToCart}
+          onCancel={() => setPendingSubscription(null)}
+        />
+      )}
     </div>
+  );
+}
+
+// ==========================================
+// MODAL DE ASSINATURA
+// ==========================================
+
+function SubscriptionModal({
+  subscription,
+  onConfirm,
+  onCancel,
+}: {
+  subscription: Subscription;
+  onConfirm: (sub: Subscription, day: "saturday" | "sunday") => void;
+  onCancel: () => void;
+}) {
+  const [day, setDay] = useState<"saturday" | "sunday" | null>(null);
+
+  function handleConfirm() {
+    if (!day) {
+      alert("Escolha o dia da entrega.");
+      return;
+    }
+    onConfirm(subscription, day);
+  }
+
+  function formatPrice(value: number) {
+    return value.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    });
+  }
+
+  return (
+    <>
+      <div
+        onClick={onCancel}
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.5)",
+          zIndex: 40,
+        }}
+      />
+
+      <div
+        style={{
+          position: "fixed",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: "min(480px, 90%)",
+          maxHeight: "85vh",
+          overflowY: "auto",
+          background: "#fff",
+          borderRadius: 12,
+          zIndex: 50,
+          padding: 24,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: 16,
+          }}
+        >
+          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
+            🌸 {subscription.name}
+          </h2>
+          <button
+            type="button"
+            onClick={onCancel}
+            style={{
+              background: "transparent",
+              border: 0,
+              fontSize: 24,
+              cursor: "pointer",
+            }}
+          >
+            ×
+          </button>
+        </div>
+
+        {subscription.image && (
+          <img
+            src={subscription.image}
+            alt={subscription.name}
+            style={{
+              width: "100%",
+              maxHeight: 180,
+              objectFit: "cover",
+              borderRadius: 8,
+              marginBottom: 16,
+            }}
+          />
+        )}
+
+        <div
+          style={{
+            padding: 16,
+            background: "#faf5ff",
+            borderRadius: 8,
+            marginBottom: 20,
+            border: "1px solid #e9d5ff",
+          }}
+        >
+          <div
+            style={{
+              fontSize: 22,
+              fontWeight: 700,
+              color: "#6d28d9",
+            }}
+          >
+            {formatPrice(subscription.price)}
+            <span
+              style={{
+                fontSize: 12,
+                fontWeight: 500,
+                color: "#7a7a72",
+                marginLeft: 6,
+              }}
+            >
+              /mês
+            </span>
+          </div>
+          <div
+            style={{
+              fontSize: 12,
+              color: "#7a7a72",
+              marginTop: 4,
+            }}
+          >
+            {subscription.deliveries_per_month}{" "}
+            {subscription.deliveries_per_month === 1
+              ? "entrega por mês"
+              : "entregas por mês"}
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          <div
+            style={{
+              fontSize: 12,
+              fontWeight: 600,
+              color: "#2f2a26",
+              marginBottom: 10,
+            }}
+          >
+            Escolha o dia da entrega:
+          </div>
+
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              type="button"
+              onClick={() => setDay("saturday")}
+              style={{
+                flex: 1,
+                padding: 14,
+                background: day === "saturday" ? "#6d28d9" : "#fff",
+                color: day === "saturday" ? "#fff" : "#2f2a26",
+                border:
+                  day === "saturday"
+                    ? "2px solid #6d28d9"
+                    : "1px solid #d1d5db",
+                borderRadius: 8,
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Sábado
+            </button>
+            <button
+              type="button"
+              onClick={() => setDay("sunday")}
+              style={{
+                flex: 1,
+                padding: 14,
+                background: day === "sunday" ? "#6d28d9" : "#fff",
+                color: day === "sunday" ? "#fff" : "#2f2a26",
+                border:
+                  day === "sunday"
+                    ? "2px solid #6d28d9"
+                    : "1px solid #d1d5db",
+                borderRadius: 8,
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Domingo
+            </button>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleConfirm}
+          disabled={!day}
+          style={{
+            width: "100%",
+            padding: 14,
+            background: day ? "#6d28d9" : "#a3a3a3",
+            color: "#fff",
+            border: 0,
+            borderRadius: 6,
+            fontSize: 13,
+            fontWeight: 700,
+            cursor: day ? "pointer" : "not-allowed",
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+          }}
+        >
+          Adicionar ao pedido
+        </button>
+      </div>
+    </>
   );
 }
 
@@ -1417,7 +1978,7 @@ function CustomizeModal({
   onSave: () => void;
   onCancel: () => void;
 }) {
-  const max = line.product.max_flowers;
+  const max = (line.product as Product).max_flowers;
 
   function toggleFlower(flower: Flower) {
     const exists = line.selectedFlowers.find((f) => f.name === flower.name);
