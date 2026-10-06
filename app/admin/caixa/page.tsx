@@ -385,8 +385,7 @@ async function handleOrcamento(order: Order) {
     pdf.save(`orcamento-pedido-${order.id}.pdf`);
 
     // Abre WhatsApp Web em nova aba
-    window.open("https://web.whatsapp.com/", "_blank");
-
+    window.open("whatsapp://", "_blank");
     // Avisa o operador
     setTimeout(() => {
       alert(
