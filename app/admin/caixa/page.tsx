@@ -320,7 +320,6 @@ function FilaPedidos() {
 // ==========================================
 // GERAR PDF + ABRIR WHATSAPP
 // ==========================================
-
 async function handleOrcamento(order: Order) {
   try {
     // Cria container temporário com o layout do pedido
@@ -345,7 +344,6 @@ async function handleOrcamento(order: Order) {
       backgroundColor: "#ffffff",
     });
 
-    // Remove o container temporário
     document.body.removeChild(container);
 
     // Cria PDF A4
@@ -358,7 +356,6 @@ async function handleOrcamento(order: Order) {
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const pdfHeight = pdf.internal.pageSize.getHeight();
 
-    // Calcula altura proporcional da imagem
     const img = new Image();
     img.src = dataUrl;
     await new Promise((resolve) => (img.onload = resolve));
@@ -367,7 +364,6 @@ async function handleOrcamento(order: Order) {
     const imgWidth = pdfWidth;
     const imgHeight = imgWidth * ratio;
 
-    // Se a imagem for maior que 1 página, divide
     let heightLeft = imgHeight;
     let position = 0;
 
@@ -384,12 +380,59 @@ async function handleOrcamento(order: Order) {
     // Baixa o PDF
     pdf.save(`orcamento-pedido-${order.id}.pdf`);
 
-    // Abre WhatsApp Web em nova aba
-    window.open("whatsapp://", "_blank");
+    // ==========================================
+    // 🆕 ABRE WHATSAPP COM MENSAGEM PRÉ-PREENCHIDA
+    // ==========================================
+
+    // Normaliza o telefone: remove tudo que não é número
+    const rawPhone = (order.customer_phone || "").replace(/\D/g, "");
+
+    // Adiciona DDI 55 (Brasil) se não tiver
+    let phone = rawPhone;
+    if (phone.length === 10 || phone.length === 11) {
+      phone = "55" + phone;
+    } else if (phone.length === 12 && phone.startsWith("55")) {
+      // já tem DDI, ok
+    } else if (phone.length === 13 && phone.startsWith("55")) {
+      // já tem DDI + 9 dígitos, ok
+    } else {
+      // fallback: assume que precisa de 55
+      phone = "55" + phone;
+    }
+
+    // Monta a mensagem
+    const itens = (order.order_items || [])
+      .map((item) => `• ${item.quantity}x ${item.product_name}`)
+      .join("\n");
+
+    const mensagem = `Olá ${order.customer_name}! 🌸
+
+Segue o orçamento do seu pedido *#${order.id}*:
+
+${itens}
+
+*Total:* ${order.total.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    })}
+
+${
+  order.delivery_method === "delivery"
+    ? "🚚 Entrega em domicílio"
+    : "🏪 Retirada no ateliê"
+}
+
+O PDF do orçamento foi gerado e será enviado em seguida. Qualquer dúvida, estou à disposição! 💐`;
+
+    const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(mensagem)}`;
+
+    // Abre em nova aba
+    window.open(waUrl, "_blank");
+
     // Avisa o operador
     setTimeout(() => {
       alert(
-        `✅ PDF do pedido #${order.id} baixado!\n\nAgora procure "${order.customer_name}" no WhatsApp e anexe o arquivo.`
+        `✅ PDF do pedido #${order.id} baixado!\n\nO WhatsApp foi aberto em nova aba com a conversa de "${order.customer_name}".\n\n📎 Agora é só anexar o PDF e enviar.`
       );
     }, 500);
   } catch (err) {
@@ -397,6 +440,8 @@ async function handleOrcamento(order: Order) {
     alert("Erro ao gerar o PDF. Verifique o console.");
   }
 }
+
+
   function formatDate(value: string) {
     const date = new Date(value);
     return date.toLocaleString("pt-BR", {
