@@ -401,31 +401,36 @@ async function handleOrcamento(order: Order) {
     }
 
     // Monta a mensagem
+       // Monta a mensagem
     const itens = (order.order_items || [])
-      .map((item) => `• ${item.quantity}x ${item.product_name}`)
+      .map((item) => `- ${item.quantity}x ${item.product_name}`)
       .join("\n");
 
-    const mensagem = `Olá ${order.customer_name}! 🌸
+    const totalFormatado = order.total.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    });
 
-Segue o orçamento do seu pedido *#${order.id}*:
+    const metodoEntrega =
+      order.delivery_method === "delivery"
+        ? "Entrega em domicílio"
+        : "Retirada no ateliê";
+
+    const mensagem = `Olá ${order.customer_name}!
+
+Segue o orçamento do seu pedido #${order.id}:
 
 ${itens}
 
-*Total:* ${order.total.toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    })}
+Total: ${totalFormatado}
+${metodoEntrega}
 
-${
-  order.delivery_method === "delivery"
-    ? "🚚 Entrega em domicílio"
-    : "🏪 Retirada no ateliê"
-}
+O PDF do orçamento foi gerado e será enviado em seguida.
 
-O PDF do orçamento foi gerado e será enviado em seguida. Qualquer dúvida, estou à disposição! 💐`;
+Qualquer dúvida, estamos à disposição!`;
 
     const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(mensagem)}`;
-
+    window.open(waUrl, "_blank");
     // Abre em nova aba
     window.open(waUrl, "_blank");
 
@@ -2303,7 +2308,6 @@ function CustomizeModal({
 // ==========================================
 // HTML DO ORÇAMENTO (mesmo layout do impresso)
 // ==========================================
-
 function buildOrcamentoHTML(order: Order): string {
   const formatPrice = (v: number) =>
     v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -2317,166 +2321,105 @@ function buildOrcamentoHTML(order: Order): string {
       minute: "2-digit",
     });
 
-  const formatScheduled = (
-    dateStr: string | null,
-    timeStr: string | null
-  ) => {
-    if (!dateStr && !timeStr) return null;
-    const parts: string[] = [];
-    if (dateStr) {
-      const d = new Date(dateStr + "T12:00:00");
-      const dayName = d
-        .toLocaleDateString("pt-BR", { weekday: "long" })
-        .replace(/^\w/, (c) => c.toUpperCase());
-      parts.push(dayName);
-      parts.push(
-        d.toLocaleDateString("pt-BR", {
-          day: "2-digit",
-          month: "2-digit",
-        })
-      );
-    }
-    if (timeStr) parts.push(`às ${timeStr}`);
-    return parts.join(" ");
-  };
-
   const itensHTML = (order.order_items || [])
     .map(
       (item) => `
-      <tr>
-        <td style="padding: 12px 8px; border-bottom: 1px solid #eee; text-align: center; font-weight: 600;">
-          ${item.quantity}x
-        </td>
-        <td style="padding: 12px 8px; border-bottom: 1px solid #eee;">
-          ${item.product_name}
-          ${
-            item.item_type === "subscription"
-              ? '<span style="margin-left: 8px; padding: 2px 6px; background: #ede9fe; color: #6d28d9; border-radius: 3px; font-size: 10px; font-weight: 700; text-transform: uppercase;">Assinatura</span>'
-              : ""
-          }
-        </td>
-        <td style="padding: 12px 8px; border-bottom: 1px solid #eee; text-align: right;">
-          ${formatPrice(item.product_price)}
-        </td>
-        <td style="padding: 12px 8px; border-bottom: 1px solid #eee; text-align: right; font-weight: 600;">
-          ${formatPrice(item.subtotal)}
-        </td>
-      </tr>
+      <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+        <span>${item.quantity}x ${item.product_name}</span>
+        <span>${formatPrice(item.subtotal)}</span>
+      </div>
     `
     )
     .join("");
 
-  const enderecoHTML =
-    order.delivery_method === "delivery"
-      ? `
-        <div style="margin-top: 8px; font-size: 13px; line-height: 1.6; color: #555;">
-          ${order.street || ""}, ${order.number || ""}${
-          order.complement ? ` — ${order.complement}` : ""
-        }<br/>
-          ${order.neighborhood || ""} — ${order.city || ""}<br/>
-          CEP: ${order.cep || ""}
-        </div>
-      `
-      : `<div style="margin-top: 8px; font-size: 13px; color: #555;">🏪 Retirada no ateliê</div>`;
-
-  const scheduledStr = formatScheduled(
-    order.scheduled_date,
-    order.scheduled_time
-  );
-
   return `
-    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #2f2a26;">
-      <!-- HEADER -->
-      <div style="text-align: center; border-bottom: 2px solid #2f2a26; padding-bottom: 20px; margin-bottom: 24px;">
-        <div style="font-size: 28px; font-weight: 700; letter-spacing: 0.05em; color: #2f2a26;">FLOWER</div>
-        <div style="font-size: 11px; letter-spacing: 0.2em; color: #7a7a72; margin-top: 4px;">BUQUÊS & ACESSÓRIOS</div>
-        <div style="font-size: 14px; color: #7a7a72; margin-top: 16px;">ORÇAMENTO</div>
-      </div>
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; color: #000; background: #fff; max-width: 700px; margin: 0 auto;">
 
-      <!-- INFO DO PEDIDO -->
-      <div style="display: flex; justify-content: space-between; margin-bottom: 24px; font-size: 13px;">
-        <div>
-          <div style="font-size: 11px; font-weight: 700; color: #7a7a72; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Pedido</div>
-          <div style="font-size: 18px; font-weight: 700;">#${order.id}</div>
-        </div>
-        <div style="text-align: right;">
-          <div style="font-size: 11px; font-weight: 700; color: #7a7a72; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Data</div>
-          <div>${formatDate(order.created_at)}</div>
-        </div>
+      <!-- HEADER -->
+      <div style="text-align: center; border-bottom: 1px dashed #000; padding-bottom: 8px; margin-bottom: 12px;">
+        <div style="font-size: 18px; font-weight: 700; letter-spacing: 0.05em;">FLOWER PROPS</div>
+        <div style="font-size: 11px; margin-top: 2px;">${formatDate(order.created_at)}</div>
+        <div style="font-size: 14px; font-weight: 700; margin-top: 4px;">PEDIDO #${order.id}</div>
       </div>
 
       <!-- CLIENTE -->
-      <div style="margin-bottom: 24px; padding: 16px; background: #f9f9f7; border-radius: 8px;">
-        <div style="font-size: 11px; font-weight: 700; color: #7a7a72; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Cliente</div>
-        <div style="font-size: 15px; font-weight: 600;">${order.customer_name}</div>
-        <div style="font-size: 13px; color: #7a7a72; margin-top: 2px;">${order.customer_phone}</div>
-      </div>
-
-      <!-- ITENS -->
-      <div style="margin-bottom: 24px;">
-        <div style="font-size: 11px; font-weight: 700; color: #7a7a72; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Itens do pedido</div>
-        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-          <thead>
-            <tr style="background: #f9f9f7;">
-              <th style="padding: 10px 8px; text-align: center; font-size: 11px; font-weight: 700; color: #7a7a72; text-transform: uppercase; letter-spacing: 0.05em; width: 60px;">Qtd</th>
-              <th style="padding: 10px 8px; text-align: left; font-size: 11px; font-weight: 700; color: #7a7a72; text-transform: uppercase; letter-spacing: 0.05em;">Produto</th>
-              <th style="padding: 10px 8px; text-align: right; font-size: 11px; font-weight: 700; color: #7a7a72; text-transform: uppercase; letter-spacing: 0.05em; width: 100px;">Preço</th>
-              <th style="padding: 10px 8px; text-align: right; font-size: 11px; font-weight: 700; color: #7a7a72; text-transform: uppercase; letter-spacing: 0.05em; width: 100px;">Subtotal</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${itensHTML}
-          </tbody>
-        </table>
-      </div>
-
-      <!-- TOTAIS -->
-      <div style="margin-left: auto; width: 320px; padding: 16px; background: #f9f9f7; border-radius: 8px; margin-bottom: 24px;">
-        <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px;">
-          <span>Subtotal</span>
-          <strong>${formatPrice(order.subtotal)}</strong>
-        </div>
-        <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 10px;">
-          <span>${order.delivery_method === "delivery" ? "Entrega" : "Retirada"}</span>
-          <strong>${order.delivery_fee > 0 ? formatPrice(order.delivery_fee) : "Grátis"}</strong>
-        </div>
-        <div style="display: flex; justify-content: space-between; padding-top: 10px; border-top: 1px solid #d1d5db; font-size: 16px;">
-          <strong>Total</strong>
-          <strong style="color: #166534;">${formatPrice(order.total)}</strong>
-        </div>
+      <div style="margin-bottom: 10px;">
+        <div><strong>Cliente:</strong> ${order.customer_name}</div>
+        <div><strong>Telefone:</strong> ${order.customer_phone}</div>
       </div>
 
       <!-- ENTREGA -->
-      <div style="margin-bottom: 24px;">
-        <div style="font-size: 11px; font-weight: 700; color: #7a7a72; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">
-          ${order.delivery_method === "delivery" ? "Entrega" : "Retirada"}
-        </div>
-        ${enderecoHTML}
+      <div style="padding-top: 8px; border-top: 1px dashed #000; margin-top: 8px;">
         ${
-          scheduledStr
-            ? `<div style="margin-top: 8px; font-size: 13px; color: #166534; font-weight: 600;">📅 ${scheduledStr}</div>`
+          order.delivery_method === "delivery"
+            ? `
+              <div style="font-weight: 700; margin-bottom: 4px;">🚚 ENTREGA${
+                order.delivery_day
+                  ? ` — ${
+                      order.delivery_day === "saturday" ? "Sábado" : "Domingo"
+                    }`
+                  : ""
+              }</div>
+              <div>${order.street || ""}, ${order.number || ""}${
+                order.complement ? ` — ${order.complement}` : ""
+              }</div>
+              <div>${order.neighborhood || ""}</div>
+              <div>${order.city || ""}</div>
+              ${order.cep ? `<div>CEP ${order.cep}</div>` : ""}
+            `
+            : `<div style="font-weight: 700;">🏪 RETIRADA NO ATELIÊ</div>`
+        }
+      </div>
+
+      <!-- ITENS -->
+      <div style="padding-top: 8px; border-top: 1px dashed #000; margin-top: 8px;">
+        <div style="font-weight: 700; margin-bottom: 6px;">ITENS:</div>
+        ${itensHTML}
+      </div>
+
+      <!-- TOTAL -->
+      <div style="padding-top: 8px; border-top: 1px dashed #000; margin-top: 8px;">
+        ${
+          order.delivery_fee > 0
+            ? `
+              <div style="display: flex; justify-content: space-between;">
+                <span>Subtotal</span>
+                <span>${formatPrice(order.subtotal)}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span>Entrega</span>
+                <span>${formatPrice(order.delivery_fee)}</span>
+              </div>
+            `
             : ""
         }
+        <div style="display: flex; justify-content: space-between; font-size: 16px; font-weight: 700; margin-top: 4px;">
+          <span>TOTAL</span>
+          <span>${formatPrice(order.total)}</span>
+        </div>
+        <div style="text-align: center; margin-top: 6px; font-size: 11px;">
+          Pago via ${order.payment_method}
+        </div>
       </div>
 
       ${
         order.observation
           ? `
-        <div style="margin-bottom: 24px; padding: 12px; background: #fef3c7; border-radius: 8px; font-size: 13px;">
-          <div style="font-size: 11px; font-weight: 700; color: #854d0e; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Observação</div>
-          ${order.observation}
+        <div style="padding-top: 8px; border-top: 1px dashed #000; margin-top: 8px; font-size: 11px;">
+          <div style="font-weight: 700; margin-bottom: 2px;">OBS:</div>
+          <div style="white-space: pre-line;">${order.observation}</div>
         </div>
       `
           : ""
       }
 
       <!-- FOOTER -->
-      <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e0e0dc; text-align: center; font-size: 11px; color: #7a7a72;">
-        Orçamento gerado em ${new Date().toLocaleDateString("pt-BR")} — FLOWER
+      <div style="text-align: center; margin-top: 16px; font-size: 10px; padding-top: 8px; border-top: 1px dashed #000;">
+        www.flowerprops.com.br
       </div>
     </div>
   `;
-} 
+}
 
 const inputStyle: React.CSSProperties = {
   height: 38,
