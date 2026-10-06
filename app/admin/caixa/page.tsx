@@ -83,10 +83,10 @@ type Color = {
 
 type CartLine = {
   id: string;
-  kind: "product" | "subscription";      // 👈 NOVO
-  product: Product | Subscription;        // 👈 aceita os dois
+  kind: "product" | "subscription";
+  product: Product | Subscription;
   quantity: number;
-  delivery_day?: "saturday" | "sunday";   // 👈 só pra assinatura
+  delivery_day?: "saturday" | "sunday";
   selectedFlowers: Flower[];
   selectedColor: Color | null;
 };
@@ -317,135 +317,137 @@ function FilaPedidos() {
       currency: "BRL",
     });
   }
-// ==========================================
-// GERAR PDF + ABRIR WHATSAPP
-// ==========================================
-async function handleOrcamento(order: Order) {
-  try {
-    // Cria container temporário com o layout do pedido
-    const container = document.createElement("div");
-    container.style.position = "fixed";
-    container.style.left = "-9999px";
-    container.style.top = "0";
-    container.style.width = "800px";
-    container.style.background = "#fff";
-    container.style.padding = "40px";
-    container.style.fontFamily =
-      "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
-    container.style.color = "#2f2a26";
 
-    container.innerHTML = buildOrcamentoHTML(order);
-    document.body.appendChild(container);
+  // ==========================================
+  // GERAR PDF + ABRIR WHATSAPP
+  // ==========================================
 
-    // Converte em imagem
-    const dataUrl = await toPng(container, {
-      quality: 1,
-      pixelRatio: 2,
-      backgroundColor: "#ffffff",
-    });
+  async function handleOrcamento(order: Order) {
+    try {
+      // Cria container temporário com o layout do pedido
+      const container = document.createElement("div");
+      container.style.position = "fixed";
+      container.style.left = "-9999px";
+      container.style.top = "0";
+      container.style.width = "800px";
+      container.style.background = "#fff";
+      container.style.padding = "0";
+      container.style.fontFamily =
+        "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+      container.style.color = "#000";
+      container.style.boxSizing = "border-box";
 
-    document.body.removeChild(container);
+      container.innerHTML = buildOrcamentoHTML(order);
+      document.body.appendChild(container);
 
-    // Cria PDF A4
-    const pdf = new jsPDF({
-      orientation: "portrait",
-      unit: "mm",
-      format: "a4",
-    });
+      // Converte em imagem
+      const dataUrl = await toPng(container, {
+        quality: 1,
+        pixelRatio: 2,
+        backgroundColor: "#ffffff",
+      });
 
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = pdf.internal.pageSize.getHeight();
+      document.body.removeChild(container);
 
-    const img = new Image();
-    img.src = dataUrl;
-    await new Promise((resolve) => (img.onload = resolve));
+      // Cria PDF A4
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
 
-    const ratio = img.height / img.width;
-    const imgWidth = pdfWidth;
-    const imgHeight = imgWidth * ratio;
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
 
-    let heightLeft = imgHeight;
-    let position = 0;
+      const img = new Image();
+      img.src = dataUrl;
+      await new Promise((resolve) => (img.onload = resolve));
 
-    pdf.addImage(dataUrl, "PNG", 0, position, imgWidth, imgHeight);
-    heightLeft -= pdfHeight;
+      const ratio = img.height / img.width;
+      const imgWidth = pdfWidth;
+      const imgHeight = imgWidth * ratio;
 
-    while (heightLeft > 0) {
-      position = heightLeft - imgHeight;
-      pdf.addPage();
+      let heightLeft = imgHeight;
+      let position = 0;
+
       pdf.addImage(dataUrl, "PNG", 0, position, imgWidth, imgHeight);
       heightLeft -= pdfHeight;
-    }
 
-    // Baixa o PDF
-    pdf.save(`orcamento-pedido-${order.id}.pdf`);
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(dataUrl, "PNG", 0, position, imgWidth, imgHeight);
+        heightLeft -= pdfHeight;
+      }
 
-    // ==========================================
-    // 🆕 ABRE WHATSAPP COM MENSAGEM PRÉ-PREENCHIDA
-    // ==========================================
+      // Baixa o PDF
+      pdf.save(`orcamento-pedido-${order.id}.pdf`);
 
-    // Normaliza o telefone: remove tudo que não é número
-    const rawPhone = (order.customer_phone || "").replace(/\D/g, "");
+      // ==========================================
+      // ABRE WHATSAPP COM MENSAGEM PRÉ-PREENCHIDA
+      // ==========================================
 
-    // Adiciona DDI 55 (Brasil) se não tiver
-    let phone = rawPhone;
-    if (phone.length === 10 || phone.length === 11) {
-      phone = "55" + phone;
-    } else if (phone.length === 12 && phone.startsWith("55")) {
-      // já tem DDI, ok
-    } else if (phone.length === 13 && phone.startsWith("55")) {
-      // já tem DDI + 9 dígitos, ok
-    } else {
-      // fallback: assume que precisa de 55
-      phone = "55" + phone;
-    }
+      // Normaliza o telefone
+      const rawPhone = (order.customer_phone || "").replace(/\D/g, "");
 
-    // Monta a mensagem
-       // Monta a mensagem
-    const itens = (order.order_items || [])
-      .map((item) => `- ${item.quantity}x ${item.product_name}`)
-      .join("\n");
+      let phone = rawPhone;
+      if (phone.length === 10 || phone.length === 11) {
+        phone = "55" + phone;
+      } else if (phone.length === 12 && phone.startsWith("55")) {
+        // já tem DDI
+      } else if (phone.length === 13 && phone.startsWith("55")) {
+        // já tem DDI + 9 dígitos
+      } else {
+        phone = "55" + phone;
+      }
 
-    const totalFormatado = order.total.toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    });
+      // Capitaliza o nome do cliente
+      const nomeFormatado = order.customer_name
+        .split(" ")
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(" ");
 
-    const metodoEntrega =
-      order.delivery_method === "delivery"
-        ? "Entrega em domicílio"
-        : "Retirada no ateliê";
+      const itens = (order.order_items || [])
+        .map((item) => `• ${item.quantity}x ${item.product_name}`)
+        .join("\n");
 
-    const mensagem = `Olá ${order.customer_name}!
+      const totalFormatado = order.total.toLocaleString("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+      });
 
-Segue o orçamento do seu pedido #${order.id}:
+      const metodoEntrega =
+        order.delivery_method === "delivery"
+          ? "Entrega em domicílio"
+          : "Retirada no ateliê";
+
+      const mensagem = `Olá ${nomeFormatado}!
+
+Segue o orçamento do seu pedido *#${order.id}*:
 
 ${itens}
 
-Total: ${totalFormatado}
+Total: *${totalFormatado}*
 ${metodoEntrega}
 
 O PDF do orçamento foi gerado e será enviado em seguida.
 
 Qualquer dúvida, estamos à disposição!`;
 
-    const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(mensagem)}`;
-    window.open(waUrl, "_blank");
-    // Abre em nova aba
-    window.open(waUrl, "_blank");
+      const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(mensagem)}`;
+      window.open(waUrl, "_blank");
 
-    // Avisa o operador
-    setTimeout(() => {
-      alert(
-        `✅ PDF do pedido #${order.id} baixado!\n\nO WhatsApp foi aberto em nova aba com a conversa de "${order.customer_name}".\n\n📎 Agora é só anexar o PDF e enviar.`
-      );
-    }, 500);
-  } catch (err) {
-    console.error("Erro ao gerar orçamento:", err);
-    alert("Erro ao gerar o PDF. Verifique o console.");
+      // Avisa o operador
+      setTimeout(() => {
+        alert(
+          `✅ PDF do pedido #${order.id} baixado!\n\nO WhatsApp foi aberto em nova aba com a conversa de "${nomeFormatado}".\n\n📎 Agora é só anexar o PDF e enviar.`
+        );
+      }, 500);
+    } catch (err) {
+      console.error("Erro ao gerar orçamento:", err);
+      alert("Erro ao gerar o PDF. Verifique o console.");
+    }
   }
-}
-
 
   function formatDate(value: string) {
     const date = new Date(value);
@@ -708,15 +710,14 @@ Qualquer dúvida, estamos à disposição!`;
                   🖨️ Imprimir
                 </button>
 
-                 <button
+                <button
                   type="button"
                   onClick={() => handleOrcamento(order)}
                   disabled={actionLoading === order.id}
                   style={btnWhatsAppStyle}
-                  >
+                >
                   📄 Enviar orçamento
-                 </button>
-
+                </button>
 
                 <button
                   type="button"
@@ -749,38 +750,29 @@ Qualquer dúvida, estamos à disposição!`;
 // ==========================================
 
 function NovoPedido({ onCreated }: { onCreated: () => void }) {
-  // Produtos e assinaturas
   const [products, setProducts] = useState<Product[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [weeklyFlowers, setWeeklyFlowers] = useState<Flower[]>([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
 
-  // Busca
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
-  // Carrinho
   const [cart, setCart] = useState<CartLine[]>([]);
 
-  // Modal de customização (flores + cor)
   const [editingLine, setEditingLine] = useState<CartLine | null>(null);
-
-  // Modal de assinatura
   const [pendingSubscription, setPendingSubscription] =
     useState<Subscription | null>(null);
 
-  // Dados do cliente
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [deliveryMethod, setDeliveryMethod] = useState<"delivery" | "pickup">(
     "pickup"
   );
 
-  // Data + hora
   const [scheduledDate, setScheduledDate] = useState("");
   const [scheduledTime, setScheduledTime] = useState("");
 
-  // Endereço
   const [cep, setCep] = useState("");
   const [street, setStreet] = useState("");
   const [number, setNumber] = useState("");
@@ -788,18 +780,9 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
   const [neighborhood, setNeighborhood] = useState("");
   const [city, setCity] = useState("");
 
-  // Pagamento
   const [paymentMethod, setPaymentMethod] = useState("dinheiro");
-
-  // Observação
   const [observation, setObservation] = useState("");
-
-  // Estado geral
   const [isSaving, setIsSaving] = useState(false);
-
-  // ==========================================
-  // CARREGA PRODUTOS + ASSINATURAS + FLORES
-  // ==========================================
 
   useEffect(() => {
     async function loadData() {
@@ -841,10 +824,6 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
     loadData();
   }, []);
 
-  // ==========================================
-  // FILTRO DE PRODUTOS E ASSINATURAS
-  // ==========================================
-
   const filteredProducts = products.filter((p) => {
     if (categoryFilter !== "all" && String(p.category_id) !== categoryFilter) {
       return false;
@@ -858,7 +837,6 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
   });
 
   const filteredSubscriptions = subscriptions.filter((s) => {
-    // Assinaturas só aparecem quando o filtro for "Todas"
     if (categoryFilter !== "all") return false;
     if (searchTerm.trim()) {
       if (!s.name.toLowerCase().includes(searchTerm.toLowerCase().trim())) {
@@ -867,10 +845,6 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
     }
     return true;
   });
-
-  // ==========================================
-  // ADICIONA PRODUTO AO CARRINHO
-  // ==========================================
 
   function addProductToCart(product: Product) {
     const id = `${product.id}-${Date.now()}`;
@@ -884,7 +858,6 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
       selectedColor: null,
     };
 
-    // Se o produto exige flores, abre o modal de customização
     if (product.requires_flower_selection) {
       setEditingLine(newLine);
       return;
@@ -892,10 +865,6 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
 
     setCart((current) => [...current, newLine]);
   }
-
-  // ==========================================
-  // ADICIONA ASSINATURA AO CARRINHO
-  // ==========================================
 
   function addSubscriptionToCart(
     subscription: Subscription,
@@ -938,17 +907,12 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
     setCart((current) => current.filter((l) => l.id !== lineId));
   }
 
-  // ==========================================
-  // CÁLCULOS
-  // ==========================================
-
   const subtotal = cart.reduce(
     (total, line) => total + line.product.price * line.quantity,
     0
   );
 
   const deliveryFee = deliveryMethod === "delivery" ? 15 : 0;
-
   const total = subtotal + deliveryFee;
 
   function formatPrice(value: number) {
@@ -958,10 +922,6 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
     });
   }
 
-  // ==========================================
-  // DIA DA SEMANA
-  // ==========================================
-
   function getDayOfWeek(dateStr: string): string {
     if (!dateStr) return "";
     const d = new Date(dateStr + "T12:00:00");
@@ -969,21 +929,13 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
     return dayName.charAt(0).toUpperCase() + dayName.slice(1);
   }
 
-  // ==========================================
-  // CÁLCULO DA PRÓXIMA RENOVAÇÃO
-  // ==========================================
-
   function calculateNextRenewal(frequency: string): string {
     const d = new Date();
     if (frequency === "weekly") d.setDate(d.getDate() + 7);
     else if (frequency === "biweekly") d.setDate(d.getDate() + 15);
-    else d.setMonth(d.getMonth() + 1); // monthly (default)
+    else d.setMonth(d.getMonth() + 1);
     return d.toISOString();
   }
-
-  // ==========================================
-  // SALVAR PEDIDO
-  // ==========================================
 
   async function handleSave() {
     if (cart.length === 0) {
@@ -1001,7 +953,6 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
       return;
     }
 
-    // Valida dia da entrega pra todas as assinaturas
     const subsInCart = cart.filter((l) => l.kind === "subscription");
     for (const line of subsInCart) {
       if (!line.delivery_day) {
@@ -1025,7 +976,6 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
     setIsSaving(true);
 
     try {
-      // 1. Cria o pedido
       const { data: order, error: orderError } = await supabase
         .from("orders")
         .insert({
@@ -1054,13 +1004,10 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
 
       if (orderError) throw orderError;
 
-      // 2. Cria os itens do pedido
       const orderItems = cart.map((line) => ({
         order_id: order.id,
         product_id:
-          line.kind === "product"
-            ? (line.product as Product).id
-            : null,
+          line.kind === "product" ? (line.product as Product).id : null,
         product_name: line.product.name,
         product_price: line.product.price,
         quantity: line.quantity,
@@ -1074,7 +1021,6 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
 
       if (itemsError) throw itemsError;
 
-      // 3. Cria os registros em subscription_orders (se houver assinaturas)
       const now = new Date().toISOString();
 
       const subscriptionOrders = subsInCart.map((line) => {
@@ -1128,13 +1074,9 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
     }
   }
 
-  // ==========================================
-  // RENDER
-  // ==========================================
-
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-      {/* COLUNA ESQUERDA — BUSCA + PRODUTOS + ASSINATURAS */}
+      {/* COLUNA ESQUERDA */}
       <div>
         <h2
           style={{
@@ -1183,7 +1125,6 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
             <div style={emptyStyle}>Carregando...</div>
           ) : (
             <>
-              {/* ============ PRODUTOS ============ */}
               {filteredProducts.length > 0 && (
                 <div>
                   <div
@@ -1262,7 +1203,6 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
                 </div>
               )}
 
-              {/* ============ ASSINATURAS ============ */}
               {filteredSubscriptions.length > 0 && (
                 <div>
                   <div
@@ -1376,7 +1316,7 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
         </div>
       </div>
 
-      {/* COLUNA DIREITA — CARRINHO + DADOS */}
+      {/* COLUNA DIREITA */}
       <div>
         <h2
           style={{
@@ -1389,7 +1329,6 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
           Pedido
         </h2>
 
-        {/* CARRINHO */}
         {cart.length === 0 ? (
           <div style={emptyStyle}>Carrinho vazio.</div>
         ) : (
@@ -1485,7 +1424,6 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
                   </button>
                 </div>
 
-                {/* Flores escolhidas */}
                 {line.selectedFlowers.length > 0 && (
                   <div
                     style={{
@@ -1498,7 +1436,6 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
                   </div>
                 )}
 
-                {/* Cor escolhida */}
                 {line.selectedColor && (
                   <div
                     style={{
@@ -1511,7 +1448,6 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
                   </div>
                 )}
 
-                {/* Dia da entrega (assinatura) */}
                 {line.kind === "subscription" && line.delivery_day && (
                   <div
                     style={{
@@ -1561,7 +1497,6 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
           </div>
         )}
 
-        {/* DADOS DO CLIENTE */}
         <div
           style={{
             padding: 16,
@@ -1592,7 +1527,6 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
           />
         </div>
 
-        {/* ENTREGA */}
         <div
           style={{
             padding: 16,
@@ -1693,7 +1627,6 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
             </>
           )}
 
-          {/* Data + Hora */}
           <div style={{ display: "flex", gap: 8 }}>
             <div style={{ flex: 2 }}>
               <label
@@ -1753,7 +1686,6 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
           </div>
         </div>
 
-        {/* PAGAMENTO */}
         <div
           style={{
             padding: 16,
@@ -1789,7 +1721,6 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
           />
         </div>
 
-        {/* TOTAIS */}
         <div
           style={{
             padding: 16,
@@ -1835,7 +1766,6 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
           </div>
         </div>
 
-        {/* BOTÃO SALVAR */}
         <button
           type="button"
           onClick={handleSave}
@@ -1860,7 +1790,6 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
         </button>
       </div>
 
-      {/* MODAL DE CUSTOMIZAÇÃO (flores + cor) */}
       {editingLine && (
         <CustomizeModal
           line={editingLine}
@@ -1871,7 +1800,6 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
         />
       )}
 
-      {/* MODAL DE ASSINATURA (dia da entrega) */}
       {pendingSubscription && (
         <SubscriptionModal
           subscription={pendingSubscription}
@@ -2103,7 +2031,7 @@ function SubscriptionModal({
 }
 
 // ==========================================
-// MODAL DE CUSTOMIZAÇÃO (flores + cor)
+// MODAL DE CUSTOMIZAÇÃO
 // ==========================================
 
 function CustomizeModal({
@@ -2303,11 +2231,9 @@ function CustomizeModal({
 }
 
 // ==========================================
-// ESTILOS
+// HTML DO ORÇAMENTO (idêntico à nota impressa)
 // ==========================================
-// ==========================================
-// HTML DO ORÇAMENTO (mesmo layout do impresso)
-// ==========================================
+
 function buildOrcamentoHTML(order: Order): string {
   const formatPrice = (v: number) =>
     v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -2333,33 +2259,41 @@ function buildOrcamentoHTML(order: Order): string {
     .join("");
 
   return `
-    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; color: #000; background: #fff; max-width: 700px; margin: 0 auto;">
+    <div style="padding: 40px; max-width: 700px; margin: 0 auto; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; color: #000; background: #fff; box-sizing: border-box;">
 
-      <!-- HEADER -->
-      <div style="text-align: center; border-bottom: 1px dashed #000; padding-bottom: 8px; margin-bottom: 12px;">
-        <div style="font-size: 18px; font-weight: 700; letter-spacing: 0.05em;">FLOWER PROPS</div>
-        <div style="font-size: 11px; margin-top: 2px;">${formatDate(order.created_at)}</div>
-        <div style="font-size: 14px; font-weight: 700; margin-top: 4px;">PEDIDO #${order.id}</div>
+      <!-- Header -->
+      <div style="text-align: center; border-bottom: 1px dashed #000; padding-bottom: 8px; margin-bottom: 12px; padding-top: 20px;">
+        <div style="font-size: 18px; font-weight: 700; letter-spacing: 0.05em;">
+          FLOWER PROPS
+        </div>
+        <div style="font-size: 11px; margin-top: 2px;">
+          ${formatDate(order.created_at)}
+        </div>
+        <div style="font-size: 14px; font-weight: 700; margin-top: 4px;">
+          PEDIDO #${order.id}
+        </div>
       </div>
 
-      <!-- CLIENTE -->
+      <!-- Cliente -->
       <div style="margin-bottom: 10px;">
         <div><strong>Cliente:</strong> ${order.customer_name}</div>
         <div><strong>Telefone:</strong> ${order.customer_phone}</div>
       </div>
 
-      <!-- ENTREGA -->
+      <!-- Entrega -->
       <div style="padding-top: 8px; border-top: 1px dashed #000; margin-top: 8px;">
         ${
           order.delivery_method === "delivery"
             ? `
-              <div style="font-weight: 700; margin-bottom: 4px;">🚚 ENTREGA${
-                order.delivery_day
-                  ? ` — ${
-                      order.delivery_day === "saturday" ? "Sábado" : "Domingo"
-                    }`
-                  : ""
-              }</div>
+              <div style="font-weight: 700; margin-bottom: 4px;">
+                🚚 ENTREGA${
+                  order.delivery_day
+                    ? ` — ${
+                        order.delivery_day === "saturday" ? "Sábado" : "Domingo"
+                      }`
+                    : ""
+                }
+              </div>
               <div>${order.street || ""}, ${order.number || ""}${
                 order.complement ? ` — ${order.complement}` : ""
               }</div>
@@ -2371,13 +2305,13 @@ function buildOrcamentoHTML(order: Order): string {
         }
       </div>
 
-      <!-- ITENS -->
+      <!-- Itens -->
       <div style="padding-top: 8px; border-top: 1px dashed #000; margin-top: 8px;">
         <div style="font-weight: 700; margin-bottom: 6px;">ITENS:</div>
         ${itensHTML}
       </div>
 
-      <!-- TOTAL -->
+      <!-- Total -->
       <div style="padding-top: 8px; border-top: 1px dashed #000; margin-top: 8px;">
         ${
           order.delivery_fee > 0
@@ -2413,13 +2347,17 @@ function buildOrcamentoHTML(order: Order): string {
           : ""
       }
 
-      <!-- FOOTER -->
+      <!-- Footer -->
       <div style="text-align: center; margin-top: 16px; font-size: 10px; padding-top: 8px; border-top: 1px dashed #000;">
         www.flowerprops.com.br
       </div>
     </div>
   `;
 }
+
+// ==========================================
+// ESTILOS
+// ==========================================
 
 const inputStyle: React.CSSProperties = {
   height: 38,
