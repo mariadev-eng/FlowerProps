@@ -5292,3 +5292,200 @@ body:has(.cart-drawer.active) {
     height: 32px;
   }
 }
+/* ========================================== */
+/* BUQUÊS SOB ENCOMENDA — CARDS NA HOME       */
+/* ========================================== */
+
+.buques-destaque {
+  padding: 100px 6vw;
+  background: #faf6f1;
+}
+
+.buques-destaque-inner {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.buques-destaque-header {
+  text-align: center;
+  max-width: 640px;
+  margin: 0 auto 60px;
+}
+
+.buques-destaque-header h2 {
+  font-family: var(--serif);
+  font-size: clamp(34px, 5vw, 56px);
+  font-weight: 500;
+  color: #3f493b;
+  margin: 14px 0 18px;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+.buques-destaque-header h2 em {
+  font-style: italic;
+  color: #166534;
+}
+
+.buques-destaque-header p {
+  font-size: 16px;
+  line-height: 1.7;
+  color: #7a7a72;
+  margin: 0;
+}
+
+.buques-destaque-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+/* CARD */
+.buque-destaque-card {
+  position: relative;
+  aspect-ratio: 3/4;
+  border-radius: 20px;
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
+  transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1),
+              box-shadow 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.buque-destaque-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.15);
+}
+
+.buque-destaque-card-image {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  transition: transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.buque-noiva-image {
+  background-image: url("https://stqpsaaxejtjhkbyapys.supabase.co/storage/v1/object/public/banners/buquehero.jpeg");
+}
+
+.buque-gigante-image {
+  background-image: url("https://stqpsaaxejtjhkbyapys.supabase.co/storage/v1/object/public/banners/buquehero.jpeg");
+}
+
+.buque-destaque-card:hover .buque-destaque-card-image {
+  transform: scale(1.06);
+}
+
+/* OVERLAY */
+.buque-destaque-card-overlay {
+  position: absolute;
+  inset: 0;
+  padding: 40px 36px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.85) 0%,
+    rgba(0, 0, 0, 0.55) 35%,
+    rgba(0, 0, 0, 0.15) 65%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  color: #fff;
+}
+
+.buque-destaque-card-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 14px;
+}
+
+.buque-destaque-card-overlay h3 {
+  font-family: var(--serif);
+  font-size: clamp(28px, 3vw, 40px);
+  font-weight: 500;
+  color: #fff;
+  margin: 0 0 12px;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+.buque-destaque-card-overlay p {
+  font-size: 14px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0 0 24px;
+  max-width: 320px;
+}
+
+/* BOTÃO */
+.buque-destaque-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 24px;
+  background: #ffffff;
+  color: #2f2a26;
+  text-decoration: none;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  align-self: flex-start;
+  transition: background 0.3s ease, color 0.3s ease, transform 0.3s ease;
+  min-width: 200px;
+  border: 0;
+}
+
+.buque-destaque-btn:hover {
+  background: #166534;
+  color: #ffffff;
+  transform: translateX(4px);
+}
+
+.buque-destaque-btn-arrow {
+  font-size: 18px;
+  line-height: 1;
+  transition: transform 0.3s ease;
+}
+
+.buque-destaque-btn:hover .buque-destaque-btn-arrow {
+  transform: translateX(4px);
+}
+
+/* MOBILE */
+@media (max-width: 768px) {
+  .buques-destaque {
+    padding: 60px 6vw;
+  }
+
+  .buques-destaque-header {
+    margin-bottom: 40px;
+  }
+
+  .buques-destaque-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .buque-destaque-card {
+    aspect-ratio: 4/5;
+  }
+
+  .buque-destaque-card-overlay {
+    padding: 32px 28px;
+  }
+
+  .buque-destaque-card-overlay p {
+    margin-bottom: 20px;
+  }
+
+  .buque-destaque-btn {
+    width: 100%;
+  }
+}

@@ -353,7 +353,7 @@ export default function Home() {
 
           <nav className="desktop-nav">
             <a href="#inicio">Início</a>
-            <a href="#produtos">Buquês</a>
+            <Link href="/buques">Buquês</Link> 
             <a href="#categorias">Categorias</a>
             <a href="#assinaturas">Assinaturas</a>
             <a href="#sobre">Sobre nós</a>
@@ -519,6 +519,75 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+{/* ==================== BUQUÊS SOB ENCOMENDA ==================== */}
+
+<section className="buques-destaque" id="buques-encomenda">
+  <div className="buques-destaque-inner">
+    <div className="buques-destaque-header">
+      <span className="eyebrow">SOB ENCOMENDA</span>
+      <h2>
+        Buquês feitos
+        <br />
+        <em>exclusivamente pra você.</em>
+      </h2>
+      <p>
+        Composições únicas, pensadas nos mínimos detalhes pra marcar
+        o seu momento. Fale com a gente e monte o seu.
+      </p>
+    </div>
+
+    <div className="buques-destaque-grid">
+      {/* CARD NOIVA */}
+      <div className="buque-destaque-card">
+        <div className="buque-destaque-card-image buque-noiva-image" />
+        <div className="buque-destaque-card-overlay">
+          <span className="buque-destaque-card-label">01 — Noiva</span>
+          <h3>Buquês de Noiva</h3>
+          <p>
+            Delicados, exclusivos e feitos pra durar pra sempre
+            nas fotos e na memória.
+          </p>
+          <a
+            href={`https://wa.me/5522992298475?text=${encodeURIComponent(
+              "Olá! Vim pelo site e gostaria de saber mais sobre os Buquês de Noiva. Pode me contar mais detalhes sobre valores, tamanhos, prazos e como funciona a encomenda?"
+            )}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="buque-destaque-btn"
+          >
+            <span>Saber mais</span>
+            <span className="buque-destaque-btn-arrow">→</span>
+          </a>
+        </div>
+      </div>
+
+      {/* CARD GIGANTE */}
+      <div className="buque-destaque-card">
+        <div className="buque-destaque-card-image buque-gigante-image" />
+        <div className="buque-destaque-card-overlay">
+          <span className="buque-destaque-card-label">02 — Gigantes</span>
+          <h3>Buquês Gigantes</h3>
+          <p>
+            Pra quem quer surpreender de verdade. Imponentes,
+            marcantes, inesquecíveis.
+          </p>
+          <a
+            href={`https://wa.me/5522992298475?text=${encodeURIComponent(
+              "Olá! Vim pelo site e gostaria de saber mais sobre os Buquês Gigantes. Pode me contar mais detalhes sobre valores, tamanhos, opções com urso e como funciona a encomenda?"
+            )}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="buque-destaque-btn"
+          >
+            <span>Saber mais</span>
+            <span className="buque-destaque-btn-arrow">→</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
 
       {/* ==================== CATEGORIAS ==================== */}
 

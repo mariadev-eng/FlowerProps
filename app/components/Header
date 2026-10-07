@@ -19,12 +19,12 @@ export default function Header() {
         </Link>
 
         <nav className="desktop-nav">
-          <Link href="/">Início</Link>
-          <Link href="/#categorias">Categorias</Link>
-          <Link href="/#produtos">Flores</Link>
-          <Link href="/#assinatura">Assinatura</Link>
-          <Link href="/#sobre">Sobre</Link>
-        </nav>
+  <Link href="/">Início</Link>
+  <Link href="/buques">Buquês</Link>
+  <Link href="/#categorias">Categorias</Link>
+  <Link href="/#assinaturas">Assinaturas</Link>
+  <Link href="/#sobre">Sobre nós</Link>
+</nav>
 
         <div className="header-actions">
           <button type="button" aria-label="Buscar">
