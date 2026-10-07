@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 
 // ==========================================
@@ -31,6 +31,18 @@ type SubscriptionOrder = {
   payment_id: string | null;
   last_payment_at: string | null;
   next_renewal_at: string | null;
+  current_cycle_start: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type SubscriptionDelivery = {
+  id: string;
+  subscription_order_id: number;
+  scheduled_date: string;
+  delivered_at: string | null;
+  status: "pending" | "delivered" | "skipped";
+  notes: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -70,6 +82,63 @@ Qualquer dúvida, é só chamar! 💐`;
 }
 
 // ==========================================
+// CÁLCULO DE ENTREGAS
+// ==========================================
+
+/**
+ * Calcula as datas das entregas de um ciclo.
+ *
+ * Regras:
+ * - 1ª entrega: sábado/domingo da PRÓXIMA semana (nunca dessa semana)
+ * - Depois: 1ª + (frequência × índice)
+ * - Total: `deliveries_per_month` entregas
+ */
+function calculateDeliveryDates(
+  cycleStart: Date,
+  deliveryDay: "saturday" | "sunday",
+  frequency: string,
+  deliveriesPerMonth: number
+): Date[] {
+  const dates: Date[] = [];
+
+  // Determina o dia da semana alvo (0 = domingo, 6 = sábado)
+  const targetDay = deliveryDay === "saturday" ? 6 : 0;
+
+  // Encontra a próxima data com o dia da semana alvo
+  const first = new Date(cycleStart);
+  first.setHours(12, 0, 0, 0);
+
+  // Avança até chegar no dia da semana correto
+  while (first.getDay() !== targetDay) {
+    first.setDate(first.getDate() + 1);
+  }
+
+  // Se a data encontrada está na mesma semana do cycleStart, pula pra próxima semana
+  const diffDays = Math.floor(
+    (first.getTime() - cycleStart.getTime()) / (1000 * 60 * 60 * 24)
+  );
+
+  // Se diffDays <= 7, significa que ainda está na mesma semana ou na primeira metade
+  // Regra: primeira entrega é SEMPRE na semana seguinte
+  if (diffDays <= 7) {
+    first.setDate(first.getDate() + 7);
+  }
+
+  // Calcula intervalo baseado na frequência
+  const intervalDays =
+    frequency === "weekly" ? 7 : frequency === "biweekly" ? 14 : 30;
+
+  // Gera todas as entregas do ciclo
+  for (let i = 0; i < deliveriesPerMonth; i++) {
+    const d = new Date(first);
+    d.setDate(d.getDate() + i * intervalDays);
+    dates.push(d);
+  }
+
+  return dates;
+}
+
+// ==========================================
 // PÁGINA
 // ==========================================
 
@@ -80,7 +149,6 @@ export default function AdminAssinaturasPage() {
   const [selectedSubscription, setSelectedSubscription] =
     useState<SubscriptionOrder | null>(null);
 
-  // Filtros da sub-aba Controle
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [frequencyFilter, setFrequencyFilter] = useState<string>("all");
@@ -138,7 +206,11 @@ export default function AdminAssinaturasPage() {
   // LISTAS
   // ==========================================
 
-  const expiringSoon = subscriptions
+  const activeSubscriptions = subscriptions.filter(
+    (s) => s.payment_status === "paid"
+  );
+
+  const expiringSoon = activeSubscriptions
     .filter(isExpiringSoon)
     .sort((a, b) => {
       const dA = getDaysUntilRenewal(a) ?? 999;
@@ -146,7 +218,7 @@ export default function AdminAssinaturasPage() {
       return dA - dB;
     });
 
-  const recentlyRenewed = subscriptions
+  const recentlyRenewed = activeSubscriptions
     .filter((s) => isRecentlyRenewed(s) && !isExpiringSoon(s))
     .sort((a, b) => {
       const dA = new Date(a.last_payment_at!).getTime();
@@ -231,6 +303,11 @@ export default function AdminAssinaturasPage() {
     ]);
 
     downloadCSV(headers, rows, "flower-assinaturas.csv");
+  }
+
+  function handleCancelled(id: number) {
+    setSubscriptions((current) => current.filter((s) => s.id !== id));
+    setSelectedSubscription(null);
   }
 
   // ==========================================
@@ -340,6 +417,7 @@ export default function AdminAssinaturasPage() {
         <SubscriptionDetailPanel
           subscription={selectedSubscription}
           onClose={() => setSelectedSubscription(null)}
+          onCancelled={handleCancelled}
           getWhatsAppLink={getWhatsAppLink}
           formatDate={formatDate}
           formatPrice={formatPrice}
@@ -784,6 +862,7 @@ function ControleTab({
 function SubscriptionDetailPanel({
   subscription,
   onClose,
+  onCancelled,
   getWhatsAppLink,
   formatDate,
   formatPrice,
@@ -792,6 +871,7 @@ function SubscriptionDetailPanel({
 }: {
   subscription: SubscriptionOrder;
   onClose: () => void;
+  onCancelled: (id: number) => void;
   getWhatsAppLink: (phone: string, name: string) => string;
   formatDate: (v: string | null) => string;
   formatPrice: (v: number) => string;
@@ -799,6 +879,212 @@ function SubscriptionDetailPanel({
   getDaysUntilRenewal: (s: SubscriptionOrder) => number | null;
 }) {
   const daysUntilRenewal = getDaysUntilRenewal(subscription);
+
+  const [deliveries, setDeliveries] = useState<SubscriptionDelivery[]>([]);
+  const [isLoadingDeliveries, setIsLoadingDeliveries] = useState(true);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
+
+  // ==========================================
+  // CARREGA / GERA ENTREGAS
+  // ==========================================
+
+  const ensureDeliveries = useCallback(async () => {
+    setIsLoadingDeliveries(true);
+
+    // 1. Tenta carregar entregas existentes
+    const { data: existing, error: fetchError } = await supabase
+      .from("subscription_deliveries")
+      .select("*")
+      .eq("subscription_order_id", subscription.id)
+      .order("scheduled_date", { ascending: true });
+
+    if (fetchError) {
+      console.error("Erro ao carregar entregas:", fetchError);
+      setIsLoadingDeliveries(false);
+      return;
+    }
+
+    // 2. Se já tem entregas, usa elas
+    if (existing && existing.length > 0) {
+      setDeliveries(existing);
+      setIsLoadingDeliveries(false);
+      return;
+    }
+
+    // 3. Senão, gera automaticamente
+    const cycleStart = new Date(
+      subscription.current_cycle_start ||
+        subscription.last_payment_at ||
+        subscription.created_at
+    );
+
+    const deliveryDay =
+      subscription.delivery_day === "sunday" ? "sunday" : "saturday";
+
+    const dates = calculateDeliveryDates(
+      cycleStart,
+      deliveryDay,
+      subscription.plan_frequency,
+      subscription.deliveries_per_month
+    );
+
+    const toInsert = dates.map((d) => ({
+      subscription_order_id: subscription.id,
+      scheduled_date: d.toISOString().split("T")[0],
+      status: "pending",
+    }));
+
+    const { data: inserted, error: insertError } = await supabase
+      .from("subscription_deliveries")
+      .insert(toInsert)
+      .select();
+
+    if (insertError) {
+      console.error("Erro ao gerar entregas:", insertError);
+      setIsLoadingDeliveries(false);
+      return;
+    }
+
+    // Também atualiza o current_cycle_start se não existia
+    if (!subscription.current_cycle_start) {
+      await supabase
+        .from("subscription_orders")
+        .update({ current_cycle_start: cycleStart.toISOString() })
+        .eq("id", subscription.id);
+    }
+
+    setDeliveries(inserted ?? []);
+    setIsLoadingDeliveries(false);
+  }, [subscription]);
+
+  useEffect(() => {
+    ensureDeliveries();
+  }, [ensureDeliveries]);
+
+  // ==========================================
+  // MARCAR ENTREGUE
+  // ==========================================
+
+  async function markAsDelivered(deliveryId: string) {
+    setActionLoading(deliveryId);
+
+    const { error } = await supabase
+      .from("subscription_deliveries")
+      .update({
+        status: "delivered",
+        delivered_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", deliveryId);
+
+    setActionLoading(null);
+
+    if (error) {
+      alert("Erro ao marcar como entregue: " + error.message);
+      return;
+    }
+
+    setDeliveries((current) =>
+      current.map((d) =>
+        d.id === deliveryId
+          ? {
+              ...d,
+              status: "delivered",
+              delivered_at: new Date().toISOString(),
+            }
+          : d
+      )
+    );
+  }
+
+  async function undoDelivered(deliveryId: string) {
+    setActionLoading(deliveryId);
+
+    const { error } = await supabase
+      .from("subscription_deliveries")
+      .update({
+        status: "pending",
+        delivered_at: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", deliveryId);
+
+    setActionLoading(null);
+
+    if (error) {
+      alert("Erro ao desfazer: " + error.message);
+      return;
+    }
+
+    setDeliveries((current) =>
+      current.map((d) =>
+        d.id === deliveryId
+          ? { ...d, status: "pending", delivered_at: null }
+          : d
+      )
+    );
+  }
+
+  // ==========================================
+  // CANCELAR ASSINATURA
+  // ==========================================
+
+  async function handleCancel() {
+    if (
+      !confirm(
+        `Cancelar a assinatura de ${subscription.customer_name}?\n\nEssa ação não pode ser desfeita.`
+      )
+    ) {
+      return;
+    }
+
+    setIsCancelling(true);
+
+    const { error } = await supabase
+      .from("subscription_orders")
+      .delete()
+      .eq("id", subscription.id);
+
+    setIsCancelling(false);
+
+    if (error) {
+      alert("Erro ao cancelar: " + error.message);
+      return;
+    }
+
+    alert("✅ Assinatura cancelada.");
+    onCancelled(subscription.id);
+  }
+
+  // ==========================================
+  // HELPERS DE UI
+  // ==========================================
+
+  function formatDeliveryDate(dateStr: string) {
+    const d = new Date(dateStr + "T12:00:00");
+    const dayName = d
+      .toLocaleDateString("pt-BR", { weekday: "long" })
+      .replace(/^\w/, (c) => c.toUpperCase());
+    const day = d.toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+    return `${dayName}, ${day}`;
+  }
+
+  function isOverdue(delivery: SubscriptionDelivery) {
+    if (delivery.status === "delivered") return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const scheduled = new Date(delivery.scheduled_date + "T12:00:00");
+    return scheduled < today;
+  }
+
+  const deliveredCount = deliveries.filter(
+    (d) => d.status === "delivered"
+  ).length;
 
   return (
     <>
@@ -858,6 +1144,7 @@ function SubscriptionDetailPanel({
         </div>
 
         <div style={{ padding: 24 }}>
+          {/* STATUS */}
           <div
             style={{
               marginBottom: 24,
@@ -965,6 +1252,7 @@ function SubscriptionDetailPanel({
             )}
           </div>
 
+          {/* CONTATO */}
           <Section title="Contato">
             <Field label="Nome" value={subscription.customer_name} />
             <Field
@@ -979,15 +1267,12 @@ function SubscriptionDetailPanel({
             />
           </Section>
 
+          {/* PLANO */}
           <Section title="Plano">
             <Field label="Nome" value={subscription.plan_name} />
             <Field
               label="Frequência"
               value={formatFrequency(subscription.plan_frequency)}
-            />
-            <Field
-              label="Entregas por mês"
-              value={String(subscription.deliveries_per_month)}
             />
             <Field
               label="Dia da entrega"
@@ -998,6 +1283,165 @@ function SubscriptionDetailPanel({
             <Field label="Valor" value={formatPrice(subscription.plan_price)} />
           </Section>
 
+          {/* ==========================================
+              ENTREGAS
+          ========================================== */}
+          <Section
+            title={`📅 Entregas (${
+              deliveries.length > 0
+                ? `${deliveredCount} de ${deliveries.length} concluídas`
+                : "carregando..."
+            })`}
+          >
+            {isLoadingDeliveries ? (
+              <div
+                style={{
+                  padding: 16,
+                  textAlign: "center",
+                  color: "#7a7a72",
+                  fontSize: 12,
+                }}
+              >
+                Carregando entregas...
+              </div>
+            ) : deliveries.length === 0 ? (
+              <div
+                style={{
+                  padding: 16,
+                  textAlign: "center",
+                  color: "#7a7a72",
+                  fontSize: 12,
+                }}
+              >
+                Nenhuma entrega gerada.
+              </div>
+            ) : (
+              <div
+                style={{ display: "flex", flexDirection: "column", gap: 8 }}
+              >
+                {deliveries.map((delivery) => {
+                  const delivered = delivery.status === "delivered";
+                  const overdue = isOverdue(delivery);
+                  const loading = actionLoading === delivery.id;
+
+                  return (
+                    <div
+                      key={delivery.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                        padding: 12,
+                        background: delivered
+                          ? "#f0fdf4"
+                          : overdue
+                          ? "#fef2f2"
+                          : "#fff",
+                        border: delivered
+                          ? "1px solid #86efac"
+                          : overdue
+                          ? "1px solid #fecaca"
+                          : "1px solid #e0e0dc",
+                        borderRadius: 8,
+                      }}
+                    >
+                      <span style={{ fontSize: 18 }}>
+                        {delivered ? "✅" : overdue ? "⚠️" : "⏳"}
+                      </span>
+
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: delivered
+                              ? "#166534"
+                              : overdue
+                              ? "#991b1b"
+                              : "#2f2a26",
+                          }}
+                        >
+                          {formatDeliveryDate(delivery.scheduled_date)}
+                        </div>
+                        {delivered && delivery.delivered_at && (
+                          <div
+                            style={{
+                              fontSize: 11,
+                              color: "#166534",
+                              marginTop: 2,
+                            }}
+                          >
+                            Entregue em{" "}
+                            {new Date(delivery.delivered_at).toLocaleString(
+                              "pt-BR",
+                              {
+                                day: "2-digit",
+                                month: "2-digit",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              }
+                            )}
+                          </div>
+                        )}
+                        {overdue && (
+                          <div
+                            style={{
+                              fontSize: 11,
+                              color: "#991b1b",
+                              marginTop: 2,
+                            }}
+                          >
+                            Atrasada
+                          </div>
+                        )}
+                      </div>
+
+                      {delivered ? (
+                        <button
+                          type="button"
+                          onClick={() => undoDelivered(delivery.id)}
+                          disabled={loading}
+                          style={{
+                            padding: "6px 10px",
+                            background: "transparent",
+                            border: "1px solid #d1d5db",
+                            borderRadius: 4,
+                            fontSize: 11,
+                            cursor: loading ? "wait" : "pointer",
+                            color: "#7a7a72",
+                          }}
+                          title="Desfazer"
+                        >
+                          {loading ? "..." : "↺"}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => markAsDelivered(delivery.id)}
+                          disabled={loading}
+                          style={{
+                            padding: "8px 14px",
+                            background: loading ? "#a3a3a3" : "#166534",
+                            color: "#fff",
+                            border: 0,
+                            borderRadius: 6,
+                            fontSize: 11,
+                            fontWeight: 700,
+                            cursor: loading ? "wait" : "pointer",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {loading ? "..." : "✓ Marcar entregue"}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Section>
+
+          {/* PAGAMENTO */}
           <Section title="Pagamento">
             <Field label="Método" value={subscription.payment_method} />
             <Field
@@ -1013,6 +1457,7 @@ function SubscriptionDetailPanel({
             )}
           </Section>
 
+          {/* ENDEREÇO */}
           {subscription.delivery_method === "delivery" && (
             <Section title="Endereço de entrega">
               {subscription.cep && <Field label="CEP" value={subscription.cep} />}
@@ -1042,6 +1487,46 @@ function SubscriptionDetailPanel({
               <Field label="Método" value="Retirada no ateliê" />
             </Section>
           )}
+
+          {/* CANCELAR */}
+          <div
+            style={{
+              marginTop: 24,
+              paddingTop: 24,
+              borderTop: "1px solid #e0e0dc",
+            }}
+          >
+            <button
+              type="button"
+              onClick={handleCancel}
+              disabled={isCancelling}
+              style={{
+                width: "100%",
+                padding: "12px 20px",
+                background: "transparent",
+                color: "#991b1b",
+                border: "1px solid #fecaca",
+                borderRadius: 6,
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: isCancelling ? "wait" : "pointer",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+              }}
+            >
+              {isCancelling ? "Cancelando..." : "❌ Cancelar assinatura"}
+            </button>
+            <p
+              style={{
+                margin: "8px 0 0",
+                fontSize: 11,
+                color: "#7a7a72",
+                textAlign: "center",
+              }}
+            >
+              Essa ação apaga a assinatura permanentemente.
+            </p>
+          </div>
         </div>
       </aside>
     </>
