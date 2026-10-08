@@ -117,6 +117,46 @@ const PAYMENT_METHODS = [
 ];
 
 // ==========================================
+// CÁLCULO DA PRIMEIRA ENTREGA
+// ==========================================
+
+function calculateFirstDelivery(
+  deliveryDay: "saturday" | "sunday",
+  fromDate: Date = new Date()
+): Date {
+  const targetDay = deliveryDay === "saturday" ? 6 : 0;
+
+  const result = new Date(fromDate);
+  result.setHours(12, 0, 0, 0);
+
+  while (result.getDay() !== targetDay) {
+    result.setDate(result.getDate() + 1);
+  }
+
+  const diffDays = Math.floor(
+    (result.getTime() - fromDate.getTime()) / (1000 * 60 * 60 * 24)
+  );
+
+  if (diffDays <= 7) {
+    result.setDate(result.getDate() + 7);
+  }
+
+  return result;
+}
+
+function formatDeliveryDate(date: Date): string {
+  const dayName = date
+    .toLocaleDateString("pt-BR", { weekday: "long" })
+    .replace(/^\w/, (c) => c.toUpperCase());
+  const day = date.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+  return `${dayName}, ${day}`;
+}
+
+// ==========================================
 // COMPONENTE PRINCIPAL
 // ==========================================
 
@@ -316,10 +356,6 @@ function FilaPedidos() {
     });
   }
 
-  // ==========================================
-  // ENVIAR ORÇAMENTO VIA WHATSAPP
-  // ==========================================
-
   function handleOrcamento(order: Order) {
     const baseUrl =
       typeof window !== "undefined"
@@ -328,7 +364,6 @@ function FilaPedidos() {
 
     const linkOrcamento = `${baseUrl}/orcamento/${order.id}`;
 
-    // Normaliza o telefone
     const rawPhone = (order.customer_phone || "").replace(/\D/g, "");
     let phone = rawPhone;
     if (phone.length === 10 || phone.length === 11) {
@@ -337,7 +372,6 @@ function FilaPedidos() {
       phone = "55" + phone;
     }
 
-    // Capitaliza o nome
     const nomeFormatado = order.customer_name
       .split(" ")
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
@@ -790,11 +824,19 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
 
     setCart((current) => [...current, newLine]);
     setPendingSubscription(null);
+
+    // Preenche automaticamente a data da entrega
+    if (!scheduledDate) {
+      const firstDelivery = calculateFirstDelivery(deliveryDay);
+      const year = firstDelivery.getFullYear();
+      const month = String(firstDelivery.getMonth() + 1).padStart(2, "0");
+      const day = String(firstDelivery.getDate()).padStart(2, "0");
+      setScheduledDate(`${year}-${month}-${day}`);
+    }
   }
 
   function saveEditedLine() {
     if (!editingLine) return;
-
     setCart((current) => [...current, editingLine]);
     setEditingLine(null);
   }
@@ -817,14 +859,13 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
     (total, line) => total + line.product.price * line.quantity,
     0
   );
-// Se tiver QUALQUER assinatura no carrinho, não cobra entrega
-// (já tá embutida no valor do plano)
-const hasSubscription = cart.some((line) => line.kind === "subscription");
 
-const deliveryFee =
-  deliveryMethod === "delivery" && !hasSubscription ? 15 : 0;
+  const hasSubscription = cart.some((line) => line.kind === "subscription");
 
-const total = subtotal + deliveryFee;
+  const deliveryFee =
+    deliveryMethod === "delivery" && !hasSubscription ? 15 : 0;
+
+  const total = subtotal + deliveryFee;
 
   function formatPrice(value: number) {
     return value.toLocaleString("pt-BR", {
@@ -1436,6 +1477,13 @@ const total = subtotal + deliveryFee;
             placeholder="Telefone"
             style={inputStyle}
           />
+          <input
+            type="email"
+            value={customerEmail}
+            onChange={(e) => setCustomerEmail(e.target.value)}
+            placeholder="Email (opcional)"
+            style={inputStyle}
+          />
         </div>
 
         <div
@@ -1450,30 +1498,6 @@ const total = subtotal + deliveryFee;
             gap: 10,
           }}
         >
-          <h3 style={sectionTitleStyle}>Cliente</h3>
-
-<input
-  type="text"
-  value={customerName}
-  onChange={(e) => setCustomerName(e.target.value)}
-  placeholder="Nome completo"
-  style={inputStyle}
-/>
-<input
-  type="tel"
-  value={customerPhone}
-  onChange={(e) => setCustomerPhone(e.target.value)}
-  placeholder="Telefone"
-  style={inputStyle}
-/>
-<input
-  type="email"
-  value={customerEmail}
-  onChange={(e) => setCustomerEmail(e.target.value)}
-  placeholder="Email (opcional)"
-  style={inputStyle}
-/>
-        
           <h3 style={sectionTitleStyle}>Entrega</h3>
 
           <div style={{ display: "flex", gap: 8 }}>
@@ -1682,7 +1706,13 @@ const total = subtotal + deliveryFee;
               marginBottom: 6,
             }}
           >
-            <span>{deliveryMethod === "delivery" ? "Entrega" : "Retirada"}</span>
+            <span>
+              {deliveryMethod === "delivery"
+                ? hasSubscription
+                  ? "Entrega (inclusa)"
+                  : "Entrega"
+                : "Retirada"}
+            </span>
             <strong>
               {deliveryFee === 0 ? "Grátis" : formatPrice(deliveryFee)}
             </strong>
@@ -1760,6 +1790,8 @@ function SubscriptionModal({
   onCancel: () => void;
 }) {
   const [day, setDay] = useState<"saturday" | "sunday" | null>(null);
+
+  const firstDelivery = day ? calculateFirstDelivery(day) : null;
 
   function handleConfirm() {
     if (!day) {
@@ -1938,6 +1970,41 @@ function SubscriptionModal({
               Domingo
             </button>
           </div>
+
+          {firstDelivery && (
+            <div
+              style={{
+                marginTop: 16,
+                padding: 14,
+                background: "#f0f7f0",
+                border: "1px solid #86efac",
+                borderRadius: 8,
+                textAlign: "center",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: "#166534",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.1em",
+                  marginBottom: 6,
+                }}
+              >
+                📅 Primeira entrega
+              </div>
+              <div
+                style={{
+                  fontSize: 16,
+                  fontWeight: 700,
+                  color: "#166534",
+                }}
+              >
+                {formatDeliveryDate(firstDelivery)}
+              </div>
+            </div>
+          )}
         </div>
 
         <button
