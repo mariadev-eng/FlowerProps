@@ -353,7 +353,7 @@ export default function Home() {
 
           <nav className="desktop-nav">
             <a href="#inicio">Início</a>
-            <Link href="/buques">Buquês</Link> 
+            <Link href="/encomendas">Encomendas</Link>
             <a href="#categorias">Categorias</a>
             <a href="#assinaturas">Assinaturas</a>
             <a href="#sobre">Sobre nós</a>

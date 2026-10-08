@@ -20,7 +20,7 @@ export default function Header() {
 
         <nav className="desktop-nav">
   <Link href="/">Início</Link>
-  <Link href="/buques">Buquês</Link>
+  <Link href="/encomendas">Encomendas</Link>
   <Link href="/#categorias">Categorias</Link>
   <Link href="/#assinaturas">Assinaturas</Link>
   <Link href="/#sobre">Sobre nós</Link>
