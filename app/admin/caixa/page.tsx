@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { jsPDF } from "jspdf";
-import { toPng } from "html-to-image";
 import { supabase } from "@/lib/supabase";
 
 // ==========================================
@@ -321,121 +319,45 @@ function FilaPedidos() {
   // ==========================================
   // GERAR PDF + ABRIR WHATSAPP
   // ==========================================
+function handleOrcamento(order: Order) {
+  // Monta o link público do orçamento
+  const baseUrl =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : "https://www.flowerprops.com.br";
 
-async function handleOrcamento(order: Order) {
-  console.log("🎯 [1] handleOrcamento iniciado para pedido", order.id);
+  const linkOrcamento = `${baseUrl}/orcamento/${order.id}`;
 
-  try {
-    // 1. Monta o HTML
-    const html = buildOrcamentoHTML(order);
-    console.log("🎯 [2] HTML gerado, tamanho:", html.length);
+  // Normaliza o telefone
+  const rawPhone = (order.customer_phone || "").replace(/\D/g, "");
+  let phone = rawPhone;
+  if (phone.length === 10 || phone.length === 11) {
+    phone = "55" + phone;
+  } else if (phone.length < 12) {
+    phone = "55" + phone;
+  }
 
-    // 2. Cria container temporário
-    const container = document.createElement("div");
-    container.style.position = "fixed";
-    container.style.top = "0";
-    container.style.left = "0";
-    container.style.width = "800px";
-    container.style.background = "#ffffff";
-    container.style.zIndex = "99999";
-    container.style.opacity = "0";
-    container.style.pointerEvents = "none";
-    container.innerHTML = html;
+  // Capitaliza o nome
+  const nomeFormatado = order.customer_name
+    .split(" ")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
 
-    document.body.appendChild(container);
-    console.log("🎯 [3] Container inserido no DOM");
+  const itens = (order.order_items || [])
+    .map((item) => `• ${item.quantity}x ${item.product_name}`)
+    .join("\n");
 
-    // 3. Converte em imagem
-    let dataUrl: string;
-    try {
-      dataUrl = await toPng(container, {
-        quality: 1,
-        pixelRatio: 2,
-        backgroundColor: "#ffffff",
-        cacheBust: true,
-      });
-      console.log("🎯 [4] toPng OK, tamanho da string:", dataUrl.length);
-    } catch (imgErr) {
-      console.error("❌ Erro no toPng:", imgErr);
-      document.body.removeChild(container);
-      throw new Error("Falha ao converter HTML em imagem: " + imgErr);
-    }
+  const totalFormatado = order.total.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
 
-    document.body.removeChild(container);
-    console.log("🎯 [5] Container removido");
+  const metodoEntrega =
+    order.delivery_method === "delivery"
+      ? "Entrega em domicílio"
+      : "Retirada no ateliê";
 
-    // 4. Cria PDF
-    const pdf = new jsPDF({
-      orientation: "portrait",
-      unit: "mm",
-      format: "a4",
-    });
-    console.log("🎯 [6] jsPDF criado");
-
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = pdf.internal.pageSize.getHeight();
-
-    const img = new Image();
-    img.src = dataUrl;
-
-    await new Promise((resolve, reject) => {
-      img.onload = resolve;
-      img.onerror = reject;
-    });
-    console.log("🎯 [7] Imagem carregada", img.width, "x", img.height);
-
-    const ratio = img.height / img.width;
-    const imgWidth = pdfWidth;
-    const imgHeight = imgWidth * ratio;
-
-    let heightLeft = imgHeight;
-    let position = 0;
-
-    pdf.addImage(dataUrl, "PNG", 0, position, imgWidth, imgHeight);
-    heightLeft -= pdfHeight;
-
-    while (heightLeft > 0) {
-      position = heightLeft - imgHeight;
-      pdf.addPage();
-      pdf.addImage(dataUrl, "PNG", 0, position, imgWidth, imgHeight);
-      heightLeft -= pdfHeight;
-    }
-
-    console.log("🎯 [8] PDF montado, salvando...");
-
-    // 5. Baixa o PDF
-    pdf.save(`orcamento-pedido-${order.id}.pdf`);
-    console.log("🎯 [9] PDF baixado ✅");
-
-    // 6. WhatsApp
-    const rawPhone = (order.customer_phone || "").replace(/\D/g, "");
-    let phone = rawPhone;
-    if (phone.length === 10 || phone.length === 11) {
-      phone = "55" + phone;
-    } else if (phone.length < 12) {
-      phone = "55" + phone;
-    }
-
-    const nomeFormatado = order.customer_name
-      .split(" ")
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-      .join(" ");
-
-    const itens = (order.order_items || [])
-      .map((item) => `• ${item.quantity}x ${item.product_name}`)
-      .join("\n");
-
-    const totalFormatado = order.total.toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    });
-
-    const metodoEntrega =
-      order.delivery_method === "delivery"
-        ? "Entrega em domicílio"
-        : "Retirada no ateliê";
-
-    const mensagem = `Olá ${nomeFormatado}!
+  const mensagem = `Olá ${nomeFormatado}!
 
 Segue o orçamento do seu pedido *#${order.id}*:
 
@@ -444,25 +366,13 @@ ${itens}
 Total: *${totalFormatado}*
 ${metodoEntrega}
 
-O PDF do orçamento foi gerado e será enviado em seguida.
+📄 Ver orçamento completo:
+${linkOrcamento}
 
 Qualquer dúvida, estamos à disposição!`;
 
-    const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(mensagem)}`;
-    window.open(waUrl, "_blank");
-    console.log("🎯 [10] WhatsApp aberto ✅");
-
-    setTimeout(() => {
-      alert(
-        `✅ PDF do pedido #${order.id} baixado!\n\nO WhatsApp foi aberto com a conversa de "${nomeFormatado}".\n\n📎 Agora anexe o PDF e envie.`
-      );
-    }, 500);
-  } catch (err: any) {
-    console.error("❌ ERRO em handleOrcamento:", err);
-    alert(
-      `❌ Erro ao gerar orçamento:\n\n${err?.message || err}\n\nVerifique o console (F12).`
-    );
-  }
+  const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(mensagem)}`;
+  window.open(waUrl, "_blank");
 }
 
   function formatDate(value: string) {
