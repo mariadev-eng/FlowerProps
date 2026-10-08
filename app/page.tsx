@@ -31,7 +31,7 @@ const categories = [
     name: "Buquês",
     description: "Para surpreender",
     image:
-      "https://stqpsaaxejtjhkbyapys.supabase.co/storage/v1/object/public/banners/buquehero.jpeg",
+      "https://.supabase.co/storage/v1/object/public/banners/buquehero.jpe",
   },
   {
     id: 3,
