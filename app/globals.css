@@ -5689,3 +5689,29 @@ body:has(.cart-drawer.active) {
     width: 100%;
   }
 }
+/* ========================================== */
+/* IMPRESSÃO DO ORÇAMENTO                      */
+/* ========================================== */
+
+@media print {
+  body {
+    background: #ffffff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  main {
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+
+  main > div {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    max-width: 100% !important;
+  }
+}
