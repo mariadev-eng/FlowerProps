@@ -816,9 +816,14 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
     (total, line) => total + line.product.price * line.quantity,
     0
   );
+// Se tiver QUALQUER assinatura no carrinho, não cobra entrega
+// (já tá embutida no valor do plano)
+const hasSubscription = cart.some((line) => line.kind === "subscription");
 
-  const deliveryFee = deliveryMethod === "delivery" ? 15 : 0;
-  const total = subtotal + deliveryFee;
+const deliveryFee =
+  deliveryMethod === "delivery" && !hasSubscription ? 15 : 0;
+
+const total = subtotal + deliveryFee;
 
   function formatPrice(value: number) {
     return value.toLocaleString("pt-BR", {
