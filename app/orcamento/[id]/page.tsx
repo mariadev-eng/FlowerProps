@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
@@ -41,7 +41,6 @@ export default function OrcamentoPage() {
 
   const [order, setOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function loadOrder() {
@@ -82,59 +81,6 @@ export default function OrcamentoPage() {
       month: "long",
       year: "numeric",
     });
-  }
-
-  async function handleDownloadPDF() {
-    if (!printRef.current || !order) return;
-
-    try {
-      const [{ default: jsPDF }, { toPng }] = await Promise.all([
-        import("jspdf"),
-        import("html-to-image"),
-      ]);
-
-      const dataUrl = await toPng(printRef.current, {
-        quality: 1,
-        pixelRatio: 2,
-        backgroundColor: "#ffffff",
-        cacheBust: true,
-      });
-
-      const pdf = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: "a4",
-      });
-
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-
-      const img = new Image();
-      img.src = dataUrl;
-      await new Promise((resolve) => (img.onload = resolve));
-
-      const ratio = img.height / img.width;
-      const imgWidth = pdfWidth - 20;
-      const imgHeight = imgWidth * ratio;
-
-      let heightLeft = imgHeight;
-      let position = 10;
-
-      pdf.addImage(dataUrl, "PNG", 10, position, imgWidth, imgHeight);
-      heightLeft -= pdfHeight - 20;
-
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight + 10;
-        pdf.addPage();
-        pdf.addImage(dataUrl, "PNG", 10, position, imgWidth, imgHeight);
-        heightLeft -= pdfHeight - 20;
-      }
-
-      pdf.save(`orcamento-flower-${order.id}.pdf`);
-    } catch (err) {
-      console.error("Erro ao gerar PDF:", err);
-      alert("Erro ao gerar PDF. Tente novamente.");
-    }
   }
 
   if (isLoading) {
@@ -182,26 +128,7 @@ export default function OrcamentoPage() {
 
   return (
     <main style={pageWrapStyle}>
-      <div className="no-print" style={actionBarStyle}>
-        <button
-          type="button"
-          onClick={() => window.print()}
-          style={btnSecondaryStyle}
-        >
-          🖨️ Imprimir
-        </button>
-
-        <button
-          type="button"
-          onClick={handleDownloadPDF}
-          style={btnPrimaryStyle}
-        >
-          ⬇️ Baixar PDF
-        </button>
-      </div>
-
       <div
-        ref={printRef}
         style={{
           maxWidth: 720,
           margin: "0 auto",
@@ -341,37 +268,6 @@ const loadingWrapStyle: React.CSSProperties = {
   justifyContent: "center",
   background: "#f5f0ea",
   padding: 20,
-};
-
-const actionBarStyle: React.CSSProperties = {
-  maxWidth: 720,
-  margin: "0 auto 20px",
-  display: "flex",
-  gap: 12,
-  justifyContent: "flex-end",
-};
-
-const btnPrimaryStyle: React.CSSProperties = {
-  padding: "12px 24px",
-  background: "#166534",
-  color: "#fff",
-  border: 0,
-  borderRadius: 8,
-  fontSize: 14,
-  fontWeight: 700,
-  cursor: "pointer",
-  letterSpacing: "0.03em",
-};
-
-const btnSecondaryStyle: React.CSSProperties = {
-  padding: "12px 24px",
-  background: "#fff",
-  color: "#3f493b",
-  border: "1px solid #d1d5db",
-  borderRadius: 8,
-  fontSize: 14,
-  fontWeight: 600,
-  cursor: "pointer",
 };
 
 const headerStyle: React.CSSProperties = {
