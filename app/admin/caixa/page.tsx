@@ -317,63 +317,42 @@ function FilaPedidos() {
   }
 
   // ==========================================
-  // GERAR PDF + ABRIR WHATSAPP
+  // ENVIAR ORÇAMENTO VIA WHATSAPP
   // ==========================================
-function handleOrcamento(order: Order) {
-  // Monta o link público do orçamento
-  const baseUrl =
-    typeof window !== "undefined"
-      ? window.location.origin
-      : "https://www.flowerprops.com.br";
 
-  const linkOrcamento = `${baseUrl}/orcamento/${order.id}`;
+  function handleOrcamento(order: Order) {
+    const baseUrl =
+      typeof window !== "undefined"
+        ? window.location.origin
+        : "https://www.flowerprops.com.br";
 
-  // Normaliza o telefone
-  const rawPhone = (order.customer_phone || "").replace(/\D/g, "");
-  let phone = rawPhone;
-  if (phone.length === 10 || phone.length === 11) {
-    phone = "55" + phone;
-  } else if (phone.length < 12) {
-    phone = "55" + phone;
-  }
+    const linkOrcamento = `${baseUrl}/orcamento/${order.id}`;
 
-  // Capitaliza o nome
-  const nomeFormatado = order.customer_name
-    .split(" ")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-    .join(" ");
+    // Normaliza o telefone
+    const rawPhone = (order.customer_phone || "").replace(/\D/g, "");
+    let phone = rawPhone;
+    if (phone.length === 10 || phone.length === 11) {
+      phone = "55" + phone;
+    } else if (phone.length < 12) {
+      phone = "55" + phone;
+    }
 
-  const itens = (order.order_items || [])
-    .map((item) => `• ${item.quantity}x ${item.product_name}`)
-    .join("\n");
+    // Capitaliza o nome
+    const nomeFormatado = order.customer_name
+      .split(" ")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(" ");
 
-  const totalFormatado = order.total.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  });
+    const mensagem = `Olá ${nomeFormatado}!
 
-  const metodoEntrega =
-    order.delivery_method === "delivery"
-      ? "Entrega em domicílio"
-      : "Retirada no ateliê";
-
-  const mensagem = `Olá ${nomeFormatado}!
-
-Segue o orçamento do seu pedido *#${order.id}*:
-
-${itens}
-
-Total: *${totalFormatado}*
-${metodoEntrega}
-
-📄 Ver orçamento completo:
+Segue o orçamento do seu pedido #${order.id}:
 ${linkOrcamento}
 
 Qualquer dúvida, estamos à disposição!`;
 
-  const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(mensagem)}`;
-  window.open(waUrl, "_blank");
-}
+    const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(mensagem)}`;
+    window.open(waUrl, "_blank");
+  }
 
   function formatDate(value: string) {
     const date = new Date(value);
@@ -2154,131 +2133,6 @@ function CustomizeModal({
       </div>
     </>
   );
-}
-
-// ==========================================
-// HTML DO ORÇAMENTO (idêntico à nota impressa)
-// ==========================================
-
-function buildOrcamentoHTML(order: Order): string {
-  const formatPrice = (v: number) =>
-    v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
-  const formatDate = (v: string) =>
-    new Date(v).toLocaleString("pt-BR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-
-  const itensHTML = (order.order_items || [])
-    .map(
-      (item) => `
-      <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-        <span>${item.quantity}x ${item.product_name}</span>
-        <span>${formatPrice(item.subtotal)}</span>
-      </div>
-    `
-    )
-    .join("");
-
-  return `
-    <div style="padding: 40px; max-width: 700px; margin: 0 auto; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; color: #000; background: #fff; box-sizing: border-box;">
-
-      <!-- Header -->
-      <div style="text-align: center; border-bottom: 1px dashed #000; padding-bottom: 8px; margin-bottom: 12px; padding-top: 20px;">
-        <div style="font-size: 18px; font-weight: 700; letter-spacing: 0.05em;">
-          FLOWER PROPS
-        </div>
-        <div style="font-size: 11px; margin-top: 2px;">
-          ${formatDate(order.created_at)}
-        </div>
-        <div style="font-size: 14px; font-weight: 700; margin-top: 4px;">
-          PEDIDO #${order.id}
-        </div>
-      </div>
-
-      <!-- Cliente -->
-      <div style="margin-bottom: 10px;">
-        <div><strong>Cliente:</strong> ${order.customer_name}</div>
-        <div><strong>Telefone:</strong> ${order.customer_phone}</div>
-      </div>
-
-      <!-- Entrega -->
-      <div style="padding-top: 8px; border-top: 1px dashed #000; margin-top: 8px;">
-        ${
-          order.delivery_method === "delivery"
-            ? `
-              <div style="font-weight: 700; margin-bottom: 4px;">
-                🚚 ENTREGA${
-                  order.delivery_day
-                    ? ` — ${
-                        order.delivery_day === "saturday" ? "Sábado" : "Domingo"
-                      }`
-                    : ""
-                }
-              </div>
-              <div>${order.street || ""}, ${order.number || ""}${
-                order.complement ? ` — ${order.complement}` : ""
-              }</div>
-              <div>${order.neighborhood || ""}</div>
-              <div>${order.city || ""}</div>
-              ${order.cep ? `<div>CEP ${order.cep}</div>` : ""}
-            `
-            : `<div style="font-weight: 700;">🏪 RETIRADA NO ATELIÊ</div>`
-        }
-      </div>
-
-      <!-- Itens -->
-      <div style="padding-top: 8px; border-top: 1px dashed #000; margin-top: 8px;">
-        <div style="font-weight: 700; margin-bottom: 6px;">ITENS:</div>
-        ${itensHTML}
-      </div>
-
-      <!-- Total -->
-      <div style="padding-top: 8px; border-top: 1px dashed #000; margin-top: 8px;">
-        ${
-          order.delivery_fee > 0
-            ? `
-              <div style="display: flex; justify-content: space-between;">
-                <span>Subtotal</span>
-                <span>${formatPrice(order.subtotal)}</span>
-              </div>
-              <div style="display: flex; justify-content: space-between;">
-                <span>Entrega</span>
-                <span>${formatPrice(order.delivery_fee)}</span>
-              </div>
-            `
-            : ""
-        }
-        <div style="display: flex; justify-content: space-between; font-size: 16px; font-weight: 700; margin-top: 4px;">
-          <span>TOTAL</span>
-          <span>${formatPrice(order.total)}</span>
-        </div>
-        <div style="text-align: center; margin-top: 6px; font-size: 11px;">
-          Pago via ${order.payment_method}
-        </div>
-      </div>
-
-      ${
-        order.observation
-          ? `
-        <div style="padding-top: 8px; border-top: 1px dashed #000; margin-top: 8px; font-size: 11px;">
-          <div style="font-weight: 700; margin-bottom: 2px;">OBS:</div>
-          <div style="white-space: pre-line;">${order.observation}</div>
-        </div>
-      `
-          : ""
-      }
-
-      <!-- Footer -->
-      <div style="text-align: center; margin-top: 16px; font-size: 10px; padding-top: 8px; border-top: 1px dashed #000;">
-        www.flowerprops.com.br
-      </div>
-    </div>
-  `;
 }
 
 // ==========================================
