@@ -671,6 +671,7 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
 
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
   const [deliveryMethod, setDeliveryMethod] = useState<"delivery" | "pickup">(
     "pickup"
   );
@@ -891,7 +892,7 @@ const total = subtotal + deliveryFee;
         .insert({
           customer_name: customerName.trim(),
           customer_phone: customerPhone.trim(),
-          customer_email: "",
+          customer_email: customerEmail.trim() || "",
           delivery_method: deliveryMethod,
           scheduled_date: scheduledDate || null,
           scheduled_time: scheduledTime || null,
@@ -944,7 +945,7 @@ const total = subtotal + deliveryFee;
           delivery_day: line.delivery_day,
           customer_name: customerName.trim(),
           customer_phone: customerPhone.trim(),
-          customer_email: "",
+          customer_email: customerEmail.trim() || "",
           delivery_method: deliveryMethod,
           cep: deliveryMethod === "delivery" ? cep : null,
           street: deliveryMethod === "delivery" ? street : null,
@@ -1449,6 +1450,30 @@ const total = subtotal + deliveryFee;
             gap: 10,
           }}
         >
+          <h3 style={sectionTitleStyle}>Cliente</h3>
+
+<input
+  type="text"
+  value={customerName}
+  onChange={(e) => setCustomerName(e.target.value)}
+  placeholder="Nome completo"
+  style={inputStyle}
+/>
+<input
+  type="tel"
+  value={customerPhone}
+  onChange={(e) => setCustomerPhone(e.target.value)}
+  placeholder="Telefone"
+  style={inputStyle}
+/>
+<input
+  type="email"
+  value={customerEmail}
+  onChange={(e) => setCustomerEmail(e.target.value)}
+  placeholder="Email (opcional)"
+  style={inputStyle}
+/>
+        
           <h3 style={sectionTitleStyle}>Entrega</h3>
 
           <div style={{ display: "flex", gap: 8 }}>
