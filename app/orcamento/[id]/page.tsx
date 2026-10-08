@@ -182,7 +182,6 @@ export default function OrcamentoPage() {
 
   return (
     <main style={pageWrapStyle}>
-      {/* BOTÕES DE AÇÃO (não aparecem na impressão) */}
       <div className="no-print" style={actionBarStyle}>
         <button
           type="button"
@@ -201,7 +200,6 @@ export default function OrcamentoPage() {
         </button>
       </div>
 
-      {/* ORÇAMENTO */}
       <div
         ref={printRef}
         style={{
@@ -213,7 +211,6 @@ export default function OrcamentoPage() {
           overflow: "hidden",
         }}
       >
-        {/* CABEÇALHO DA MARCA */}
         <div style={headerStyle}>
           <div style={brandStyle}>FLOWER</div>
           <div style={brandSubStyle}>BUQUÊS &amp; ACESSÓRIOS</div>
@@ -222,7 +219,6 @@ export default function OrcamentoPage() {
           <div style={orcamentoNumberStyle}>Nº {order.id}</div>
         </div>
 
-        {/* DADOS DO CLIENTE */}
         <div style={sectionStyle}>
           <div style={sectionTitleStyle}>Cliente</div>
           <div style={clientNameStyle}>{order.customer_name}</div>
@@ -231,7 +227,6 @@ export default function OrcamentoPage() {
 
         <div style={dashedDividerStyle} />
 
-        {/* ENTREGA */}
         <div style={sectionStyle}>
           <div style={sectionTitleStyle}>
             {order.delivery_method === "delivery" ? "Entrega" : "Retirada"}
@@ -258,7 +253,6 @@ export default function OrcamentoPage() {
 
         <div style={dashedDividerStyle} />
 
-        {/* ITENS */}
         <div style={sectionStyle}>
           <div style={sectionTitleStyle}>Itens</div>
 
@@ -277,7 +271,6 @@ export default function OrcamentoPage() {
 
         <div style={dashedDividerStyle} />
 
-        {/* TOTAL */}
         <div style={sectionStyle}>
           {hasDeliveryFee && (
             <>
@@ -302,7 +295,6 @@ export default function OrcamentoPage() {
           </div>
         </div>
 
-        {/* OBSERVAÇÃO */}
         {order.observation && (
           <>
             <div style={dashedDividerStyle} />
@@ -313,7 +305,6 @@ export default function OrcamentoPage() {
           </>
         )}
 
-        {/* RODAPÉ */}
         <div style={footerStyle}>
           <div style={footerBrandStyle}>FLOWER PROPS</div>
           <div style={footerTextStyle}>
