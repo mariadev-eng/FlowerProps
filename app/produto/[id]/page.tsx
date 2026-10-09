@@ -340,6 +340,43 @@ export default function ProdutoPage() {
   }
 
   // ==========================================
+  // COMPARTILHAR PRODUTO
+  // ==========================================
+
+  async function handleShare() {
+    if (!product) return;
+
+    const baseUrl =
+      typeof window !== "undefined"
+        ? window.location.origin
+        : "https://www.flowerprops.com.br";
+
+    const productUrl = `${baseUrl}/produto/${product.id}`;
+
+    const shareText = `Olha esse ${product.name} da FLOWER — ${productUrl}`;
+
+    // Se o navegador suporta compartilhamento nativo (mobile)
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({
+          title: product.name,
+          text: `Olha esse ${product.name} da FLOWER`,
+          url: productUrl,
+        });
+        return;
+      } catch (err: any) {
+        // Se o usuário cancelou, não faz nada
+        if (err?.name === "AbortError") return;
+        console.error("Erro ao compartilhar:", err);
+      }
+    }
+
+    // Fallback desktop: WhatsApp Web
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+    window.open(whatsappUrl, "_blank");
+  }
+
+  // ==========================================
   // COMPLEMENTOS
   // ==========================================
 
@@ -569,7 +606,67 @@ export default function ProdutoPage() {
           {/* INFO */}
           <div className="product-detail-info">
             <span className="eyebrow">FLOWER PROPS</span>
-            <h1>{product.name}</h1>
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 16,
+                marginBottom: 8,
+              }}
+            >
+              <h1 style={{ margin: 0 }}>{product.name}</h1>
+
+              <button
+                type="button"
+                onClick={handleShare}
+                aria-label="Compartilhar produto"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "8px 14px",
+                  background: "transparent",
+                  border: "1px solid #d1d5db",
+                  borderRadius: 999,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: "#3f493b",
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                  flexShrink: 0,
+                  fontFamily: "inherit",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = "#166534";
+                  e.currentTarget.style.color = "#166534";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = "#d1d5db";
+                  e.currentTarget.style.color = "#3f493b";
+                }}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="18" cy="5" r="3" />
+                  <circle cx="6" cy="12" r="3" />
+                  <circle cx="18" cy="19" r="3" />
+                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                </svg>
+                <span>Compartilhar</span>
+              </button>
+            </div>
+
             <p className="product-detail-description">{product.description}</p>
 
             <div className="product-detail-price">
