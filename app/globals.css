@@ -5758,12 +5758,23 @@ body:has(.cart-drawer.active) {
   max-width: 700px;
 }
 
-.encomenda-hero-desc {
-  font-size: 16px;
-  line-height: 1.7;
+ .encomenda-hero-desc {
+    display: none;
+  }
+
+  /* Mostra a descrição curta no mobile */
+  .encomenda-hero-desc-short {
+    display: block;
+  }
+
+/* Texto curto pra mobile (escondido no desktop) */
+.encomenda-hero-desc-short {
+  display: none;
+  font-size: 14px;
+  line-height: 1.6;
   color: rgba(255, 255, 255, 0.9);
   margin: 0 0 20px;
-  max-width: 520px;
+  max-width: 420px;
 }
 
 .encomenda-hero-price {

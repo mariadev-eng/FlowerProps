@@ -530,10 +530,14 @@ export default function Home() {
       <span className="encomenda-hero-label">SOB ENCOMENDA</span>
       <h2 className="encomenda-hero-title">Box Bloom Rouge</h2>
       <p className="encomenda-hero-desc">
-        Arranjo composto por rosas vermelhas naturais, cuidadosamente
-        dispostas em uma elegante caixa preta personalizada com a
-        identidade visual da Flower.
-      </p>
+  Arranjo composto por rosas vermelhas naturais, cuidadosamente
+  dispostas em uma elegante caixa preta personalizada com a
+  identidade visual da Flower.
+</p>
+
+<p className="encomenda-hero-desc-short">
+  Rosas vermelhas em uma box preta exclusiva.
+</p>
       <div className="encomenda-hero-price">R$ 300,00</div>
       <a
         href={`https://wa.me/5522992298475?text=${encodeURIComponent(
