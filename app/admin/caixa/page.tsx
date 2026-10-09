@@ -43,6 +43,13 @@ type Order = {
   order_items?: OrderItem[];
 };
 
+type ProductColor = {
+  name: string;
+  hex: string;
+  image: string;
+  active: boolean;
+};
+
 type Product = {
   id: number;
   name: string;
@@ -53,6 +60,7 @@ type Product = {
   available: boolean;
   requires_flower_selection: boolean;
   max_flowers: number | null;
+  colors: ProductColor[] | null;
 };
 
 type Subscription = {
@@ -72,13 +80,6 @@ type Flower = {
   image: string;
 };
 
-type Color = {
-  name: string;
-  hex: string;
-  image: string;
-  active: boolean;
-};
-
 type CartLine = {
   id: string;
   kind: "product" | "subscription";
@@ -86,7 +87,7 @@ type CartLine = {
   quantity: number;
   delivery_day?: "saturday" | "sunday";
   selectedFlowers: Flower[];
-  selectedColor: Color | null;
+  selectedColor: ProductColor | null;
 };
 
 const CATEGORIES = [
@@ -700,6 +701,12 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
   const [cart, setCart] = useState<CartLine[]>([]);
 
   const [editingLine, setEditingLine] = useState<CartLine | null>(null);
+  const [editingColorLine, setEditingColorLine] = useState<CartLine | null>(
+    null
+  );
+  const [pendingColorProduct, setPendingColorProduct] = useState<Product | null>(
+    null
+  );
   const [pendingSubscription, setPendingSubscription] =
     useState<Subscription | null>(null);
 
@@ -787,6 +794,15 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
   });
 
   function addProductToCart(product: Product) {
+    const activeColors = (product.colors || []).filter((c) => c.active);
+
+    // Se tem cores ativas, abre modal de escolha de cor primeiro
+    if (activeColors.length > 0) {
+      setPendingColorProduct(product);
+      return;
+    }
+
+    // Senão, fluxo normal
     const id = `${product.id}-${Date.now()}`;
 
     const newLine: CartLine = {
@@ -804,6 +820,37 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
     }
 
     setCart((current) => [...current, newLine]);
+  }
+
+  function confirmColorAndAdd(product: Product, color: ProductColor) {
+    const id = `${product.id}-${Date.now()}`;
+
+    const newLine: CartLine = {
+      id,
+      kind: "product",
+      product,
+      quantity: 1,
+      selectedFlowers: [],
+      selectedColor: color,
+    };
+
+    setPendingColorProduct(null);
+
+    if (product.requires_flower_selection) {
+      setEditingLine(newLine);
+      return;
+    }
+
+    setCart((current) => [...current, newLine]);
+  }
+
+  function updateColorOnLine(line: CartLine, color: ProductColor) {
+    setCart((current) =>
+      current.map((l) =>
+        l.id === line.id ? { ...l, selectedColor: color } : l
+      )
+    );
+    setEditingColorLine(null);
   }
 
   function addSubscriptionToCart(
@@ -956,16 +1003,24 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
 
       if (orderError) throw orderError;
 
-      const orderItems = cart.map((line) => ({
-        order_id: order.id,
-        product_id:
-          line.kind === "product" ? (line.product as Product).id : null,
-        product_name: line.product.name,
-        product_price: line.product.price,
-        quantity: line.quantity,
-        subtotal: line.product.price * line.quantity,
-        item_type: line.kind === "product" ? "product" : "subscription",
-      }));
+      const orderItems = cart.map((line) => {
+        let productName = line.product.name;
+
+        if (line.selectedColor) {
+          productName = `${line.product.name} - ${line.selectedColor.name}`;
+        }
+
+        return {
+          order_id: order.id,
+          product_id:
+            line.kind === "product" ? (line.product as Product).id : null,
+          product_name: productName,
+          product_price: line.product.price,
+          quantity: line.quantity,
+          subtotal: line.product.price * line.quantity,
+          item_type: line.kind === "product" ? "product" : "subscription",
+        };
+      });
 
       const { error: itemsError } = await supabase
         .from("order_items")
@@ -1391,12 +1446,40 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
                 {line.selectedColor && (
                   <div
                     style={{
-                      fontSize: 11,
-                      color: "#7a7a72",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 8,
                       marginBottom: 6,
                     }}
                   >
-                    🎨 {line.selectedColor.name}
+                    <span
+                      style={{
+                        fontSize: 11,
+                        color: "#7a7a72",
+                      }}
+                    >
+                      🎨 {line.selectedColor.name}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (line.kind === "product") {
+                          setEditingColorLine(line);
+                        }
+                      }}
+                      style={{
+                        background: "transparent",
+                        border: 0,
+                        color: "#166534",
+                        fontSize: 11,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        textDecoration: "underline",
+                      }}
+                    >
+                      Trocar
+                    </button>
                   </div>
                 )}
 
@@ -1765,6 +1848,23 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
         />
       )}
 
+      {pendingColorProduct && (
+        <ColorPickerModal
+          product={pendingColorProduct}
+          onConfirm={confirmColorAndAdd}
+          onCancel={() => setPendingColorProduct(null)}
+        />
+      )}
+
+      {editingColorLine && (
+        <ColorPickerModal
+          product={editingColorLine.product as Product}
+          initialColor={editingColorLine.selectedColor}
+          onConfirm={(_, color) => updateColorOnLine(editingColorLine, color)}
+          onCancel={() => setEditingColorLine(null)}
+        />
+      )}
+
       {pendingSubscription && (
         <SubscriptionModal
           subscription={pendingSubscription}
@@ -1773,6 +1873,235 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
         />
       )}
     </div>
+  );
+}
+
+// ==========================================
+// MODAL DE ESCOLHA DE COR
+// ==========================================
+
+function ColorPickerModal({
+  product,
+  initialColor,
+  onConfirm,
+  onCancel,
+}: {
+  product: Product;
+  initialColor?: ProductColor | null;
+  onConfirm: (product: Product, color: ProductColor) => void;
+  onCancel: () => void;
+}) {
+  const [selectedColor, setSelectedColor] = useState<ProductColor | null>(
+    initialColor || null
+  );
+
+  const activeColors = (product.colors || []).filter((c) => c.active);
+
+  function handleConfirm() {
+    if (!selectedColor) {
+      alert("Escolha uma cor.");
+      return;
+    }
+    onConfirm(product, selectedColor);
+  }
+
+  return (
+    <>
+      <div
+        onClick={onCancel}
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.5)",
+          zIndex: 40,
+        }}
+      />
+
+      <div
+        style={{
+          position: "fixed",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: "min(500px, 90%)",
+          maxHeight: "85vh",
+          overflowY: "auto",
+          background: "#fff",
+          borderRadius: 12,
+          zIndex: 50,
+          padding: 24,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: 16,
+          }}
+        >
+          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
+            {product.name}
+          </h2>
+          <button
+            type="button"
+            onClick={onCancel}
+            style={{
+              background: "transparent",
+              border: 0,
+              fontSize: 24,
+              cursor: "pointer",
+            }}
+          >
+            ×
+          </button>
+        </div>
+
+        {product.image && (
+          <img
+            src={product.image}
+            alt={product.name}
+            style={{
+              width: "100%",
+              maxHeight: 200,
+              objectFit: "cover",
+              borderRadius: 8,
+              marginBottom: 20,
+            }}
+          />
+        )}
+
+        <div
+          style={{
+            fontSize: 12,
+            fontWeight: 600,
+            color: "#2f2a26",
+            marginBottom: 12,
+          }}
+        >
+          Escolha a cor:
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+            gap: 10,
+            marginBottom: 20,
+          }}
+        >
+          {activeColors.map((color) => {
+            const isSelected = selectedColor?.name === color.name;
+
+            return (
+              <button
+                key={color.name}
+                type="button"
+                onClick={() => setSelectedColor(color)}
+                style={{
+                  padding: 10,
+                  background: isSelected ? "#f0f7f0" : "#fff",
+                  border: isSelected
+                    ? "2px solid #166534"
+                    : "1px solid #e0e0dc",
+                  borderRadius: 8,
+                  cursor: "pointer",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 8,
+                  transition: "all 0.15s",
+                }}
+              >
+                <div
+                  style={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: 8,
+                    overflow: "hidden",
+                    background: "#f2ece6",
+                    border: "1px solid rgba(0,0,0,0.05)",
+                  }}
+                >
+                  {color.image ? (
+                    <img
+                      src={color.image}
+                      alt={color.name}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        background: color.hex,
+                      }}
+                    />
+                  )}
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                  }}
+                >
+                  <span
+                    style={{
+                      display: "inline-block",
+                      width: 12,
+                      height: 12,
+                      borderRadius: "50%",
+                      background: color.hex,
+                      border: "1px solid rgba(0,0,0,0.1)",
+                    }}
+                  />
+                  <span
+                    style={{
+                      fontSize: 12,
+                      fontWeight: isSelected ? 700 : 500,
+                      color: isSelected ? "#166534" : "#2f2a26",
+                    }}
+                  >
+                    {color.name}
+                  </span>
+                </div>
+
+                {isSelected && (
+                  <span style={{ fontSize: 11, color: "#166534" }}>✓</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        <button
+          type="button"
+          onClick={handleConfirm}
+          disabled={!selectedColor}
+          style={{
+            width: "100%",
+            padding: 14,
+            background: selectedColor ? "#166534" : "#a3a3a3",
+            color: "#fff",
+            border: 0,
+            borderRadius: 6,
+            fontSize: 13,
+            fontWeight: 700,
+            cursor: selectedColor ? "pointer" : "not-allowed",
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+          }}
+        >
+          {initialColor ? "Trocar cor" : "Adicionar ao pedido"}
+        </button>
+      </div>
+    </>
   );
 }
 
