@@ -5460,37 +5460,7 @@ body:has(.cart-drawer.active) {
   transform: translateX(4px);
 }
 
-/* MOBILE */
-@media (max-width: 768px) {
-  .buques-destaque {
-    padding: 60px 6vw;
-  }
 
-  .buques-destaque-header {
-    margin-bottom: 40px;
-  }
-
-  .buques-destaque-grid {
-    grid-template-columns: 1fr;
-    gap: 20px;
-  }
-
-  .buque-destaque-card {
-    aspect-ratio: 4/5;
-  }
-
-  .buque-destaque-card-overlay {
-    padding: 32px 28px;
-  }
-
-  .buque-destaque-card-overlay p {
-    margin-bottom: 20px;
-  }
-
-  .buque-destaque-btn {
-    width: 100%;
-  }
-}
 /* ========================================== */
 /* PÁGINA /encomendas — EDITORIAL/LOOKBOOK    */
 /* ========================================== */
@@ -5713,5 +5683,260 @@ body:has(.cart-drawer.active) {
     box-shadow: none !important;
     border-radius: 0 !important;
     max-width: 100% !important;
+  }
+}
+/* ========================================== */
+/* SEÇÃO SOB ENCOMENDA - LAYOUT NIKE           */
+/* ========================================== */
+
+.encomenda-destaque {
+  padding: 0;
+  margin: 0;
+  background: #ffffff;
+}
+
+/* ========================================== */
+/* CARD GRANDE - BOX BLOOM ROUGE               */
+/* ========================================== */
+
+.encomenda-hero-card {
+  position: relative;
+  width: 100%;
+  height: 700px;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.encomenda-hero-bg {
+  position: absolute;
+  inset: 0;
+  background-image: url("https://stqpsaaxejtjhkbyapys.supabase.co/storage/v1/object/public/banners/Boxbloom-rouge.jpeg");
+  background-size: cover;
+  background-position: center;
+  transition: transform 1s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.encomenda-hero-card:hover .encomenda-hero-bg {
+  transform: scale(1.05);
+}
+
+.encomenda-hero-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-start;
+  padding: 60px 8vw;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.85) 0%,
+    rgba(0, 0, 0, 0.55) 35%,
+    rgba(0, 0, 0, 0.15) 65%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  color: #ffffff;
+}
+
+.encomenda-hero-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: 16px;
+}
+
+.encomenda-hero-title {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(40px, 6vw, 72px);
+  font-weight: 500;
+  color: #ffffff;
+  margin: 0 0 20px;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  max-width: 700px;
+}
+
+.encomenda-hero-desc {
+  font-size: 16px;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 0 20px;
+  max-width: 520px;
+}
+
+.encomenda-hero-price {
+  font-family: Georgia, serif;
+  font-size: 28px;
+  font-weight: 600;
+  color: #ffffff;
+  margin: 0 0 32px;
+}
+
+.encomenda-hero-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px 32px;
+  background: #ffffff;
+  color: #2f2a26;
+  text-decoration: none;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: background 0.3s ease, color 0.3s ease, transform 0.3s ease;
+  min-width: 260px;
+}
+
+.encomenda-hero-btn:hover {
+  background: #166534;
+  color: #ffffff;
+  transform: translateX(4px);
+}
+
+.encomenda-hero-btn-arrow {
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* ========================================== */
+/* FILEIRA 2 - 2 CARDS LADO A LADO             */
+/* ========================================== */
+
+.encomenda-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+
+.encomenda-split-card {
+  position: relative;
+  height: 500px;
+  overflow: hidden;
+  cursor: pointer;
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.encomenda-split-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  transition: transform 1s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.encomenda-noiva-bg {
+  background-image: url("https://stqpsaaxejtjhkbyapys.supabase.co/storage/v1/object/public/banners/buque-noiva.jpeg");
+  background-position: center 65%;
+}
+
+.encomenda-gigante-bg {
+  background-image: url("https://stqpsaaxejtjhkbyapys.supabase.co/storage/v1/object/public/banners/buque-gigante.jpeg");
+  background-position: center 65%;
+}
+
+.encomenda-split-card:hover .encomenda-split-bg {
+  transform: scale(1.06);
+}
+
+.encomenda-split-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 40px 48px;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.85) 0%,
+    rgba(0, 0, 0, 0.5) 35%,
+    rgba(0, 0, 0, 0.15) 65%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  color: #ffffff;
+}
+
+.encomenda-split-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: 12px;
+}
+
+.encomenda-split-title {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(26px, 3vw, 36px);
+  font-weight: 500;
+  color: #ffffff;
+  margin: 0 0 16px;
+  line-height: 1.15;
+}
+
+.encomenda-split-cta {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #ffffff;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+  padding-bottom: 4px;
+  transition: border-color 0.3s ease;
+}
+
+.encomenda-split-card:hover .encomenda-split-cta {
+  border-color: #ffffff;
+}
+
+/* ========================================== */
+/* MOBILE                                       */
+/* ========================================== */
+
+@media (max-width: 768px) {
+  .encomenda-hero-card {
+    height: 550px;
+  }
+
+  .encomenda-hero-overlay {
+    padding: 40px 6vw;
+  }
+
+  .encomenda-hero-title {
+    font-size: 36px;
+  }
+
+  .encomenda-hero-desc {
+    font-size: 14px;
+  }
+
+  .encomenda-hero-price {
+    font-size: 22px;
+    margin-bottom: 24px;
+  }
+
+  .encomenda-hero-btn {
+    min-width: 100%;
+    padding: 16px 24px;
+    font-size: 12px;
+  }
+
+  .encomenda-split {
+    grid-template-columns: 1fr;
+  }
+
+  .encomenda-split-card {
+    height: 400px;
+  }
+
+  .encomenda-split-overlay {
+    padding: 32px 28px;
   }
 }
