@@ -29,6 +29,9 @@ type Product = {
   max_flowers: number | null;
   requires_packaging: boolean | null;
   colors: ProductColor[] | null;
+  max_large_flowers: number | null;
+  max_small_flowers: number | null;
+  requires_small_flower_selection: boolean | null;
 };
 
 type WeeklyFlower = {
@@ -39,6 +42,7 @@ type WeeklyFlower = {
   active: boolean;
   extra_price: number | null;
   allowed_products: string[] | null;
+  flower_size: "large" | "small";
 };
 
 const CATEGORIES = [
@@ -446,6 +450,10 @@ function ProductEditor({
         max_flowers: form.max_flowers,
         requires_packaging: form.requires_packaging,
         colors: form.colors || [],
+        max_large_flowers: form.max_large_flowers || 0,
+        max_small_flowers: form.max_small_flowers || 0,
+        requires_small_flower_selection:
+          form.requires_small_flower_selection || false,
       })
       .eq("id", form.id);
 
@@ -840,6 +848,73 @@ function ProductEditor({
             onChange={(v) => updateField("requires_flower_selection", v)}
           />
 
+          {form.requires_flower_selection && (
+            <div
+              style={{
+                padding: 16,
+                background: "#f9f9f7",
+                borderRadius: 8,
+                border: "1px solid #e0e0dc",
+                display: "flex",
+                flexDirection: "column",
+                gap: 14,
+              }}
+            >
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: "#2f2a26",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                🌸 Regras de escolha de flores
+              </h3>
+
+              <InputField
+                label="Máximo de flores GRANDES"
+                value={
+                  form.max_large_flowers
+                    ? String(form.max_large_flowers)
+                    : ""
+                }
+                onChange={(v) =>
+                  updateField(
+                    "max_large_flowers",
+                    v ? Number(v) : 0
+                  )
+                }
+                type="number"
+              />
+
+              <InputField
+                label="Máximo de flores PEQUENAS"
+                value={
+                  form.max_small_flowers
+                    ? String(form.max_small_flowers)
+                    : ""
+                }
+                onChange={(v) =>
+                  updateField(
+                    "max_small_flowers",
+                    v ? Number(v) : 0
+                  )
+                }
+                type="number"
+              />
+
+              <ToggleField
+                label="Pequenas obrigatórias"
+                value={!!form.requires_small_flower_selection}
+                onChange={(v) =>
+                  updateField("requires_small_flower_selection", v)
+                }
+              />
+            </div>
+          )}
+
           <ToggleField
             label="Exige finalização (papelaria + fita)"
             value={!!form.requires_packaging}
@@ -902,7 +977,6 @@ function ProductEditor({
     </>
   );
 }
-
 // ==========================================
 // MODAL DE COR
 // ==========================================
@@ -1280,6 +1354,7 @@ function FloresTab() {
         active: flower.active,
         extra_price: Number(flower.extra_price) || 0,
         allowed_products: flower.allowed_products || [],
+        flower_size: flower.flower_size || "small",
         updated_at: new Date().toISOString(),
       })
       .eq("id", flower.id);
@@ -1353,7 +1428,8 @@ function FloresTab() {
         Marque em <strong>quais produtos</strong> cada flor vai aparecer. Se
         não marcar nenhum, a flor <strong>não aparece</strong> em nenhum
         produto. Flores com <strong>preço adicional</strong> (ex: Lírio) somam
-        o valor no total.
+        o valor no total. O <strong>Tamanho</strong> (grande/pequena) só é
+        usado internamente — não aparece no site.
       </p>
 
       <div style={{ marginBottom: 16 }}>
@@ -1445,6 +1521,32 @@ function FloresTab() {
                       placeholder="0,00"
                       style={{ ...inputStyle, width: 100 }}
                     />
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    <label
+                      style={{
+                        fontSize: 10,
+                        color: "#7a7a72",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                        fontWeight: 600,
+                      }}
+                    >
+                      Tamanho
+                    </label>
+                    <select
+                      value={flower.flower_size || "small"}
+                      onChange={(e) =>
+                        updateFlower(flower.id, {
+                          flower_size: e.target.value as "large" | "small",
+                        })
+                      }
+                      style={{ ...inputStyle, width: 120 }}
+                    >
+                      <option value="large">🌷 Grande</option>
+                      <option value="small">🌼 Pequena</option>
+                    </select>
                   </div>
 
                   <button
@@ -1649,6 +1751,7 @@ function AddFlowerModal({
   const [name, setName] = useState("");
   const [extraPrice, setExtraPrice] = useState("");
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [flowerSize, setFlowerSize] = useState<"large" | "small">("small");
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
@@ -1705,6 +1808,7 @@ function AddFlowerModal({
       active: true,
       extra_price: extraPrice ? Number(extraPrice.replace(",", ".")) : 0,
       allowed_products: selectedProducts,
+      flower_size: flowerSize,
     });
 
     setIsSaving(false);
@@ -1880,6 +1984,36 @@ function AddFlowerModal({
               style={formInputStyle}
               autoFocus
             />
+          </div>
+
+          <div>
+            <label
+              style={{
+                display: "block",
+                fontSize: 11,
+                fontWeight: 600,
+                color: "#7a7a72",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                marginBottom: 6,
+              }}
+            >
+              Tamanho da flor *
+            </label>
+            <select
+              value={flowerSize}
+              onChange={(e) =>
+                setFlowerSize(e.target.value as "large" | "small")
+              }
+              style={formInputStyle}
+            >
+              <option value="large">🌷 Grande (flor principal)</option>
+              <option value="small">🌼 Pequena (flor de detalhe)</option>
+            </select>
+            <p style={{ margin: "6px 0 0", fontSize: 11, color: "#7a7a72" }}>
+              Só pode escolher 1 flor grande por produto. Pequenas pode
+              escolher várias.
+            </p>
           </div>
 
           <div>
@@ -2257,6 +2391,10 @@ function AddProductModal({
   const [requiresPackaging, setRequiresPackaging] = useState(false);
   const [isComplement, setIsComplement] = useState(false);
   const [maxFlowers, setMaxFlowers] = useState("");
+  const [maxLargeFlowers, setMaxLargeFlowers] = useState("");
+  const [maxSmallFlowers, setMaxSmallFlowers] = useState("");
+  const [requiresSmallFlowerSelection, setRequiresSmallFlowerSelection] =
+    useState(false);
   const [includedComplements, setIncludedComplements] = useState("");
 
   const [isUploading, setIsUploading] = useState(false);
@@ -2320,6 +2458,9 @@ function AddProductModal({
         .map((s) => s.trim().toLowerCase())
         .filter(Boolean),
       colors: [],
+      max_large_flowers: maxLargeFlowers ? Number(maxLargeFlowers) : 0,
+      max_small_flowers: maxSmallFlowers ? Number(maxSmallFlowers) : 0,
+      requires_small_flower_selection: requiresSmallFlowerSelection,
     };
 
     const { data, error } = await supabase
@@ -2639,6 +2780,85 @@ function AddProductModal({
             value={requiresFlowerSelection}
             onChange={setRequiresFlowerSelection}
           />
+
+          {requiresFlowerSelection && (
+            <div
+              style={{
+                padding: 14,
+                background: "#f9f9f7",
+                borderRadius: 8,
+                border: "1px solid #e0e0dc",
+                display: "flex",
+                flexDirection: "column",
+                gap: 12,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "#2f2a26",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                🌸 Regras de escolha de flores
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: "#7a7a72",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    marginBottom: 6,
+                  }}
+                >
+                  Máx. flores grandes
+                </label>
+                <input
+                  type="number"
+                  value={maxLargeFlowers}
+                  onChange={(e) => setMaxLargeFlowers(e.target.value)}
+                  placeholder="Ex: 1"
+                  style={formInputStyle}
+                />
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: "#7a7a72",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    marginBottom: 6,
+                  }}
+                >
+                  Máx. flores pequenas
+                </label>
+                <input
+                  type="number"
+                  value={maxSmallFlowers}
+                  onChange={(e) => setMaxSmallFlowers(e.target.value)}
+                  placeholder="Ex: 2"
+                  style={formInputStyle}
+                />
+              </div>
+
+              <ToggleField
+                label="Pequenas obrigatórias"
+                value={requiresSmallFlowerSelection}
+                onChange={setRequiresSmallFlowerSelection}
+              />
+            </div>
+          )}
+
           <ToggleField
             label="Exige finalização (papelaria + fita)"
             value={requiresPackaging}
