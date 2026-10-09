@@ -5710,7 +5710,7 @@ body:has(.cart-drawer.active) {
 .encomenda-hero-bg {
   position: absolute;
   inset: 0;
-  background-image: url("https://stqpsaaxejtjhkbyapys.supabase.co/storage/v1/object/public/banners/boxbloomrouge.jpeg");
+  background-image: url("https://stqpsaaxejtjhkbyapys.supabase.co/storage/v1/object/public/banners/bloomrouge.jpeg");
   background-size: cover;
   background-position: center;
   transition: transform 1s cubic-bezier(0.2, 0.8, 0.2, 1);
