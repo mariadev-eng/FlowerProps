@@ -69,6 +69,10 @@ const FREQUENCY_LABEL: Record<string, string> = {
   monthly: "Mensal",
 };
 
+// ==========================================
+// MENSAGENS WHATSAPP
+// ==========================================
+
 function buildWhatsAppMessage(name: string) {
   return `Olá, ${name}! 🌸
 
@@ -81,18 +85,49 @@ www.flowerprops.com.br/assinaturas
 Qualquer dúvida, é só chamar! 💐`;
 }
 
+function buildDeliveryScheduleMessage(
+  customerName: string,
+  scheduledDate: string
+): string {
+  const d = new Date(scheduledDate + "T12:00:00");
+  const dayName = d
+    .toLocaleDateString("pt-BR", { weekday: "long" })
+    .replace(/^\w/, (c) => c.toUpperCase());
+  const dateFormatted = d.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+
+  const firstName = customerName.split(" ")[0];
+
+  return `Olá ${firstName}!
+
+Sua entrega está programada para ser realizada no dia ${dateFormatted} (${dayName.toLowerCase()}), no período da manhã (até as 12h).
+
+Qualquer dúvida, estamos à disposição! 🌸
+
+Equipe FLOWER`;
+}
+
+function buildOnTheWayMessage(customerName: string): string {
+  const firstName = customerName.split(" ")[0];
+
+  return `Olá ${firstName}!
+
+Sua entrega está a caminho! 🚚
+
+Por favor, certifique-se de que há alguém disponível para receber as flores no período da manhã (até as 12h).
+
+Qualquer dúvida, estamos à disposição! 🌸
+
+Equipe FLOWER`;
+}
+
 // ==========================================
 // CÁLCULO DE ENTREGAS
 // ==========================================
 
-/**
- * Calcula as datas das entregas de um ciclo.
- *
- * Regras:
- * - 1ª entrega: sábado/domingo da PRÓXIMA semana (nunca dessa semana)
- * - Depois: 1ª + (frequência × índice)
- * - Total: `deliveries_per_month` entregas
- */
 function calculateDeliveryDates(
   cycleStart: Date,
   deliveryDay: "saturday" | "sunday",
@@ -101,34 +136,26 @@ function calculateDeliveryDates(
 ): Date[] {
   const dates: Date[] = [];
 
-  // Determina o dia da semana alvo (0 = domingo, 6 = sábado)
   const targetDay = deliveryDay === "saturday" ? 6 : 0;
 
-  // Encontra a próxima data com o dia da semana alvo
   const first = new Date(cycleStart);
   first.setHours(12, 0, 0, 0);
 
-  // Avança até chegar no dia da semana correto
   while (first.getDay() !== targetDay) {
     first.setDate(first.getDate() + 1);
   }
 
-  // Se a data encontrada está na mesma semana do cycleStart, pula pra próxima semana
   const diffDays = Math.floor(
     (first.getTime() - cycleStart.getTime()) / (1000 * 60 * 60 * 24)
   );
 
-  // Se diffDays <= 7, significa que ainda está na mesma semana ou na primeira metade
-  // Regra: primeira entrega é SEMPRE na semana seguinte
   if (diffDays <= 7) {
     first.setDate(first.getDate() + 7);
   }
 
-  // Calcula intervalo baseado na frequência
   const intervalDays =
     frequency === "weekly" ? 7 : frequency === "biweekly" ? 14 : 30;
 
-  // Gera todas as entregas do ciclo
   for (let i = 0; i < deliveriesPerMonth; i++) {
     const d = new Date(first);
     d.setDate(d.getDate() + i * intervalDays);
@@ -175,10 +202,6 @@ export default function AdminAssinaturasPage() {
     loadSubscriptions();
   }, []);
 
-  // ==========================================
-  // CÁLCULOS
-  // ==========================================
-
   function getDaysUntilRenewal(sub: SubscriptionOrder): number | null {
     if (!sub.next_renewal_at) return null;
     const now = new Date();
@@ -201,10 +224,6 @@ export default function AdminAssinaturasPage() {
       (now.getTime() - last.getTime()) / (1000 * 60 * 60 * 24);
     return diffDays >= 0 && diffDays <= 30;
   }
-
-  // ==========================================
-  // LISTAS
-  // ==========================================
 
   const activeSubscriptions = subscriptions.filter(
     (s) => s.payment_status === "paid"
@@ -245,15 +264,17 @@ export default function AdminAssinaturasPage() {
     return true;
   });
 
-  // ==========================================
-  // HELPERS
-  // ==========================================
-
   function getWhatsAppLink(phone: string, name: string) {
     const digits = phone.replace(/\D/g, "");
     const withCountry = digits.startsWith("55") ? digits : `55${digits}`;
     const message = encodeURIComponent(buildWhatsAppMessage(name));
     return `https://wa.me/${withCountry}?text=${message}`;
+  }
+
+  function getWhatsAppLinkWithMessage(phone: string, message: string) {
+    const digits = phone.replace(/\D/g, "");
+    const withCountry = digits.startsWith("55") ? digits : `55${digits}`;
+    return `https://wa.me/${withCountry}?text=${encodeURIComponent(message)}`;
   }
 
   function formatPrice(value: number) {
@@ -309,10 +330,6 @@ export default function AdminAssinaturasPage() {
     setSubscriptions((current) => current.filter((s) => s.id !== id));
     setSelectedSubscription(null);
   }
-
-  // ==========================================
-  // RENDER
-  // ==========================================
 
   return (
     <div>
@@ -419,6 +436,7 @@ export default function AdminAssinaturasPage() {
           onClose={() => setSelectedSubscription(null)}
           onCancelled={handleCancelled}
           getWhatsAppLink={getWhatsAppLink}
+          getWhatsAppLinkWithMessage={getWhatsAppLinkWithMessage}
           formatDate={formatDate}
           formatPrice={formatPrice}
           formatFrequency={formatFrequency}
@@ -864,6 +882,7 @@ function SubscriptionDetailPanel({
   onClose,
   onCancelled,
   getWhatsAppLink,
+  getWhatsAppLinkWithMessage,
   formatDate,
   formatPrice,
   formatFrequency,
@@ -873,6 +892,7 @@ function SubscriptionDetailPanel({
   onClose: () => void;
   onCancelled: (id: number) => void;
   getWhatsAppLink: (phone: string, name: string) => string;
+  getWhatsAppLinkWithMessage: (phone: string, message: string) => string;
   formatDate: (v: string | null) => string;
   formatPrice: (v: number) => string;
   formatFrequency: (v: string) => string;
@@ -885,14 +905,9 @@ function SubscriptionDetailPanel({
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
 
-  // ==========================================
-  // CARREGA / GERA ENTREGAS
-  // ==========================================
-
   const ensureDeliveries = useCallback(async () => {
     setIsLoadingDeliveries(true);
 
-    // 1. Tenta carregar entregas existentes
     const { data: existing, error: fetchError } = await supabase
       .from("subscription_deliveries")
       .select("*")
@@ -905,14 +920,12 @@ function SubscriptionDetailPanel({
       return;
     }
 
-    // 2. Se já tem entregas, usa elas
     if (existing && existing.length > 0) {
       setDeliveries(existing);
       setIsLoadingDeliveries(false);
       return;
     }
 
-    // 3. Senão, gera automaticamente
     const cycleStart = new Date(
       subscription.current_cycle_start ||
         subscription.last_payment_at ||
@@ -946,7 +959,6 @@ function SubscriptionDetailPanel({
       return;
     }
 
-    // Também atualiza o current_cycle_start se não existia
     if (!subscription.current_cycle_start) {
       await supabase
         .from("subscription_orders")
@@ -961,10 +973,6 @@ function SubscriptionDetailPanel({
   useEffect(() => {
     ensureDeliveries();
   }, [ensureDeliveries]);
-
-  // ==========================================
-  // MARCAR ENTREGUE
-  // ==========================================
 
   async function markAsDelivered(deliveryId: string) {
     setActionLoading(deliveryId);
@@ -1026,10 +1034,6 @@ function SubscriptionDetailPanel({
     );
   }
 
-  // ==========================================
-  // CANCELAR ASSINATURA
-  // ==========================================
-
   async function handleCancel() {
     if (
       !confirm(
@@ -1056,10 +1060,6 @@ function SubscriptionDetailPanel({
     alert("✅ Assinatura cancelada.");
     onCancelled(subscription.id);
   }
-
-  // ==========================================
-  // HELPERS DE UI
-  // ==========================================
 
   function formatDeliveryDate(dateStr: string) {
     const d = new Date(dateStr + "T12:00:00");
@@ -1144,7 +1144,6 @@ function SubscriptionDetailPanel({
         </div>
 
         <div style={{ padding: 24 }}>
-          {/* STATUS */}
           <div
             style={{
               marginBottom: 24,
@@ -1252,7 +1251,6 @@ function SubscriptionDetailPanel({
             )}
           </div>
 
-          {/* CONTATO */}
           <Section title="Contato">
             <Field label="Nome" value={subscription.customer_name} />
             <Field
@@ -1267,7 +1265,6 @@ function SubscriptionDetailPanel({
             />
           </Section>
 
-          {/* PLANO */}
           <Section title="Plano">
             <Field label="Nome" value={subscription.plan_name} />
             <Field
@@ -1283,9 +1280,6 @@ function SubscriptionDetailPanel({
             <Field label="Valor" value={formatPrice(subscription.plan_price)} />
           </Section>
 
-          {/* ==========================================
-              ENTREGAS
-          ========================================== */}
           <Section
             title={`📅 Entregas (${
               deliveries.length > 0
@@ -1415,24 +1409,90 @@ function SubscriptionDetailPanel({
                           {loading ? "..." : "↺"}
                         </button>
                       ) : (
-                        <button
-                          type="button"
-                          onClick={() => markAsDelivered(delivery.id)}
-                          disabled={loading}
+                        <div
                           style={{
-                            padding: "8px 14px",
-                            background: loading ? "#a3a3a3" : "#166534",
-                            color: "#fff",
-                            border: 0,
-                            borderRadius: 6,
-                            fontSize: 11,
-                            fontWeight: 700,
-                            cursor: loading ? "wait" : "pointer",
-                            whiteSpace: "nowrap",
+                            display: "flex",
+                            gap: 6,
+                            flexWrap: "wrap",
+                            justifyContent: "flex-end",
                           }}
                         >
-                          {loading ? "..." : "✓ Marcar entregue"}
-                        </button>
+                          <a
+                            href={getWhatsAppLinkWithMessage(
+                              subscription.customer_phone,
+                              buildDeliveryScheduleMessage(
+                                subscription.customer_name,
+                                delivery.scheduled_date
+                              )
+                            )}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              padding: "8px 12px",
+                              background: "#fff",
+                              color: "#166534",
+                              border: "1px solid #166534",
+                              borderRadius: 6,
+                              fontSize: 11,
+                              fontWeight: 700,
+                              cursor: "pointer",
+                              whiteSpace: "nowrap",
+                              textDecoration: "none",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 4,
+                            }}
+                            title="Avisar agendamento"
+                          >
+                            📅 Avisar
+                          </a>
+
+                          <a
+                            href={getWhatsAppLinkWithMessage(
+                              subscription.customer_phone,
+                              buildOnTheWayMessage(subscription.customer_name)
+                            )}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              padding: "8px 12px",
+                              background: "#25D366",
+                              color: "#fff",
+                              border: 0,
+                              borderRadius: 6,
+                              fontSize: 11,
+                              fontWeight: 700,
+                              cursor: "pointer",
+                              whiteSpace: "nowrap",
+                              textDecoration: "none",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 4,
+                            }}
+                            title="Avisar que está a caminho"
+                          >
+                            🚚 A caminho
+                          </a>
+
+                          <button
+                            type="button"
+                            onClick={() => markAsDelivered(delivery.id)}
+                            disabled={loading}
+                            style={{
+                              padding: "8px 12px",
+                              background: loading ? "#a3a3a3" : "#166534",
+                              color: "#fff",
+                              border: 0,
+                              borderRadius: 6,
+                              fontSize: 11,
+                              fontWeight: 700,
+                              cursor: loading ? "wait" : "pointer",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {loading ? "..." : "✓ Entregue"}
+                          </button>
+                        </div>
                       )}
                     </div>
                   );
@@ -1441,7 +1501,6 @@ function SubscriptionDetailPanel({
             )}
           </Section>
 
-          {/* PAGAMENTO */}
           <Section title="Pagamento">
             <Field label="Método" value={subscription.payment_method} />
             <Field
@@ -1457,7 +1516,6 @@ function SubscriptionDetailPanel({
             )}
           </Section>
 
-          {/* ENDEREÇO */}
           {subscription.delivery_method === "delivery" && (
             <Section title="Endereço de entrega">
               {subscription.cep && <Field label="CEP" value={subscription.cep} />}
@@ -1488,7 +1546,6 @@ function SubscriptionDetailPanel({
             </Section>
           )}
 
-          {/* CANCELAR */}
           <div
             style={{
               marginTop: 24,
