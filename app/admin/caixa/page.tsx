@@ -15,6 +15,13 @@ type OrderItem = {
   quantity: number;
   subtotal: number;
   item_type: string;
+  selected_flowers?: Array<{
+    name: string;
+    image: string;
+    extra_price: number;
+  }> | null;
+  selected_color?: string | null;
+  custom_message?: string | null;
 };
 
 type Order = {
@@ -78,6 +85,7 @@ type Subscription = {
 type Flower = {
   name: string;
   image: string;
+  extra_price?: number;
 };
 
 type CartLine = {
@@ -615,8 +623,14 @@ Qualquer dúvida, estamos à disposição!`;
                   }}
                 >
                   {order.order_items.map((item, i) => (
-                    <div key={item.id}>
-                      {i > 0 && " · "}
+                    <div
+                      key={item.id}
+                      style={{
+                        paddingTop: i > 0 ? 8 : 0,
+                        marginTop: i > 0 ? 8 : 0,
+                        borderTop: i > 0 ? "1px solid #e0e0dc" : "none",
+                      }}
+                    >
                       <strong>{item.quantity}x</strong> {item.product_name}
                       {item.item_type === "subscription" && (
                         <span
@@ -632,6 +646,71 @@ Qualquer dúvida, estamos à disposição!`;
                         >
                           🌸 Assinatura
                         </span>
+                      )}
+
+                      {item.selected_color && (
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: "#7a7a72",
+                            marginTop: 4,
+                            paddingLeft: 12,
+                          }}
+                        >
+                          🎨 Cor: {item.selected_color}
+                        </div>
+                      )}
+
+                      {item.selected_flowers &&
+                        item.selected_flowers.length > 0 && (
+                          <div
+                            style={{
+                              fontSize: 11,
+                              color: "#7a7a72",
+                              marginTop: 4,
+                              paddingLeft: 12,
+                            }}
+                          >
+                            {item.selected_flowers.map(
+                              (f: any, fi: number) => {
+                                const extra = Number(f.extra_price) || 0;
+                                return (
+                                  <div key={fi}>
+                                    🌸 {f.name}
+                                    {extra > 0 && (
+                                      <span
+                                        style={{
+                                          fontWeight: 700,
+                                          color: "#166534",
+                                          marginLeft: 6,
+                                        }}
+                                      >
+                                        +{formatPrice(extra)}
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              }
+                            )}
+                          </div>
+                        )}
+
+                      {item.custom_message && (
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: "#7a7a72",
+                            marginTop: 6,
+                            paddingLeft: 12,
+                            fontStyle: "italic",
+                            borderLeft: "2px solid #d1d5db",
+                            paddingTop: 2,
+                            paddingBottom: 2,
+                            whiteSpace: "pre-line",
+                          }}
+                        >
+                          💌 &ldquo;{item.custom_message}&rdquo;
+                        </div>
                       )}
                     </div>
                   ))}
@@ -761,6 +840,7 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
           flowersRes.data.map((f) => ({
             name: f.name,
             image: f.image || "",
+            extra_price: Number(f.extra_price) || 0,
           }))
         );
       }
@@ -796,13 +876,11 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
   function addProductToCart(product: Product) {
     const activeColors = (product.colors || []).filter((c) => c.active);
 
-    // Se tem cores ativas, abre modal de escolha de cor primeiro
     if (activeColors.length > 0) {
       setPendingColorProduct(product);
       return;
     }
 
-    // Senão, fluxo normal
     const id = `${product.id}-${Date.now()}`;
 
     const newLine: CartLine = {
@@ -872,7 +950,6 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
     setCart((current) => [...current, newLine]);
     setPendingSubscription(null);
 
-    // Preenche automaticamente a data da entrega
     if (!scheduledDate) {
       const firstDelivery = calculateFirstDelivery(deliveryDay);
       const year = firstDelivery.getFullYear();
@@ -1010,15 +1087,27 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
           productName = `${line.product.name} - ${line.selectedColor.name}`;
         }
 
+        const extraFromFlowers = line.selectedFlowers.reduce(
+          (sum, f) => sum + (Number(f.extra_price) || 0),
+          0
+        );
+
         return {
           order_id: order.id,
           product_id:
             line.kind === "product" ? (line.product as Product).id : null,
           product_name: productName,
-          product_price: line.product.price,
+          product_price: line.product.price + extraFromFlowers,
           quantity: line.quantity,
-          subtotal: line.product.price * line.quantity,
+          subtotal: (line.product.price + extraFromFlowers) * line.quantity,
           item_type: line.kind === "product" ? "product" : "subscription",
+          selected_flowers: line.selectedFlowers.map((f) => ({
+            name: f.name,
+            image: f.image,
+            extra_price: Number(f.extra_price) || 0,
+          })),
+          selected_color: line.selectedColor?.name || null,
+          custom_message: null,
         };
       });
 
@@ -1439,7 +1528,15 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
                       marginBottom: 6,
                     }}
                   >
-                    🌸 {line.selectedFlowers.map((f) => f.name).join(", ")}
+                    🌸{" "}
+                    {line.selectedFlowers
+                      .map((f) => {
+                        const extra = Number(f.extra_price) || 0;
+                        return extra > 0
+                          ? `${f.name} (+${formatPrice(extra)})`
+                          : f.name;
+                      })
+                      .join(", ")}
                   </div>
                 )}
 
@@ -2404,6 +2501,13 @@ function CustomizeModal({
     });
   }
 
+  function formatPrice(value: number) {
+    return value.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    });
+  }
+
   return (
     <>
       <div
@@ -2483,6 +2587,7 @@ function CustomizeModal({
                 const selected = line.selectedFlowers.some(
                   (f) => f.name === flower.name
                 );
+                const hasExtra = Number(flower.extra_price) > 0;
 
                 return (
                   <button
@@ -2527,6 +2632,17 @@ function CustomizeModal({
                     <span style={{ fontSize: 11, textAlign: "center" }}>
                       {flower.name}
                     </span>
+                    {hasExtra && (
+                      <span
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          color: "#166534",
+                        }}
+                      >
+                        +{formatPrice(flower.extra_price!)}
+                      </span>
+                    )}
                     {selected && (
                       <span style={{ fontSize: 11, color: "#166534" }}>✓</span>
                     )}
