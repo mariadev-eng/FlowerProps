@@ -19,6 +19,9 @@ type CartItem = {
   quantity: number;
   type?: string;
   delivery_day?: string;
+  selected_flowers?: Array<{ name: string; image: string; extra_price?: number }>;
+  selected_color?: string;
+  custom_message?: string;
 };
 
 type CustomerData = {
@@ -141,7 +144,7 @@ export default function PaymentPage() {
       throw new Error(orderError.message || "Erro ao criar pedido.");
     }
 
-    const orderItems = cartItems.map((item: any) => ({
+       const orderItems = cartItems.map((item: any) => ({
       order_id: order.id,
       product_id: item.type === "subscription" ? null : item.id,
       product_name: item.name,
@@ -149,6 +152,9 @@ export default function PaymentPage() {
       quantity: item.quantity,
       subtotal: item.price * item.quantity,
       item_type: item.type === "subscription" ? "subscription" : "product",
+      selected_flowers: item.selected_flowers || [],
+      selected_color: item.selected_color || null,
+      custom_message: item.custom_message || null,
     }));
 
     const { error: itemsError } = await supabase

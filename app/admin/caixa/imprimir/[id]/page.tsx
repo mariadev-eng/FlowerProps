@@ -10,6 +10,9 @@ type OrderItem = {
   product_price: number;
   quantity: number;
   subtotal: number;
+  selected_flowers?: Array<{ name: string; image: string }> | null;
+  selected_color?: string | null;
+  custom_message?: string | null;
 };
 
 type Order = {
@@ -232,7 +235,7 @@ export default function ImprimirPedidoPage() {
           )}
         </div>
 
-        {/* Itens */}
+              {/* Itens */}
         <div
           style={{
             paddingTop: 8,
@@ -242,13 +245,58 @@ export default function ImprimirPedidoPage() {
         >
           <div style={{ fontWeight: 700, marginBottom: 6 }}>ITENS:</div>
           {order.order_items.map((item) => (
-            <div key={item.id} style={{ marginBottom: 4 }}>
+            <div key={item.id} style={{ marginBottom: 8 }}>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span>
                   {item.quantity}x {item.product_name}
                 </span>
                 <span>{formatPrice(item.subtotal)}</span>
               </div>
+
+              {/* Cor escolhida */}
+              {item.selected_color && (
+                <div
+                  style={{
+                    fontSize: isThermal ? 10 : 11,
+                    paddingLeft: 12,
+                    marginTop: 2,
+                  }}
+                >
+                  🎨 Cor: {item.selected_color}
+                </div>
+              )}
+
+              {/* Flores escolhidas */}
+              {item.selected_flowers && item.selected_flowers.length > 0 && (
+                <div
+                  style={{
+                    fontSize: isThermal ? 10 : 11,
+                    paddingLeft: 12,
+                    marginTop: 2,
+                  }}
+                >
+                  🌸{" "}
+                  {item.selected_flowers.map((f: any) => f.name).join(", ")}
+                </div>
+              )}
+
+              {/* Mensagem personalizada */}
+              {item.custom_message && (
+                <div
+                  style={{
+                    fontSize: isThermal ? 10 : 11,
+                    paddingLeft: 12,
+                    marginTop: 4,
+                    fontStyle: "italic",
+                    borderLeft: "2px solid #000",
+                    paddingTop: 2,
+                    paddingBottom: 2,
+                    whiteSpace: "pre-line",
+                  }}
+                >
+                  💌 &ldquo;{item.custom_message}&rdquo;
+                </div>
+              )}
             </div>
           ))}
         </div>
