@@ -809,6 +809,9 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
   const [paymentMethod, setPaymentMethod] = useState("dinheiro");
   const [observation, setObservation] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [customName, setCustomName] = useState("");
+  const [customPrice, setCustomPrice] = useState("");
+  const [customQty, setCustomQty] = useState("1");
 
   useEffect(() => {
     async function loadData() {
@@ -978,7 +981,48 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
   function removeLine(lineId: string) {
     setCart((current) => current.filter((l) => l.id !== lineId));
   }
+  function addCustomItemToCart() {
+    if (!customName.trim()) {
+      alert("Informe o nome do item.");
+      return;
+    }
 
+    const price = Number(customPrice.replace(",", "."));
+    if (!price || price <= 0) {
+      alert("Informe um valor válido.");
+      return;
+    }
+
+    const qty = Number(customQty) || 1;
+
+    const fakeProduct: Product = {
+      id: -Date.now(),
+      name: customName.trim(),
+      description: "Item avulso",
+      price,
+      category_id: 0,
+      image: null,
+      available: true,
+      requires_flower_selection: false,
+      max_flowers: null,
+      colors: null,
+    };
+
+    const newLine: CartLine = {
+      id: `custom-${Date.now()}`,
+      kind: "product",
+      product: fakeProduct,
+      quantity: qty,
+      selectedFlowers: [],
+      selectedColor: null,
+    };
+
+    setCart((current) => [...current, newLine]);
+
+    setCustomName("");
+    setCustomPrice("");
+    setCustomQty("1");
+  }
     const subtotal = cart.reduce((total, line) => {
     const flowersExtra = line.selectedFlowers.reduce(
       (sum, f) => sum + (Number(f.extra_price) || 0),
@@ -1127,10 +1171,17 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
           0
         );
 
+                const isCustomItem =
+          line.id.startsWith("custom-") ||
+          (line.product as Product).id < 0;
+
         return {
           order_id: order.id,
-          product_id:
-            line.kind === "product" ? (line.product as Product).id : null,
+          product_id: isCustomItem
+            ? null
+            : line.kind === "product"
+            ? (line.product as Product).id
+            : null,
           product_name: productName,
           product_price: line.product.price + extraFromFlowers,
           quantity: line.quantity,
@@ -1449,7 +1500,7 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
 
       {/* COLUNA DIREITA */}
       <div>
-        <h2
+                <h2
           style={{
             margin: "0 0 12px",
             fontSize: 15,
@@ -1459,6 +1510,88 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
         >
           Pedido
         </h2>
+
+        {/* ✏️ ADICIONAR ITEM AVULSO */}
+        <div
+          style={{
+            padding: 12,
+            background: "#fffbeb",
+            border: "1px solid #fde68a",
+            borderRadius: 8,
+            marginBottom: 16,
+          }}
+        >
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: "#854d0e",
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              marginBottom: 8,
+            }}
+          >
+            ✏️ Adicionar item manual
+          </div>
+
+          <input
+            type="text"
+            value={customName}
+            onChange={(e) => setCustomName(e.target.value)}
+            placeholder="Nome do item (ex: 6 rosas na papelaria)"
+            style={{
+              ...inputStyle,
+              width: "100%",
+              marginBottom: 8,
+            }}
+          />
+
+          <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={customPrice}
+              onChange={(e) => setCustomPrice(e.target.value)}
+              placeholder="Valor (R$)"
+              style={{ ...inputStyle, flex: 2 }}
+            />
+
+            <input
+              type="number"
+              min="1"
+              value={customQty}
+              onChange={(e) => setCustomQty(e.target.value)}
+              placeholder="Qtd"
+              style={{ ...inputStyle, flex: 1 }}
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={addCustomItemToCart}
+            disabled={!customName.trim() || !customPrice}
+            style={{
+              width: "100%",
+              padding: "8px 14px",
+              background:
+                !customName.trim() || !customPrice ? "#a3a3a3" : "#f59e0b",
+              color: "#fff",
+              border: 0,
+              borderRadius: 6,
+              fontSize: 12,
+              fontWeight: 700,
+              letterSpacing: "0.05em",
+              textTransform: "uppercase",
+              cursor:
+                !customName.trim() || !customPrice
+                  ? "not-allowed"
+                  : "pointer",
+            }}
+          >
+            ➕ Adicionar ao pedido
+          </button>
+        </div>
 
         {cart.length === 0 ? (
           <div style={emptyStyle}>Carrinho vazio.</div>
