@@ -1000,7 +1000,39 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
       currency: "BRL",
     });
   }
+  function formatCep(value: string): string {
+    const numbers = value.replace(/\D/g, "").slice(0, 8);
+    if (numbers.length <= 5) return numbers;
+    return `${numbers.slice(0, 5)}-${numbers.slice(5)}`;
+  }
 
+  async function searchCep(rawCep: string) {
+    const cleanCep = rawCep.replace(/\D/g, "");
+
+    if (cleanCep.length !== 8) return;
+
+    try {
+      const response = await fetch(
+        `https://viacep.com.br/ws/${cleanCep}/json/`
+      );
+
+      if (!response.ok) throw new Error("Erro ao consultar CEP.");
+
+      const data = await response.json();
+
+      if (data.erro) {
+        alert("CEP não encontrado.");
+        return;
+      }
+
+      setStreet(data.logradouro || "");
+      setNeighborhood(data.bairro || "");
+      setCity(data.localidade || "");
+    } catch (err) {
+      console.error("Erro ao buscar CEP:", err);
+      alert("Não foi possível consultar o CEP. Tente novamente.");
+    }
+  }
   function getDayOfWeek(dateStr: string): string {
     if (!dateStr) return "";
     const d = new Date(dateStr + "T12:00:00");
@@ -1729,13 +1761,32 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
 
           {deliveryMethod === "delivery" && (
             <>
-              <input
-                type="text"
-                value={cep}
-                onChange={(e) => setCep(e.target.value)}
-                placeholder="CEP"
-                style={inputStyle}
-              />
+                            <div>
+                <input
+                  type="text"
+                  value={cep}
+                  onChange={(e) => {
+                    const formatted = formatCep(e.target.value);
+                    setCep(formatted);
+                    if (formatted.replace(/\D/g, "").length === 8) {
+                      searchCep(formatted);
+                    }
+                  }}
+                  placeholder="CEP (00000-000)"
+                  inputMode="numeric"
+                  maxLength={9}
+                  style={inputStyle}
+                />
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "#7a7a72",
+                    marginTop: 4,
+                  }}
+                >
+                  💡 Digite o CEP e o endereço aparece automaticamente.
+                </div>
+              </div>
               <input
                 type="text"
                 value={street}
