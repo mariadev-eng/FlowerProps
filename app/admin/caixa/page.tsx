@@ -979,10 +979,13 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
     setCart((current) => current.filter((l) => l.id !== lineId));
   }
 
-  const subtotal = cart.reduce(
-    (total, line) => total + line.product.price * line.quantity,
-    0
-  );
+    const subtotal = cart.reduce((total, line) => {
+    const flowersExtra = line.selectedFlowers.reduce(
+      (sum, f) => sum + (Number(f.extra_price) || 0),
+      0
+    );
+    return total + (line.product.price + flowersExtra) * line.quantity;
+  }, 0);
 
   const hasSubscription = cart.some((line) => line.kind === "subscription");
 
@@ -1491,7 +1494,7 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
                         </span>
                       )}
                     </div>
-                    <div
+                                       <div
                       style={{
                         fontSize: 12,
                         color:
@@ -1501,7 +1504,14 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
                         fontWeight: 600,
                       }}
                     >
-                      {formatPrice(line.product.price * line.quantity)}
+                      {formatPrice(
+                        (line.product.price +
+                          line.selectedFlowers.reduce(
+                            (sum, f) => sum + (Number(f.extra_price) || 0),
+                            0
+                          )) *
+                          line.quantity
+                      )}
                     </div>
                   </div>
 
