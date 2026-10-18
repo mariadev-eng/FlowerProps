@@ -981,6 +981,7 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
   function removeLine(lineId: string) {
     setCart((current) => current.filter((l) => l.id !== lineId));
   }
+
   function addCustomItemToCart() {
     if (!customName.trim()) {
       alert("Informe o nome do item.");
@@ -1023,7 +1024,8 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
     setCustomPrice("");
     setCustomQty("1");
   }
-    const subtotal = cart.reduce((total, line) => {
+
+  const subtotal = cart.reduce((total, line) => {
     const flowersExtra = line.selectedFlowers.reduce(
       (sum, f) => sum + (Number(f.extra_price) || 0),
       0
@@ -1044,6 +1046,7 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
       currency: "BRL",
     });
   }
+
   function formatCep(value: string): string {
     const numbers = value.replace(/\D/g, "").slice(0, 8);
     if (numbers.length <= 5) return numbers;
@@ -1077,6 +1080,7 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
       alert("Não foi possível consultar o CEP. Tente novamente.");
     }
   }
+
   function getDayOfWeek(dateStr: string): string {
     if (!dateStr) return "";
     const d = new Date(dateStr + "T12:00:00");
@@ -1131,6 +1135,58 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
     setIsSaving(true);
 
     try {
+      const now = new Date().toISOString();
+      const hasOnlySubscriptions = cart.every(
+        (l) => l.kind === "subscription"
+      );
+
+      // ==========================================
+      // CASO 1: SÓ ASSINATURA → não cria orders
+      // ==========================================
+      if (hasOnlySubscriptions) {
+        const subscriptionOrders = subsInCart.map((line) => {
+          const sub = line.product as Subscription;
+          return {
+            user_id: null,
+            plan_name: sub.name,
+            plan_frequency: sub.frequency,
+            plan_price: sub.price,
+            deliveries_per_month: sub.deliveries_per_month,
+            delivery_day: line.delivery_day,
+            customer_name: customerName.trim(),
+            customer_phone: customerPhone.trim(),
+            customer_email: customerEmail.trim() || "",
+            delivery_method: deliveryMethod,
+            cep: deliveryMethod === "delivery" ? cep : null,
+            street: deliveryMethod === "delivery" ? street : null,
+            number: deliveryMethod === "delivery" ? number : null,
+            complement: deliveryMethod === "delivery" ? complement : null,
+            neighborhood: deliveryMethod === "delivery" ? neighborhood : null,
+            city: deliveryMethod === "delivery" ? city : null,
+            state: null,
+            payment_method: paymentMethod,
+            payment_status: "paid",
+            last_payment_at: now,
+            next_renewal_at: calculateNextRenewal(sub.frequency),
+          };
+        });
+
+        const { error: subsError } = await supabase
+          .from("subscription_orders")
+          .insert(subscriptionOrders);
+
+        if (subsError) throw subsError;
+
+        alert(
+          `✅ Assinatura criada com sucesso!\n\nEla aparece em "Assinaturas" pra você controlar as entregas e renovações.`
+        );
+        onCreated();
+        return;
+      }
+
+      // ==========================================
+      // CASO 2: PRODUTO (com ou sem assinatura)
+      // ==========================================
       const { data: order, error: orderError } = await supabase
         .from("orders")
         .insert({
@@ -1171,7 +1227,7 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
           0
         );
 
-                const isCustomItem =
+        const isCustomItem =
           line.id.startsWith("custom-") ||
           (line.product as Product).id < 0;
 
@@ -1203,36 +1259,35 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
 
       if (itemsError) throw itemsError;
 
-      const now = new Date().toISOString();
+      // Se tem PRODUTO + ASSINATURA → cria a assinatura também
+      if (subsInCart.length > 0) {
+        const subscriptionOrders = subsInCart.map((line) => {
+          const sub = line.product as Subscription;
+          return {
+            user_id: null,
+            plan_name: sub.name,
+            plan_frequency: sub.frequency,
+            plan_price: sub.price,
+            deliveries_per_month: sub.deliveries_per_month,
+            delivery_day: line.delivery_day,
+            customer_name: customerName.trim(),
+            customer_phone: customerPhone.trim(),
+            customer_email: customerEmail.trim() || "",
+            delivery_method: deliveryMethod,
+            cep: deliveryMethod === "delivery" ? cep : null,
+            street: deliveryMethod === "delivery" ? street : null,
+            number: deliveryMethod === "delivery" ? number : null,
+            complement: deliveryMethod === "delivery" ? complement : null,
+            neighborhood: deliveryMethod === "delivery" ? neighborhood : null,
+            city: deliveryMethod === "delivery" ? city : null,
+            state: null,
+            payment_method: paymentMethod,
+            payment_status: "paid",
+            last_payment_at: now,
+            next_renewal_at: calculateNextRenewal(sub.frequency),
+          };
+        });
 
-      const subscriptionOrders = subsInCart.map((line) => {
-        const sub = line.product as Subscription;
-        return {
-          user_id: null,
-          plan_name: sub.name,
-          plan_frequency: sub.frequency,
-          plan_price: sub.price,
-          deliveries_per_month: sub.deliveries_per_month,
-          delivery_day: line.delivery_day,
-          customer_name: customerName.trim(),
-          customer_phone: customerPhone.trim(),
-          customer_email: customerEmail.trim() || "",
-          delivery_method: deliveryMethod,
-          cep: deliveryMethod === "delivery" ? cep : null,
-          street: deliveryMethod === "delivery" ? street : null,
-          number: deliveryMethod === "delivery" ? number : null,
-          complement: deliveryMethod === "delivery" ? complement : null,
-          neighborhood: deliveryMethod === "delivery" ? neighborhood : null,
-          city: deliveryMethod === "delivery" ? city : null,
-          state: null,
-          payment_method: paymentMethod,
-          payment_status: "paid",
-          last_payment_at: now,
-          next_renewal_at: calculateNextRenewal(sub.frequency),
-        };
-      });
-
-      if (subscriptionOrders.length > 0) {
         const { error: subsError } = await supabase
           .from("subscription_orders")
           .insert(subscriptionOrders);
@@ -1240,7 +1295,7 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
         if (subsError) {
           console.error("Erro ao criar assinaturas:", subsError);
           alert(
-            "Pedido criado, mas houve erro ao registrar as assinaturas: " +
+            "Pedido criado, mas houve erro ao registrar a assinatura: " +
               subsError.message
           );
         }
@@ -1500,7 +1555,7 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
 
       {/* COLUNA DIREITA */}
       <div>
-                <h2
+        <h2
           style={{
             margin: "0 0 12px",
             fontSize: 15,
@@ -1659,7 +1714,7 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
                         </span>
                       )}
                     </div>
-                                       <div
+                    <div
                       style={{
                         fontSize: 12,
                         color:
@@ -1894,7 +1949,7 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
 
           {deliveryMethod === "delivery" && (
             <>
-                            <div>
+              <div>
                 <input
                   type="text"
                   value={cep}

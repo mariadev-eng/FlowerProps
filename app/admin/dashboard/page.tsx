@@ -4,6 +4,15 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
+type OrderItem = {
+  id: number;
+  product_name: string;
+  product_price: number;
+  quantity: number;
+  subtotal: number;
+  item_type: string;
+};
+
 type Order = {
   id: number;
   customer_name: string;
@@ -12,6 +21,7 @@ type Order = {
   payment_status: string;
   order_status: string;
   created_at: string;
+  order_items?: OrderItem[];
 };
 
 type SubscriptionOrder = {
@@ -40,7 +50,7 @@ export default function DashboardPage() {
 
       const { data: ordersData } = await supabase
         .from("orders")
-        .select("*")
+        .select("*, order_items:order_items(*)")
         .eq("payment_status", "paid")
         .gte("created_at", today.toISOString())
         .order("created_at", { ascending: false });
@@ -66,12 +76,20 @@ export default function DashboardPage() {
   // CÁLCULOS
   // ==========================================
 
-  const faturamentoHoje = orders.reduce(
+  // Filtra: pedidos que têm PELO MENOS 1 produto (não são só assinatura)
+  const ordersWithProducts = orders.filter((o) => {
+    if (!o.order_items || o.order_items.length === 0) {
+      return true;
+    }
+    return o.order_items.some((item) => item.item_type === "product");
+  });
+
+  const faturamentoHoje = ordersWithProducts.reduce(
     (sum, o) => sum + Number(o.total),
     0
   );
 
-  const pedidosHoje = orders.length;
+  const pedidosHoje = ordersWithProducts.length;
 
   const assinaturasAtivas = subscriptions.length;
 
@@ -209,7 +227,7 @@ export default function DashboardPage() {
           </Link>
         </div>
 
-        {orders.length === 0 ? (
+        {ordersWithProducts.length === 0 ? (
           <div style={emptyStyle}>Nenhum pedido hoje ainda.</div>
         ) : (
           <table
@@ -228,7 +246,7 @@ export default function DashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {orders.slice(0, 5).map((order) => (
+              {ordersWithProducts.slice(0, 5).map((order) => (
                 <tr
                   key={order.id}
                   style={{ borderTop: "1px solid #f0f0ec" }}
