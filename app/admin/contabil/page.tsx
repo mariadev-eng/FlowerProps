@@ -61,6 +61,12 @@ type Expense = {
   created_at: string;
 };
 
+type BudgetCategory = {
+  id: string;
+  name: string;
+  display_order: number;
+};
+
 type TabType =
   | "geral"
   | "pedidos"
@@ -104,17 +110,6 @@ const PAYMENT_LABELS: Record<string, string> = {
   checkout_pro: "Checkout Pro",
   dinheiro: "Dinheiro",
 };
-
-const EXPENSE_CATEGORIES = [
-  { value: "flores", label: "🌸 Flores (insumos)" },
-  { value: "embalagem", label: "🎁 Embalagens" },
-  { value: "entrega", label: "🚚 Entrega / Transporte" },
-  { value: "marketing", label: "📣 Marketing" },
-  { value: "aluguel", label: "🏠 Aluguel" },
-  { value: "internet", label: "🌐 Internet / Telefone" },
-  { value: "salario", label: "👥 Salários" },
-  { value: "outros", label: "📎 Outros" },
-];
 
 const CATEGORY_LABELS: Record<string, string> = {
   flores: "Flores",
@@ -1046,7 +1041,7 @@ function MaisVendidosTab() {
           style={selectStyle}
         >
           {Object.entries(PERIOD_LABELS).map(([key, label]) => (
-            <option key={key} value={label && key}>
+            <option key={key} value={key}>
               {label}
             </option>
           ))}
@@ -1561,7 +1556,7 @@ function ExpenseFormModal({
 }) {
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
-  const [category, setCategory] = useState("flores");
+  const [category, setCategory] = useState("");
   const [expenseType, setExpenseType] = useState<"variable" | "fixed">(
     "variable"
   );
@@ -1569,11 +1564,45 @@ function ExpenseFormModal({
   const [notes, setNotes] = useState("");
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [budgetCategories, setBudgetCategories] = useState<BudgetCategory[]>([]);
+  const [loadingCategories, setLoadingCategories] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Carrega as categorias cadastradas em budget_categories
+  useEffect(() => {
+    async function loadCategories() {
+      setLoadingCategories(true);
+
+      const { data, error } = await supabase
+        .from("budget_categories")
+        .select("id, name, display_order")
+        .order("display_order", { ascending: true });
+
+      if (error) {
+        console.error("Erro ao carregar categorias:", error);
+      } else {
+        setBudgetCategories(data ?? []);
+        if (data && data.length > 0) {
+          setCategory(data[0].name);
+        }
+      }
+
+      setLoadingCategories(false);
+    }
+
+    loadCategories();
+  }, []);
 
   async function handleSave() {
     if (!description.trim() || !amount.trim()) {
       alert("Preencha descrição e valor.");
+      return;
+    }
+
+    if (!category) {
+      alert(
+        "Selecione uma categoria. Se não houver nenhuma, cadastre em Controle de Gastos."
+      );
       return;
     }
 
@@ -1706,17 +1735,42 @@ function ExpenseFormModal({
           </div>
 
           <Field label="Categoria *">
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              style={formInputStyle}
-            >
-              {EXPENSE_CATEGORIES.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
+            {loadingCategories ? (
+              <div
+                style={{
+                  ...formInputStyle,
+                  display: "flex",
+                  alignItems: "center",
+                  color: "#7a7a72",
+                }}
+              >
+                Carregando categorias...
+              </div>
+            ) : budgetCategories.length === 0 ? (
+              <div
+                style={{
+                  ...formInputStyle,
+                  display: "flex",
+                  alignItems: "center",
+                  color: "#991b1b",
+                  fontSize: 12,
+                }}
+              >
+                Nenhuma categoria cadastrada. Cadastre em Controle de Gastos.
+              </div>
+            ) : (
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                style={formInputStyle}
+              >
+                {budgetCategories.map((c) => (
+                  <option key={c.id} value={c.name}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </Field>
 
           <Field label="Tipo *">
