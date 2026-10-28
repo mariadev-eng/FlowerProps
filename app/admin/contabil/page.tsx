@@ -333,6 +333,7 @@ function GeralTab() {
         .from("orders")
         .select("*")
         .eq("payment_status", "paid")
+        .neq("order_status", "cancelled") // 👈 CORREÇÃO: exclui cancelados
         .order("created_at", { ascending: false });
 
       if (start) ordersQuery = ordersQuery.gte("created_at", start.toISOString());
@@ -616,6 +617,7 @@ function PedidosTab() {
       .from("orders")
       .select(`*, order_items:order_items(*)`)
       .eq("payment_status", "paid")
+      .neq("order_status", "cancelled") // 👈 CORREÇÃO: exclui cancelados
       .order("created_at", { ascending: false });
 
     if (start) query = query.gte("created_at", start.toISOString());
@@ -957,6 +959,7 @@ function MaisVendidosTab() {
       .from("orders")
       .select(`*, order_items:order_items(*)`)
       .eq("payment_status", "paid")
+      .neq("order_status", "cancelled") // 👈 CORREÇÃO: exclui cancelados
       .order("created_at", { ascending: false });
 
     if (start) query = query.gte("created_at", start.toISOString());
@@ -1770,7 +1773,8 @@ function FinanceiroTab() {
     let ordersQuery = supabase
       .from("orders")
       .select("*")
-      .eq("payment_status", "paid");
+      .eq("payment_status", "paid")
+      .neq("order_status", "cancelled"); // 👈 CORREÇÃO: exclui cancelados
 
     if (start) ordersQuery = ordersQuery.gte("created_at", start.toISOString());
     ordersQuery = ordersQuery.lte("created_at", end.toISOString());
