@@ -1088,11 +1088,24 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
     return dayName.charAt(0).toUpperCase() + dayName.slice(1);
   }
 
-  function calculateNextRenewal(frequency: string): string {
+  // ==========================================
+  // CÁLCULO DA PRÓXIMA RENOVAÇÃO (VERSÃO BLINDADA)
+  // ==========================================
+
+  function calculateNextRenewal(sub: Subscription): string {
     const d = new Date();
-    if (frequency === "weekly") d.setDate(d.getDate() + 7);
-    else if (frequency === "biweekly") d.setDate(d.getDate() + 15);
-    else d.setMonth(d.getMonth() + 1);
+
+    // Usa deliveries_per_month como fonte da verdade
+    const deliveries = sub.deliveries_per_month;
+
+    if (deliveries >= 4) {
+      d.setDate(d.getDate() + 7); // semanal
+    } else if (deliveries === 2) {
+      d.setDate(d.getDate() + 15); // quinzenal
+    } else {
+      d.setMonth(d.getMonth() + 1); // mensal (default)
+    }
+
     return d.toISOString();
   }
 
@@ -1167,7 +1180,7 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
             payment_method: paymentMethod,
             payment_status: "paid",
             last_payment_at: now,
-            next_renewal_at: calculateNextRenewal(sub.frequency),
+            next_renewal_at: calculateNextRenewal(sub),
           };
         });
 
@@ -1284,7 +1297,7 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
             payment_method: paymentMethod,
             payment_status: "paid",
             last_payment_at: now,
-            next_renewal_at: calculateNextRenewal(sub.frequency),
+            next_renewal_at: calculateNextRenewal(sub),
           };
         });
 
