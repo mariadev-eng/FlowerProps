@@ -48,6 +48,8 @@ type Order = {
   order_status: string;
   created_at: string;
   order_items?: OrderItem[];
+  discount_percent?: number | null;  // 👈 NOVO
+  discount_amount?: number | null;   // 👈 NOVO
 };
 
 type ProductColor = {
@@ -597,6 +599,18 @@ Qualquer dúvida, estamos à disposição!`;
                   >
                     {formatPrice(order.total)}
                   </div>
+                  {order.discount_amount && order.discount_amount > 0 ? (
+                    <div
+                      style={{
+                        fontSize: 10,
+                        color: "#dc2626",
+                        fontWeight: 600,
+                        marginTop: 2,
+                      }}
+                    >
+                      Desconto aplicado
+                    </div>
+                  ) : null}
                   <div
                     style={{
                       fontSize: 10,
@@ -812,6 +826,9 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
   const [customName, setCustomName] = useState("");
   const [customPrice, setCustomPrice] = useState("");
   const [customQty, setCustomQty] = useState("1");
+
+  // 👇 NOVO: Estado do desconto
+  const [discountPercent, setDiscountPercent] = useState("");
 
   useEffect(() => {
     async function loadData() {
@@ -1038,7 +1055,11 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
   const deliveryFee =
     deliveryMethod === "delivery" && !hasSubscription ? 15 : 0;
 
-  const total = subtotal + deliveryFee;
+  // 👇 NOVO: Cálculo do desconto (apenas nos produtos, frete cheio)
+  const parsedDiscount = Number(discountPercent) || 0;
+  const discountAmount = (subtotal * parsedDiscount) / 100;
+  const finalSubtotal = subtotal - discountAmount;
+  const total = finalSubtotal + deliveryFee;
 
   function formatPrice(value: number) {
     return value.toLocaleString("pt-BR", {
@@ -1087,8 +1108,7 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
     const dayName = d.toLocaleDateString("pt-BR", { weekday: "long" });
     return dayName.charAt(0).toUpperCase() + dayName.slice(1);
   }
-
-  // ==========================================
+   // ==========================================
   // CÁLCULO DA PRÓXIMA RENOVAÇÃO (VERSÃO BLINDADA)
   // ==========================================
 
@@ -1222,6 +1242,9 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
           payment_method: paymentMethod,
           payment_status: "paid",
           order_status: "confirmed",
+          // 👇 NOVO: Salvando o desconto no banco
+          discount_percent: parsedDiscount,
+          discount_amount: discountAmount,
         })
         .select()
         .single();
@@ -2122,6 +2145,9 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
           />
         </div>
 
+        {/* ========================================== */}
+        {/* TOTAIS E DESCONTO */}
+        {/* ========================================== */}
         <div
           style={{
             padding: 16,
@@ -2141,6 +2167,56 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
             <span>Subtotal</span>
             <strong>{formatPrice(subtotal)}</strong>
           </div>
+
+          {/* 👇 NOVO: Input de Desconto */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 6,
+              paddingTop: 6,
+              borderTop: "1px solid #e0e0dc",
+            }}
+          >
+            <span style={{ fontSize: 13, color: "#7a7a72" }}>
+              Desconto (%)
+            </span>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              step="0.1"
+              value={discountPercent}
+              onChange={(e) => setDiscountPercent(e.target.value)}
+              placeholder="0"
+              style={{
+                width: 70,
+                height: 30,
+                padding: "0 8px",
+                border: "1px solid #d1d5db",
+                borderRadius: 6,
+                fontSize: 13,
+                textAlign: "right",
+              }}
+            />
+          </div>
+
+          {/* 👇 NOVO: Linha do Desconto calculado */}
+          {discountAmount > 0 && (
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                marginBottom: 6,
+                color: "#dc2626",
+              }}
+            >
+              <span>Desconto aplicado</span>
+              <strong>- {formatPrice(discountAmount)}</strong>
+            </div>
+          )}
+
           <div
             style={{
               display: "flex",
@@ -2159,6 +2235,7 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
               {deliveryFee === 0 ? "Grátis" : formatPrice(deliveryFee)}
             </strong>
           </div>
+
           <div
             style={{
               display: "flex",
