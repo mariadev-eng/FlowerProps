@@ -15,6 +15,7 @@ type OrderItem = {
   quantity: number;
   subtotal: number;
   item_type: string;
+  description?: string | null;
   selected_flowers?: Array<{
     name: string;
     image: string;
@@ -662,6 +663,23 @@ Qualquer dúvida, estamos à disposição!`;
                         </span>
                       )}
 
+                      <strong>{item.quantity}x</strong> {item.product_name}
+                      {item.item_type === "subscription" && (
+                        <span
+                          style={{
+                            marginLeft: 6,
+                            padding: "1px 6px",
+                            borderRadius: 3,
+                            fontSize: 10,
+                            fontWeight: 600,
+                            background: "#ede9fe",
+                            color: "#6d28d9",
+                          }}
+                        >
+                          🌸 Assinatura
+                        </span>
+                      )}
+
                       {item.selected_color && (
                         <div
                           style={{
@@ -826,6 +844,7 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
   const [customName, setCustomName] = useState("");
   const [customPrice, setCustomPrice] = useState("");
   const [customQty, setCustomQty] = useState("1");
+  const [customDescription, setCustomDescription] = useState("");
 
   // 👇 NOVO: Estado do desconto
   const [discountPercent, setDiscountPercent] = useState("");
@@ -1016,7 +1035,7 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
     const fakeProduct: Product = {
       id: -Date.now(),
       name: customName.trim(),
-      description: "Item avulso",
+      description: customDescription.trim(),
       price,
       category_id: 0,
       image: null,
@@ -1040,6 +1059,7 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
     setCustomName("");
     setCustomPrice("");
     setCustomQty("1");
+    setCustomDescription("");
   }
 
   const subtotal = cart.reduce((total, line) => {
@@ -1279,6 +1299,9 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
           quantity: line.quantity,
           subtotal: (line.product.price + extraFromFlowers) * line.quantity,
           item_type: line.kind === "product" ? "product" : "subscription",
+           description: isCustomItem 
+      ? (line.product as Product).description || null 
+      : null, 
           selected_flowers: line.selectedFlowers.map((f) => ({
             name: f.name,
             image: f.image,
@@ -1622,7 +1645,7 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
               marginBottom: 8,
             }}
           >
-            ✏️ Adicionar item manual
+           ✏️ Adicionar item manual
           </div>
 
           <input
@@ -1634,6 +1657,25 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
               ...inputStyle,
               width: "100%",
               marginBottom: 8,
+            }}
+          />
+
+          {/* 👇 NOVO: Input de descrição */}
+          <textarea
+            value={customDescription}
+            onChange={(e) => setCustomDescription(e.target.value)}
+            placeholder="Descrição do item (opcional)"
+            rows={2}
+            style={{
+              width: "100%",
+              padding: 10,
+              border: "1px solid #d1d5db",
+              borderRadius: 6,
+              fontSize: 13,
+              fontFamily: "inherit",
+              resize: "vertical",
+              marginBottom: 8,
+              boxSizing: "border-box",
             }}
           />
 
@@ -1750,6 +1792,21 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
                         </span>
                       )}
                     </div>
+
+                    {/* 👇 NOVO: Mostrar descrição do item manual */}
+                    {line.product.description && (
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: "#7a7a72",
+                          fontStyle: "italic",
+                          marginTop: 2,
+                        }}
+                      >
+                        {line.product.description}
+                      </div>
+                    )}
+
                     <div
                       style={{
                         fontSize: 12,
