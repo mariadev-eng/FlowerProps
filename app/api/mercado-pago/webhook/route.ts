@@ -3,6 +3,35 @@ import { createHmac, timingSafeEqual } from "crypto";
 import { supabase } from "@/lib/supabase";
 
 // =========================================================
+// CÁLCULO DA PRÓXIMA ENTREGA
+// =========================================================
+
+function calculateNextDeliveryDate(
+  baseDate: Date,
+  frequency: string,
+  deliveryDay: "saturday" | "sunday"
+): Date {
+  const result = new Date(baseDate);
+
+  // Soma os dias da frequência
+  if (frequency === "weekly") {
+    result.setDate(result.getDate() + 7);
+  } else if (frequency === "biweekly") {
+    result.setDate(result.getDate() + 15);
+  } else {
+    result.setMonth(result.getMonth() + 1);
+  }
+
+  // Ajusta para o próximo sábado/domingo
+  const targetDay = deliveryDay === "saturday" ? 6 : 0;
+  while (result.getDay() !== targetDay) {
+    result.setDate(result.getDate() + 1);
+  }
+
+  return result;
+}
+
+// =========================================================
 // VALIDAÇÃO DA ASSINATURA DO WEBHOOK
 // =========================================================
 
@@ -99,30 +128,90 @@ export async function POST(request: Request) {
         // CASO 1: ASSINATURA (external_reference = "SUBSCRIPTION-123")
         // =====================================================
 
-        if (externalRef.startsWith("SUBSCRIPTION-")) {
-          const orderId = externalRef.replace("SUBSCRIPTION-", "");
+       if (externalRef.startsWith("SUBSCRIPTION-")) {
+  const orderId = externalRef.replace("SUBSCRIPTION-", "");
 
-          if (orderId) {
-            const { error } = await supabase
-              .from("subscription_orders")
-              .update({
-                payment_status: "paid",
-                payment_id: String(paymentData.id),
-              })
-              .eq("id", orderId);
+  if (orderId) {
+    // 1. Busca os dados atuais da assinatura
+    const { data: sub } = await supabase
+      .from("subscription_orders")
+      .select("*")
+      .eq("id", orderId)
+      .single();
 
-            if (error) {
-              console.error(
-                "ERRO ao atualizar assinatura:",
-                error.message
-              );
+    if (sub) {
+      // 2. Calcula a próxima entrega a partir da última entrega
+      const baseDate = sub.last_delivered_at
+        ? new Date(sub.last_delivered_at)
+        : new Date();
+
+      const deliveryDay =
+        sub.delivery_day === "sunday" ? "sunday" : "saturday";
+
+      const nextDelivery = calculateNextDeliveryDate(
+        baseDate,
+        sub.plan_frequency,
+        deliveryDay
+      );
+
+      // 3. Atualiza a assinatura
+      const { error } = await supabase
+        .from("subscription_orders")
+        .update({
+          payment_status: "paid",
+          payment_id: String(paymentData.id),
+          last_payment_at: new Date().toISOString(),
+          next_renewal_at: nextDelivery.toISOString(),
+          last_delivered_at: null, // 👈 limpa pra sair de "Vencendo"
+          current_cycle_start: new Date().toISOString(),
+        })
+        .eq("id", orderId);
+
+      if (error) {
+        console.error("ERRO ao atualizar assinatura:", error.message);
+      } else {
+        console.log(`✅ Assinatura ${orderId} renovada!`);
+        console.log(`   Próxima entrega: ${nextDelivery.toISOString()}`);
+
+        // 4. Deleta as entregas antigas (do ciclo anterior)
+        await supabase
+          .from("subscription_deliveries")
+          .delete()
+          .eq("subscription_order_id", orderId);
+
+        console.log(`🗑️ Entregas antigas removidas`);
+      }
+              // 4. Envia o e-mail de renovação chamando a Edge Function
+        if (sub.customer_email) {
+          try {
+            const response = await fetch(
+              `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/enviar-email-renovacao`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+                },
+                body: JSON.stringify({
+                  subscription_order_id: sub.id,
+                  next_delivery_date: nextDelivery.toISOString(),
+                }),
+              }
+            );
+
+            if (!response.ok) {
+              const errorData = await response.json();
+              console.error("❌ Erro na Edge Function de e-mail:", errorData);
             } else {
-              console.log(
-                `✅ Assinatura ${orderId} atualizada para PAGO.`
-              );
+              console.log(`📧 E-mail de renovação enviado com sucesso!`);
             }
+          } catch (emailErr) {
+            console.error("❌ Erro de rede ao chamar a Edge Function:", emailErr);
           }
         }
+    }
+  }
+}
 
         // =====================================================
         // CASO 2: PEDIDO NORMAL (external_reference = "FLOWER-123")

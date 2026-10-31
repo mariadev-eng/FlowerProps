@@ -32,6 +32,7 @@ type SubscriptionOrder = {
   last_payment_at: string | null;
   next_renewal_at: string | null;
   current_cycle_start: string | null;
+  last_delivered_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -212,9 +213,15 @@ export default function AdminAssinaturasPage() {
   }
 
   function isExpiringSoon(sub: SubscriptionOrder): boolean {
-    const days = getDaysUntilRenewal(sub);
-    return days !== null && days >= 0 && days <= 7;
-  }
+  // Regra 1: próximo do vencimento real (7 dias ou menos)
+  const days = getDaysUntilRenewal(sub);
+  if (days !== null && days >= 0 && days <= 7) return true;
+
+  // Regra 2: foi entregue e aguarda renovação
+  if (sub.last_delivered_at) return true;
+
+  return false;
+}
 
   function isRecentlyRenewed(sub: SubscriptionOrder): boolean {
     if (!sub.last_payment_at) return false;
@@ -974,37 +981,51 @@ function SubscriptionDetailPanel({
     ensureDeliveries();
   }, [ensureDeliveries]);
 
-  async function markAsDelivered(deliveryId: string) {
-    setActionLoading(deliveryId);
+ async function markAsDelivered(deliveryId: string) {
+  setActionLoading(deliveryId);
 
-    const { error } = await supabase
-      .from("subscription_deliveries")
+  // 1. Marca a entrega como entregue
+  const { error } = await supabase
+    .from("subscription_deliveries")
+    .update({
+      status: "delivered",
+      delivered_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", deliveryId);
+
+  if (error) {
+    alert("Erro ao marcar como entregue: " + error.message);
+    setActionLoading(null);
+    return;
+  }
+
+  // 2. Atualiza o estado local das entregas
+  const updatedDeliveries = deliveries.map((d) =>
+    d.id === deliveryId
+      ? { ...d, status: "delivered" as const, delivered_at: new Date().toISOString() }
+      : d
+  );
+
+  setDeliveries(updatedDeliveries);
+
+  // 3. Se TODAS as entregas do ciclo foram entregues → marca a assinatura
+  const allDelivered = updatedDeliveries.every(
+    (d) => d.status === "delivered"
+  );
+
+  if (allDelivered) {
+    await supabase
+      .from("subscription_orders")
       .update({
-        status: "delivered",
-        delivered_at: new Date().toISOString(),
+        last_delivered_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
-      .eq("id", deliveryId);
-
-    setActionLoading(null);
-
-    if (error) {
-      alert("Erro ao marcar como entregue: " + error.message);
-      return;
-    }
-
-    setDeliveries((current) =>
-      current.map((d) =>
-        d.id === deliveryId
-          ? {
-              ...d,
-              status: "delivered",
-              delivered_at: new Date().toISOString(),
-            }
-          : d
-      )
-    );
+      .eq("id", subscription.id);
   }
+
+  setActionLoading(null);
+}
 
   async function undoDelivered(deliveryId: string) {
     setActionLoading(deliveryId);
@@ -1144,7 +1165,7 @@ function SubscriptionDetailPanel({
         </div>
 
         <div style={{ padding: 24 }}>
-          <div
+                    <div
             style={{
               marginBottom: 24,
               padding: 16,
@@ -1221,6 +1242,24 @@ function SubscriptionDetailPanel({
                 </div>
               )}
             </div>
+
+            {/* 👇 NOVO: Aviso de aguardando renovação */}
+            {subscription.last_delivered_at && (
+              <div
+                style={{
+                  marginTop: 12,
+                  padding: 8,
+                  background: "#fef3c7",
+                  borderRadius: 4,
+                  fontSize: 11,
+                  color: "#854d0e",
+                  fontWeight: 600,
+                }}
+              >
+                ⏳ Aguardando renovação (última entrega:{" "}
+                {formatDate(subscription.last_delivered_at)})
+              </div>
+            )}
 
             {daysUntilRenewal !== null && daysUntilRenewal <= 7 && (
               <a
