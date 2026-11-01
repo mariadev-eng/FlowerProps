@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react"; // 👈 Adicionado Suspense
+import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation"; // 👈 Adicionado useSearchParams
+import { useRouter, useSearchParams } from "next/navigation";
 import { UserRound } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import UserMenu from "../components/UserMenu";
@@ -24,12 +24,12 @@ type DeliveryDay = "saturday" | "sunday";
 const fallbackImage =
   "https://images.unsplash.com/photo-1490750967868-88aa4486c946?auto=format&fit=crop&w=900&q=85";
 
-// 👇 Componente interno para poder usar o useSearchParams
+// Componente interno para poder usar o useSearchParams
 function AssinaturasContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
-  // Pega o ID da renovação da URL (se existir)
+  // Pega o ID da renovação da URL
   const renovacaoId = searchParams.get("renovacao");
 
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
@@ -84,7 +84,7 @@ function AssinaturasContent() {
       deliveries_per_month: subscription.deliveries_per_month,
       image: subscription.image || fallbackImage,
       delivery_day: selectedDay,
-      // 👇 NOVAS FLAGS DE RENOVAÇÃO
+      // 👇 SALVA AS FLAGS DE RENOVAÇÃO NO LOCALSTORAGE
       is_renewal: !!renovacaoId,
       renewal_subscription_id: renovacaoId ? Number(renovacaoId) : null,
     };
@@ -136,9 +136,9 @@ function AssinaturasContent() {
         </span>
 
         <h1>
-          Escolha seu
+          {renovacaoId ? "Renove sua" : "Escolha seu"}
           <br />
-          <em>plano de assinatura.</em>
+          <em>assinatura.</em>
         </h1>
 
         <p>
@@ -193,7 +193,6 @@ function AssinaturasContent() {
                     <span>por mês</span>
                   </div>
 
-                  {/* SELETOR DE DIA */}
                   <div className="subscription-delivery-day">
                     <span className="subscription-delivery-label">
                       Escolha o dia da entrega:
@@ -224,7 +223,6 @@ function AssinaturasContent() {
                     </div>
                   </div>
 
-                  {/* BOTÃO ASSINAR */}
                   <button
                     type="button"
                     onClick={() => handleSubscribe(sub)}
@@ -290,7 +288,6 @@ function AssinaturasContent() {
   );
 }
 
-// 👇 Exporta o componente embrulhado no Suspense (exigência do Next.js para useSearchParams)
 export default function AssinaturasPage() {
   return (
     <Suspense fallback={
