@@ -74,16 +74,16 @@ const FREQUENCY_LABEL: Record<string, string> = {
 // MENSAGENS WHATSAPP
 // ==========================================
 
-function buildWhatsAppMessage(name: string) {
-  return `Olá, ${name}! 🌸
+function buildWhatsAppMessage(name: string, subscriptionId: number) {
+  return `Olá, ${name}! 
 
 Sua assinatura FLOWER em Casa está perto de vencer.
 
 Acesse o site e renove pra continuar recebendo suas flores frescas:
 
-www.flowerprops.com.br/assinaturas
+https://www.flowerprops.com.br/assinaturas?renovacao=${subscriptionId}
 
-Qualquer dúvida, é só chamar! 💐`;
+Qualquer dúvida, é só chamar!`;
 }
 
 function buildDeliveryScheduleMessage(
@@ -213,15 +213,11 @@ export default function AdminAssinaturasPage() {
   }
 
   function isExpiringSoon(sub: SubscriptionOrder): boolean {
-  // Regra 1: próximo do vencimento real (7 dias ou menos)
-  const days = getDaysUntilRenewal(sub);
-  if (days !== null && days >= 0 && days <= 7) return true;
-
-  // Regra 2: foi entregue e aguarda renovação
-  if (sub.last_delivered_at) return true;
-
-  return false;
-}
+    const days = getDaysUntilRenewal(sub);
+    if (days !== null && days >= 0 && days <= 7) return true;
+    if (sub.last_delivered_at) return true;
+    return false;
+  }
 
   function isRecentlyRenewed(sub: SubscriptionOrder): boolean {
     if (!sub.last_payment_at) return false;
@@ -271,10 +267,10 @@ export default function AdminAssinaturasPage() {
     return true;
   });
 
-  function getWhatsAppLink(phone: string, name: string) {
+  function getWhatsAppLink(phone: string, name: string, subscriptionId: number) {
     const digits = phone.replace(/\D/g, "");
     const withCountry = digits.startsWith("55") ? digits : `55${digits}`;
-    const message = encodeURIComponent(buildWhatsAppMessage(name));
+    const message = encodeURIComponent(buildWhatsAppMessage(name, subscriptionId));
     return `https://wa.me/${withCountry}?text=${message}`;
   }
 
@@ -523,7 +519,7 @@ function VencendoTab({
   subscriptions: SubscriptionOrder[];
   onSelect: (s: SubscriptionOrder) => void;
   getDaysUntilRenewal: (s: SubscriptionOrder) => number | null;
-  getWhatsAppLink: (phone: string, name: string) => string;
+  getWhatsAppLink: (phone: string, name: string, id: number) => string;
   formatPrice: (v: number) => string;
   formatFrequency: (f: string) => string;
   formatDate: (v: string | null) => string;
@@ -605,7 +601,11 @@ function VencendoTab({
             </div>
 
             <a
-              href={getWhatsAppLink(sub.customer_phone, sub.customer_name)}
+              href={getWhatsAppLink(
+                sub.customer_phone,
+                sub.customer_name,
+                sub.id 
+              )}
               target="_blank"
               rel="noopener noreferrer"
               style={{
@@ -898,7 +898,7 @@ function SubscriptionDetailPanel({
   subscription: SubscriptionOrder;
   onClose: () => void;
   onCancelled: (id: number) => void;
-  getWhatsAppLink: (phone: string, name: string) => string;
+  getWhatsAppLink: (phone: string, name: string, id: number) => string;
   getWhatsAppLinkWithMessage: (phone: string, message: string) => string;
   formatDate: (v: string | null) => string;
   formatPrice: (v: number) => string;
@@ -981,51 +981,48 @@ function SubscriptionDetailPanel({
     ensureDeliveries();
   }, [ensureDeliveries]);
 
- async function markAsDelivered(deliveryId: string) {
-  setActionLoading(deliveryId);
+  async function markAsDelivered(deliveryId: string) {
+    setActionLoading(deliveryId);
 
-  // 1. Marca a entrega como entregue
-  const { error } = await supabase
-    .from("subscription_deliveries")
-    .update({
-      status: "delivered",
-      delivered_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", deliveryId);
-
-  if (error) {
-    alert("Erro ao marcar como entregue: " + error.message);
-    setActionLoading(null);
-    return;
-  }
-
-  // 2. Atualiza o estado local das entregas
-  const updatedDeliveries = deliveries.map((d) =>
-    d.id === deliveryId
-      ? { ...d, status: "delivered" as const, delivered_at: new Date().toISOString() }
-      : d
-  );
-
-  setDeliveries(updatedDeliveries);
-
-  // 3. Se TODAS as entregas do ciclo foram entregues → marca a assinatura
-  const allDelivered = updatedDeliveries.every(
-    (d) => d.status === "delivered"
-  );
-
-  if (allDelivered) {
-    await supabase
-      .from("subscription_orders")
+    const { error } = await supabase
+      .from("subscription_deliveries")
       .update({
-        last_delivered_at: new Date().toISOString(),
+        status: "delivered",
+        delivered_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
-      .eq("id", subscription.id);
-  }
+      .eq("id", deliveryId);
 
-  setActionLoading(null);
-}
+    if (error) {
+      alert("Erro ao marcar como entregue: " + error.message);
+      setActionLoading(null);
+      return;
+    }
+
+    const updatedDeliveries = deliveries.map((d) =>
+      d.id === deliveryId
+        ? { ...d, status: "delivered" as const, delivered_at: new Date().toISOString() }
+        : d
+    );
+
+    setDeliveries(updatedDeliveries);
+
+    const allDelivered = updatedDeliveries.every(
+      (d) => d.status === "delivered"
+    );
+
+    if (allDelivered) {
+      await supabase
+        .from("subscription_orders")
+        .update({
+          last_delivered_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", subscription.id);
+    }
+
+    setActionLoading(null);
+  }
 
   async function undoDelivered(deliveryId: string) {
     setActionLoading(deliveryId);
@@ -1118,8 +1115,7 @@ function SubscriptionDetailPanel({
           zIndex: 40,
         }}
       />
-
-      <aside
+            <aside
         style={{
           position: "fixed",
           top: 0,
@@ -1165,7 +1161,7 @@ function SubscriptionDetailPanel({
         </div>
 
         <div style={{ padding: 24 }}>
-                    <div
+          <div
             style={{
               marginBottom: 24,
               padding: 16,
@@ -1243,7 +1239,6 @@ function SubscriptionDetailPanel({
               )}
             </div>
 
-            {/* 👇 NOVO: Aviso de aguardando renovação */}
             {subscription.last_delivered_at && (
               <div
                 style={{
@@ -1265,7 +1260,8 @@ function SubscriptionDetailPanel({
               <a
                 href={getWhatsAppLink(
                   subscription.customer_phone,
-                  subscription.customer_name
+                  subscription.customer_name,
+                  subscription.id
                 )}
                 target="_blank"
                 rel="noopener noreferrer"
