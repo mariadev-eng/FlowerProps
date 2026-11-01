@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react"; // 👈 Adicionado Suspense
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation"; // 👈 Adicionado useSearchParams
 import { UserRound } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import UserMenu from "../components/UserMenu";
@@ -24,8 +24,13 @@ type DeliveryDay = "saturday" | "sunday";
 const fallbackImage =
   "https://images.unsplash.com/photo-1490750967868-88aa4486c946?auto=format&fit=crop&w=900&q=85";
 
-export default function AssinaturasPage() {
+// 👇 Componente interno para poder usar o useSearchParams
+function AssinaturasContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  
+  // Pega o ID da renovação da URL (se existir)
+  const renovacaoId = searchParams.get("renovacao");
 
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(true);
@@ -79,6 +84,9 @@ export default function AssinaturasPage() {
       deliveries_per_month: subscription.deliveries_per_month,
       image: subscription.image || fallbackImage,
       delivery_day: selectedDay,
+      // 👇 NOVAS FLAGS DE RENOVAÇÃO
+      is_renewal: !!renovacaoId,
+      renewal_subscription_id: renovacaoId ? Number(renovacaoId) : null,
     };
 
     localStorage.setItem(
@@ -86,7 +94,6 @@ export default function AssinaturasPage() {
       JSON.stringify(subscriptionCheckout)
     );
 
-    // 🆕 CORRIGIDO: vai pro checkout da assinatura
     router.push("/assinatura/checkout");
   }
 
@@ -124,7 +131,9 @@ export default function AssinaturasPage() {
       </header>
 
       <section className="subscriptions-intro section">
-        <span className="eyebrow">FLOWER EM CASA</span>
+        <span className="eyebrow">
+          {renovacaoId ? "RENOVAÇÃO DE ASSINATURA" : "FLOWER EM CASA"}
+        </span>
 
         <h1>
           Escolha seu
@@ -133,13 +142,17 @@ export default function AssinaturasPage() {
         </h1>
 
         <p>
-          Receba flores frescas, selecionadas especialmente para cada entrega.
-          Sem escolher as flores — a gente monta a composição da semana pra
-          você.
+          {renovacaoId 
+            ? "Que bom ter você de volta! Escolha seu plano para renovar sua assinatura e continuar recebendo flores frescas."
+            : "Receba flores frescas, selecionadas especialmente para cada entrega. Sem escolher as flores — a gente monta a composição da semana pra você."
+          }
         </p>
 
         <p className="subscriptions-note">
-          Após a contratação, suas flores chegam na semana seguinte.
+          {renovacaoId 
+            ? "Após a renovação, suas flores continuam chegando na mesma frequência."
+            : "Após a contratação, suas flores chegam na semana seguinte."
+          }
         </p>
       </section>
 
@@ -232,7 +245,7 @@ export default function AssinaturasPage() {
                       fontFamily: "inherit",
                     }}
                   >
-                    Assinar {sub.name}
+                    {renovacaoId ? "Renovar" : "Assinar"} {sub.name}
                   </button>
                 </div>
               </div>
@@ -274,5 +287,18 @@ export default function AssinaturasPage() {
         <p>© 2026 FLOWER. Todos os direitos reservados.</p>
       </footer>
     </main>
+  );
+}
+
+// 👇 Exporta o componente embrulhado no Suspense (exigência do Next.js para useSearchParams)
+export default function AssinaturasPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ padding: 40, textAlign: "center", fontFamily: "sans-serif" }}>
+        Carregando...
+      </div>
+    }>
+      <AssinaturasContent />
+    </Suspense>
   );
 }

@@ -40,6 +40,8 @@ type CheckoutData = {
   subscription: SubscriptionData;
   customer: CustomerData;
   deliveryMethod: DeliveryMethod;
+  is_renewal?: boolean;
+  renewal_subscription_id?: number | null;
 };
 
 export default function AssinaturaPagamentoPage() {
@@ -171,17 +173,67 @@ export default function AssinaturaPagamentoPage() {
   // SALVA PEDIDO NO SUPABASE (pending)
   // ==========================================
 
-  async function saveSubscriptionOrder(paymentMethodType: string) {
+   async function saveSubscriptionOrder(paymentMethodType: string) {
     if (!checkoutData) {
       throw new Error("Dados do checkout não encontrados.");
     }
 
     const { subscription, customer, deliveryMethod } = checkoutData;
+    
+    // 👇 Pega os dados da renovação do localStorage
+    const savedCheckoutStr = localStorage.getItem("flower-subscription-checkout");
+    const savedCheckout = savedCheckoutStr ? JSON.parse(savedCheckoutStr) : {};
+    const isRenewal = savedCheckout.is_renewal;
+    const renewalId = savedCheckout.renewal_subscription_id;
 
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
+    // ==========================================
+    // CASO 1: RENOVAÇÃO → Atualiza a assinatura existente
+    // ==========================================
+    if (isRenewal && renewalId) {
+      console.log(`🔄 Renovando assinatura #${renewalId}`);
+      
+      const { data: order, error: orderError } = await supabase
+        .from("subscription_orders")
+        .update({
+          user_id: user?.id || null,
+          plan_name: subscription.name,
+          plan_frequency: subscription.frequency,
+          plan_price: subscription.price,
+          deliveries_per_month: subscription.deliveries_per_month,
+          delivery_day: subscription.delivery_day,
+          customer_name: customer.name,
+          customer_phone: customer.phone,
+          customer_email: customer.email,
+          delivery_method: deliveryMethod,
+          cep: deliveryMethod === "delivery" ? customer.cep : null,
+          street: deliveryMethod === "delivery" ? customer.street : null,
+          number: deliveryMethod === "delivery" ? customer.number : null,
+          complement: deliveryMethod === "delivery" ? customer.complement : null,
+          neighborhood: deliveryMethod === "delivery" ? customer.neighborhood : null,
+          city: deliveryMethod === "delivery" ? customer.city : null,
+          state: deliveryMethod === "delivery" ? customer.state : null,
+          payment_method: paymentMethodType,
+          payment_status: "pending",
+        })
+        .eq("id", renewalId)
+        .select()
+        .single();
+
+      if (orderError) {
+        console.error("ERRO AO ATUALIZAR RENOVAÇÃO:", orderError);
+        throw new Error(orderError.message || "Erro ao atualizar renovação.");
+      }
+
+      return order.id;
+    }
+
+    // ==========================================
+    // CASO 2: NOVA ASSINATURA → Cria um novo registro
+    // ==========================================
     const { data: order, error: orderError } = await supabase
       .from("subscription_orders")
       .insert({
