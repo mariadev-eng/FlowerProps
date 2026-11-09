@@ -8,7 +8,8 @@ const TABS = [
   { href: "/admin/caixa", label: "Caixa" },
   { href: "/admin/assinaturas", label: "Assinaturas" },
   { href: "/admin/produtos", label: "Produtos" },
-  { href: "/admin/estoque", label: "Estoque" },     //
+  { href: "/admin/estoque", label: "Estoque" },
+  { href: "/admin/cupons", label: "Cupons" }, // 👈 NOVA ABA AQUI
   { href: "/admin/contabil", label: "Contábil" },
 ];
 
