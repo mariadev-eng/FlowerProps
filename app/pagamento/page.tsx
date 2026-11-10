@@ -45,6 +45,7 @@ export default function PaymentPage() {
 
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [customerData, setCustomerData] = useState<CustomerData | null>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<any>(null); // 👈 NOVO
 
   const [isFinishing, setIsFinishing] = useState(false);
   const [error, setError] = useState("");
@@ -59,6 +60,7 @@ export default function PaymentPage() {
   useEffect(() => {
     const savedCart = localStorage.getItem("flower-cart");
     const savedCheckout = localStorage.getItem("flower-checkout");
+    const savedCoupon = localStorage.getItem("flower-applied-coupon"); // 👈 NOVO
 
     if (savedCart) {
       try {
@@ -75,6 +77,14 @@ export default function PaymentPage() {
         localStorage.removeItem("flower-checkout");
       }
     }
+
+    if (savedCoupon) {
+      try {
+        setAppliedCoupon(JSON.parse(savedCoupon));
+      } catch {
+        localStorage.removeItem("flower-applied-coupon");
+      }
+    }
   }, []);
 
   const subtotal = cartItems.reduce(
@@ -82,10 +92,21 @@ export default function PaymentPage() {
     0
   );
 
+  // 👇 NOVO: Cálculo do desconto
+  let discountAmount = 0;
+  if (appliedCoupon) {
+    if (appliedCoupon.discount_type === "percentage") {
+      discountAmount = (subtotal * appliedCoupon.discount_value) / 100;
+    } else {
+      discountAmount = appliedCoupon.discount_value;
+    }
+  }
+  const finalDiscount = Math.min(discountAmount, subtotal);
+
   const deliveryFee =
     customerData?.deliveryMethod === "delivery" ? DELIVERY_FEE : 0;
 
-  const total = subtotal + deliveryFee;
+  const total = subtotal - finalDiscount + deliveryFee; // 👈 TOTAL COM DESCONTO
 
   function formatPrice(value: number) {
     return value.toLocaleString("pt-BR", {
@@ -131,7 +152,9 @@ export default function PaymentPage() {
         observation: customerData.observation,
         subtotal,
         delivery_fee: deliveryFee,
-        total,
+        total, // 👈 Total já com desconto
+        discount_percent: appliedCoupon?.discount_type === "percentage" ? appliedCoupon.discount_value : 0, // 👈 Novo campo
+        discount_amount: finalDiscount, // 👈 Novo campo
         payment_method: paymentMethodType,
         payment_status: "pending",
         order_status: "pending",
@@ -144,7 +167,7 @@ export default function PaymentPage() {
       throw new Error(orderError.message || "Erro ao criar pedido.");
     }
 
-       const orderItems = cartItems.map((item: any) => ({
+    const orderItems = cartItems.map((item: any) => ({
       order_id: order.id,
       product_id: item.type === "subscription" ? null : item.id,
       product_name: item.name,
@@ -193,7 +216,7 @@ export default function PaymentPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           payment_method_id: "pix",
-          transaction_amount: total,
+          transaction_amount: total, // 👈 Envia o valor com desconto pro Mercado Pago
           device_id: deviceId,
           payer: {
             email: customerData.email,
@@ -243,15 +266,12 @@ export default function PaymentPage() {
     }
 
     try {
-      // Salva o pedido primeiro como "pending"
       const orderId = await saveOrderToSupabase("card_credito");
 
-      // Monta a lista de itens
       const itemsList = cartItems
         .map((item) => `• ${item.quantity}x ${item.name}`)
         .join("\n");
 
-      // Monta a mensagem
       const message = `Olá! Quero pagar com cartão de crédito.
 
 📦 Pedido: #${orderId}
@@ -266,10 +286,8 @@ Aguardo o link de pagamento. Obrigado!`;
       const encodedMessage = encodeURIComponent(message);
       const whatsappLink = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodedMessage}`;
 
-      // Abre o WhatsApp
       window.open(whatsappLink, "_blank");
 
-      // Salva o ID do pedido
       localStorage.setItem("flower-order-id", String(orderId));
 
       setIsFinishing(false);
@@ -579,6 +597,14 @@ Aguardo o link de pagamento. Obrigado!`;
               <span>Produtos</span>
               <strong>{formatPrice(subtotal)}</strong>
             </div>
+
+            {/* 👇 NOVO: Desconto */}
+            {appliedCoupon && (
+              <div style={{ color: "#166534" }}>
+                <span>Desconto ({appliedCoupon.code})</span>
+                <strong>- {formatPrice(finalDiscount)}</strong>
+              </div>
+            )}
 
             <div>
               <span>

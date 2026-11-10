@@ -33,6 +33,8 @@ export default function CheckoutPage() {
   const router = useRouter();
 
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
+  const [discountAmount, setDiscountAmount] = useState(0);
 
   const [deliveryMethod, setDeliveryMethod] = useState<"delivery" | "pickup">(
     "delivery"
@@ -59,12 +61,21 @@ export default function CheckoutPage() {
   useEffect(() => {
     const savedCart = localStorage.getItem("flower-cart");
     const savedCheckout = localStorage.getItem("flower-checkout");
+    const savedCoupon = localStorage.getItem("flower-applied-coupon"); // 👈 NOVO
 
     if (savedCart) {
       try {
         setCartItems(JSON.parse(savedCart));
       } catch {
         localStorage.removeItem("flower-cart");
+      }
+    }
+
+    if (savedCoupon) {
+      try {
+        setAppliedCoupon(JSON.parse(savedCoupon));
+      } catch {
+        localStorage.removeItem("flower-applied-coupon");
       }
     }
 
@@ -100,9 +111,22 @@ export default function CheckoutPage() {
     0
   );
 
+  // Calcula o desconto baseado no cupom
+  let calculatedDiscount = 0;
+  if (appliedCoupon) {
+    if (appliedCoupon.discount_type === "percentage") {
+      calculatedDiscount = (subtotal * appliedCoupon.discount_value) / 100;
+    } else {
+      calculatedDiscount = appliedCoupon.discount_value;
+    }
+  }
+
+  // Garante que o desconto não seja maior que o subtotal
+  const finalDiscount = Math.min(calculatedDiscount, subtotal);
+  
   const deliveryFee = deliveryMethod === "delivery" ? DELIVERY_FEE : 0;
 
-  const total = subtotal + deliveryFee;
+  const total = subtotal - finalDiscount + deliveryFee;
 
   const totalItems = cartItems.reduce((total, item) => total + item.quantity, 0);
 
@@ -306,6 +330,10 @@ export default function CheckoutPage() {
     const checkoutData = {
       ...formData,
       deliveryMethod,
+      // 👇 SALVA O DESCONTO NO LOCALSTORAGE PARA A REVISÃO
+      discount: finalDiscount,
+      couponCode: appliedCoupon?.code || null,
+      totalWithDiscount: total,
     };
 
     localStorage.setItem("flower-checkout", JSON.stringify(checkoutData));
@@ -659,6 +687,13 @@ export default function CheckoutPage() {
 
             <strong>{formatPrice(subtotal)}</strong>
           </div>
+
+          {appliedCoupon && (
+            <div className="summary-line" style={{ color: "#166534" }}>
+              <span>Desconto ({appliedCoupon.code})</span>
+              <strong>- {formatPrice(finalDiscount)}</strong>
+            </div>
+          )}
 
           <div className="summary-line">
             <span>
