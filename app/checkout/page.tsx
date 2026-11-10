@@ -800,7 +800,7 @@ export default function CheckoutPage() {
               )}
             </div>
             {couponError && <p style={{ color: "#dc2626", fontSize: 11, marginTop: 8 }}>{couponError}</p>}
-            {appliedCoupon && <p style={{ color: "#166534", fontSize: 12, marginTop: 8, fontWeight: 600 }}>✅ Cupom "{appliedCoupon.code}" aplicado!</p>}
+            {appliedCoupon && <p style={{ color: "#166534", fontSize: 12, marginTop: 8, fontWeight: 600 }}> Cupom "{appliedCoupon.code}" aplicado!</p>}
           </div>
 
           <div className="summary-line">
