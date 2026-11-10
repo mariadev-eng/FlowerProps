@@ -300,7 +300,7 @@ export default function Home() {
     setSearchTerm("");
   }
 
-  // ================================
+    // ================================
   // FILTRAR PRODUTOS
   // ================================
 
@@ -313,9 +313,10 @@ export default function Home() {
 
     const categoryName = getCategoryName(product.category_id);
 
+    // 👇 Adicionado o "|| ''" para evitar erro caso a descrição esteja nula
     return (
-      product.name.toLowerCase().includes(search) ||
-      product.description.toLowerCase().includes(search) ||
+      (product.name || "").toLowerCase().includes(search) ||
+      (product.description || "").toLowerCase().includes(search) ||
       categoryName.toLowerCase().includes(search)
     );
   });
