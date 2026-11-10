@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase"; // 👈 Importação do Supabase para validar o cupom
 
 type CartItem = {
   id: number;
@@ -33,8 +34,12 @@ export default function CheckoutPage() {
   const router = useRouter();
 
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  
+  // Estados do cupom
+  const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
-  const [discountAmount, setDiscountAmount] = useState(0);
+  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
+  const [couponError, setCouponError] = useState("");
 
   const [deliveryMethod, setDeliveryMethod] = useState<"delivery" | "pickup">(
     "delivery"
@@ -61,21 +66,12 @@ export default function CheckoutPage() {
   useEffect(() => {
     const savedCart = localStorage.getItem("flower-cart");
     const savedCheckout = localStorage.getItem("flower-checkout");
-    const savedCoupon = localStorage.getItem("flower-applied-coupon"); // 👈 NOVO
 
     if (savedCart) {
       try {
         setCartItems(JSON.parse(savedCart));
       } catch {
         localStorage.removeItem("flower-cart");
-      }
-    }
-
-    if (savedCoupon) {
-      try {
-        setAppliedCoupon(JSON.parse(savedCoupon));
-      } catch {
-        localStorage.removeItem("flower-applied-coupon");
       }
     }
 
@@ -111,7 +107,9 @@ export default function CheckoutPage() {
     0
   );
 
-  // Calcula o desconto baseado no cupom
+  // ==========================================
+  // CÁLCULO DO DESCONTO
+  // ==========================================
   let calculatedDiscount = 0;
   if (appliedCoupon) {
     if (appliedCoupon.discount_type === "percentage") {
@@ -121,11 +119,8 @@ export default function CheckoutPage() {
     }
   }
 
-  // Garante que o desconto não seja maior que o subtotal
   const finalDiscount = Math.min(calculatedDiscount, subtotal);
-  
   const deliveryFee = deliveryMethod === "delivery" ? DELIVERY_FEE : 0;
-
   const total = subtotal - finalDiscount + deliveryFee;
 
   const totalItems = cartItems.reduce((total, item) => total + item.quantity, 0);
@@ -135,6 +130,47 @@ export default function CheckoutPage() {
       style: "currency",
       currency: "BRL",
     });
+  }
+
+  // ==========================================
+  // VALIDAÇÃO DO CUPOM
+  // ==========================================
+  async function handleApplyCoupon() {
+    if (!couponCode.trim()) return;
+
+    setIsValidatingCoupon(true);
+    setCouponError("");
+
+    const { data, error } = await supabase
+      .from("coupons")
+      .select("*")
+      .eq("code", couponCode.trim().toUpperCase())
+      .eq("is_active", true)
+      .single();
+
+    if (error || !data) {
+      setCouponError("Cupom inválido ou inativo.");
+      setAppliedCoupon(null);
+      setIsValidatingCoupon(false);
+      return;
+    }
+
+    if (data.valid_until && new Date(data.valid_until) < new Date()) {
+      setCouponError("Este cupom já expirou.");
+      setAppliedCoupon(null);
+      setIsValidatingCoupon(false);
+      return;
+    }
+
+    if (subtotal < data.min_order_value) {
+      setCouponError(`Valor mínimo para este cupom: ${formatPrice(data.min_order_value)}`);
+      setAppliedCoupon(null);
+      setIsValidatingCoupon(false);
+      return;
+    }
+
+    setAppliedCoupon(data);
+    setIsValidatingCoupon(false);
   }
 
   function formatPhone(value: string) {
@@ -149,9 +185,7 @@ export default function CheckoutPage() {
     }
 
     if (numbers.length <= 10) {
-      return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 6)}-${numbers.slice(
-        6
-      )}`;
+      return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 6)}-${numbers.slice(6)}`;
     }
 
     return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(7)}`;
@@ -244,13 +278,11 @@ export default function CheckoutPage() {
 
   function handlePhoneChange(value: string) {
     const formatted = formatPhone(value);
-
     handleChange("phone", formatted);
   }
 
   function handleCepChange(value: string) {
     const formatted = formatCep(value);
-
     handleChange("cep", formatted);
 
     const cleanCep = formatted.replace(/\D/g, "");
@@ -327,13 +359,16 @@ export default function CheckoutPage() {
       return;
     }
 
+    // Salva o cupom aplicado no localStorage
+    if (appliedCoupon) {
+      localStorage.setItem("flower-applied-coupon", JSON.stringify(appliedCoupon));
+    } else {
+      localStorage.removeItem("flower-applied-coupon");
+    }
+
     const checkoutData = {
       ...formData,
       deliveryMethod,
-      // 👇 SALVA O DESCONTO NO LOCALSTORAGE PARA A REVISÃO
-      discount: finalDiscount,
-      couponCode: appliedCoupon?.code || null,
-      totalWithDiscount: total,
     };
 
     localStorage.setItem("flower-checkout", JSON.stringify(checkoutData));
@@ -680,6 +715,49 @@ export default function CheckoutPage() {
             </div>
           )}
 
+          {/* ========================================== */}
+          {/* CAMPO DE CUPOM (AQUI É O LUGAR CORRETO) */}
+          {/* ========================================== */}
+          <div style={{ marginTop: 16, marginBottom: 16, padding: 16, background: "#f9f9f7", borderRadius: 8 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#7a7a72", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              Cupom de desconto
+            </span>
+            
+            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+              <input
+                type="text"
+                placeholder="Código"
+                value={couponCode}
+                onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                disabled={!!appliedCoupon}
+                style={{ flex: 1, padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 13, textTransform: "uppercase" }}
+              />
+              {appliedCoupon ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAppliedCoupon(null);
+                    setCouponCode("");
+                  }}
+                  style={{ padding: "10px 16px", background: "transparent", color: "#991b1b", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+                >
+                  Remover
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleApplyCoupon}
+                  disabled={isValidatingCoupon}
+                  style={{ padding: "10px 16px", background: "#2f2a26", color: "#fff", border: 0, borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: isValidatingCoupon ? "wait" : "pointer" }}
+                >
+                  {isValidatingCoupon ? "..." : "Aplicar"}
+                </button>
+              )}
+            </div>
+            {couponError && <p style={{ color: "#dc2626", fontSize: 11, marginTop: 6 }}>{couponError}</p>}
+            {appliedCoupon && <p style={{ color: "#166534", fontSize: 11, marginTop: 6, fontWeight: 600 }}>✅ Cupom "{appliedCoupon.code}" aplicado!</p>}
+          </div>
+
           <div className="summary-line">
             <span>
               Subtotal ({totalItems} {totalItems === 1 ? "item" : "itens"})
@@ -688,6 +766,7 @@ export default function CheckoutPage() {
             <strong>{formatPrice(subtotal)}</strong>
           </div>
 
+          {/* 👇 LINHA DE DESCONTO */}
           {appliedCoupon && (
             <div className="summary-line" style={{ color: "#166534" }}>
               <span>Desconto ({appliedCoupon.code})</span>
