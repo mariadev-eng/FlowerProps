@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase"; // 👈 Importação do Supabase para validar o cupom
+import { supabase } from "@/lib/supabase";
 
 type CartItem = {
   id: number;
@@ -716,21 +716,46 @@ export default function CheckoutPage() {
           )}
 
           {/* ========================================== */}
-          {/* CAMPO DE CUPOM (AQUI É O LUGAR CORRETO) */}
+          {/* CAMPO DE CUPOM ESTILIZADO */}
           {/* ========================================== */}
-          <div style={{ marginTop: 16, marginBottom: 16, padding: 16, background: "#f9f9f7", borderRadius: 8 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "#7a7a72", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              Cupom de desconto
+          <div style={{ 
+            marginTop: 24, 
+            marginBottom: 24, 
+            paddingTop: 16, 
+            borderTop: "1px solid #e0e0dc" 
+          }}>
+            <span 
+              style={{ 
+                fontSize: 10, 
+                fontWeight: 700, 
+                color: "#7a7a72", 
+                textTransform: "uppercase", 
+                letterSpacing: "0.1em",
+                fontFamily: "inherit"
+              }}
+            >
+              Cupom de Desconto
             </span>
             
-            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
               <input
                 type="text"
-                placeholder="Código"
+                placeholder="Digite o código"
                 value={couponCode}
                 onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
                 disabled={!!appliedCoupon}
-                style={{ flex: 1, padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 6, fontSize: 13, textTransform: "uppercase" }}
+                style={{ 
+                  flex: 1, 
+                  padding: "10px 0", 
+                  background: "transparent",
+                  border: "none",
+                  borderBottom: "1px solid #d1d5db", 
+                  fontSize: 14, 
+                  textTransform: "uppercase",
+                  outline: "none",
+                  fontFamily: "inherit",
+                  color: "#2f2a26"
+                }}
               />
               {appliedCoupon ? (
                 <button
@@ -739,7 +764,16 @@ export default function CheckoutPage() {
                     setAppliedCoupon(null);
                     setCouponCode("");
                   }}
-                  style={{ padding: "10px 16px", background: "transparent", color: "#991b1b", border: "1px solid #fecaca", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+                  style={{ 
+                    padding: "0", 
+                    background: "transparent", 
+                    color: "#991b1b", 
+                    border: "none", 
+                    fontSize: 11, 
+                    fontWeight: 600, 
+                    textDecoration: "underline",
+                    cursor: "pointer" 
+                  }}
                 >
                   Remover
                 </button>
@@ -748,14 +782,25 @@ export default function CheckoutPage() {
                   type="button"
                   onClick={handleApplyCoupon}
                   disabled={isValidatingCoupon}
-                  style={{ padding: "10px 16px", background: "#2f2a26", color: "#fff", border: 0, borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: isValidatingCoupon ? "wait" : "pointer" }}
+                  style={{ 
+                    padding: "8px 16px", 
+                    background: "#2f2a26", 
+                    color: "#fff", 
+                    border: 0, 
+                    borderRadius: 4, 
+                    fontSize: 11, 
+                    fontWeight: 600, 
+                    letterSpacing: "0.05em",
+                    textTransform: "uppercase",
+                    cursor: isValidatingCoupon ? "wait" : "pointer" 
+                  }}
                 >
                   {isValidatingCoupon ? "..." : "Aplicar"}
                 </button>
               )}
             </div>
-            {couponError && <p style={{ color: "#dc2626", fontSize: 11, marginTop: 6 }}>{couponError}</p>}
-            {appliedCoupon && <p style={{ color: "#166534", fontSize: 11, marginTop: 6, fontWeight: 600 }}>✅ Cupom "{appliedCoupon.code}" aplicado!</p>}
+            {couponError && <p style={{ color: "#dc2626", fontSize: 11, marginTop: 8 }}>{couponError}</p>}
+            {appliedCoupon && <p style={{ color: "#166534", fontSize: 12, marginTop: 8, fontWeight: 600 }}>✅ Cupom "{appliedCoupon.code}" aplicado!</p>}
           </div>
 
           <div className="summary-line">
