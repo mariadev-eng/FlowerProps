@@ -300,11 +300,21 @@ export default function Home() {
     setSearchTerm("");
   }
 
-    // ================================
+  // ================================
   // FILTRAR PRODUTOS
   // ================================
 
   const filteredProducts = products.filter((product) => {
+    // 👇 1. ESCONDE AS ASSINATURAS DA BUSCA E DA HOME
+    // (Ajuste o "product.category_id !== 2" se a categoria das assinaturas tiver outro ID)
+    if (
+      product.name.toLowerCase().includes("assinatura") ||
+      product.name.toLowerCase().includes("plano") ||
+      product.category_id === 2 
+    ) {
+      return false;
+    }
+
     const search = searchTerm.toLowerCase().trim();
 
     if (!search) {
@@ -313,7 +323,6 @@ export default function Home() {
 
     const categoryName = getCategoryName(product.category_id);
 
-    // 👇 Adicionado o "|| ''" para evitar erro caso a descrição esteja nula
     return (
       (product.name || "").toLowerCase().includes(search) ||
       (product.description || "").toLowerCase().includes(search) ||
