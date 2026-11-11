@@ -389,17 +389,28 @@ function FilaPedidos() {
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
       .join(" ");
 
+    // Lógica para exibir o desconto sem a porcentagem
+    let textoValores = `*Total:* ${formatPrice(order.total)}`;
+
+    if (order.discount_amount && order.discount_amount > 0) {
+      const valorOriginal = order.subtotal + order.delivery_fee;
+      
+      textoValores = `*Total:* ${formatPrice(valorOriginal)}
+*Total com desconto:* ${formatPrice(order.total)}`;
+    }
+
     const mensagem = `Olá ${nomeFormatado}!
 
 Segue o orçamento do seu pedido #${order.id}:
 ${linkOrcamento}
+
+${textoValores}
 
 Qualquer dúvida, estamos à disposição!`;
 
     const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(mensagem)}`;
     window.open(waUrl, "_blank");
   }
-
   function formatDate(value: string) {
     const date = new Date(value);
     return date.toLocaleString("pt-BR", {
