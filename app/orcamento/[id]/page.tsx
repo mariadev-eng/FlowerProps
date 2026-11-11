@@ -30,6 +30,7 @@ type Order = {
   subtotal: number;
   delivery_fee: number;
   total: number;
+  discount_amount?: number | null; // 👈 NOVO: Campo do desconto
   payment_method: string;
   created_at: string;
   order_items: OrderItem[];
@@ -125,6 +126,13 @@ export default function OrcamentoPage() {
 
   const items = order.order_items || [];
   const hasDeliveryFee = order.delivery_fee > 0;
+  const hasDiscount = order.discount_amount && order.discount_amount > 0;
+  
+  // Se tiver desconto, o valor original é o subtotal + frete. 
+  // Se não, o valor original é o total.
+  const valorOriginal = hasDiscount 
+    ? order.subtotal + order.delivery_fee 
+    : order.total;
 
   return (
     <main style={pageWrapStyle}>
@@ -212,10 +220,27 @@ export default function OrcamentoPage() {
             </>
           )}
 
-          <div style={totalRowStyle}>
-            <span style={totalLabelStyle}>Total</span>
-            <span style={totalValueStyle}>{formatPrice(order.total)}</span>
-          </div>
+          {/* 👇 LÓGICA DO DESCONTO NO ORÇAMENTO */}
+          {hasDiscount ? (
+            <>
+              <div style={{ ...subtotalRowStyle, marginTop: 10, marginBottom: 10 }}>
+                <span>Total</span>
+                <span style={{ textDecoration: "line-through", color: "#9ca3af" }}>
+                  {formatPrice(valorOriginal)}
+                </span>
+              </div>
+              
+              <div style={totalRowStyle}>
+                <span style={totalLabelStyle}>Total com desconto</span>
+                <span style={totalValueStyle}>{formatPrice(order.total)}</span>
+              </div>
+            </>
+          ) : (
+            <div style={totalRowStyle}>
+              <span style={totalLabelStyle}>Total</span>
+              <span style={totalValueStyle}>{formatPrice(order.total)}</span>
+            </div>
+          )}
 
           <div style={paymentMethodStyle}>
             Pagamento via {order.payment_method}
@@ -250,7 +275,7 @@ export default function OrcamentoPage() {
 }
 
 // ==========================================
-// ESTILOS
+// ESTILOS (Mantidos iguais)
 // ==========================================
 
 const pageWrapStyle: React.CSSProperties = {

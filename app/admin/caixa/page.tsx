@@ -49,8 +49,8 @@ type Order = {
   order_status: string;
   created_at: string;
   order_items?: OrderItem[];
-  discount_percent?: number | null;  // 👈 NOVO
-  discount_amount?: number | null;   // 👈 NOVO
+  discount_percent?: number | null;
+  discount_amount?: number | null;
 };
 
 type ProductColor = {
@@ -389,28 +389,17 @@ function FilaPedidos() {
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
       .join(" ");
 
-    // Lógica para exibir o desconto sem a porcentagem
-    let textoValores = `*Total:* ${formatPrice(order.total)}`;
-
-    if (order.discount_amount && order.discount_amount > 0) {
-      const valorOriginal = order.subtotal + order.delivery_fee;
-      
-      textoValores = `*Total:* ${formatPrice(valorOriginal)}
-*Total com desconto:* ${formatPrice(order.total)}`;
-    }
-
     const mensagem = `Olá ${nomeFormatado}!
 
 Segue o orçamento do seu pedido #${order.id}:
 ${linkOrcamento}
-
-${textoValores}
 
 Qualquer dúvida, estamos à disposição!`;
 
     const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(mensagem)}`;
     window.open(waUrl, "_blank");
   }
+
   function formatDate(value: string) {
     const date = new Date(value);
     return date.toLocaleString("pt-BR", {
@@ -657,6 +646,7 @@ Qualquer dúvida, estamos à disposição!`;
                         borderTop: i > 0 ? "1px solid #e0e0dc" : "none",
                       }}
                     >
+                      {/* 👇 Corrigido: Removida a duplicação do nome aqui */}
                       <strong>{item.quantity}x</strong> {item.product_name}
                       {item.item_type === "subscription" && (
                         <span
@@ -674,21 +664,18 @@ Qualquer dúvida, estamos à disposição!`;
                         </span>
                       )}
 
-                      <strong>{item.quantity}x</strong> {item.product_name}
-                      {item.item_type === "subscription" && (
-                        <span
+                      {item.description && (
+                        <div
                           style={{
-                            marginLeft: 6,
-                            padding: "1px 6px",
-                            borderRadius: 3,
-                            fontSize: 10,
-                            fontWeight: 600,
-                            background: "#ede9fe",
-                            color: "#6d28d9",
+                            fontSize: 11,
+                            color: "#7a7a72",
+                            fontStyle: "italic",
+                            marginTop: 4,
+                            paddingLeft: 12,
                           }}
                         >
-                          🌸 Assinatura
-                        </span>
+                          {item.description}
+                        </div>
                       )}
 
                       {item.selected_color && (
@@ -806,7 +793,6 @@ Qualquer dúvida, estamos à disposição!`;
     </>
   );
 }
-
 // ==========================================
 // NOVO PEDIDO
 // ==========================================
@@ -857,7 +843,7 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
   const [customQty, setCustomQty] = useState("1");
   const [customDescription, setCustomDescription] = useState("");
 
-  // 👇 NOVO: Estado do desconto
+  // Estado do desconto
   const [discountPercent, setDiscountPercent] = useState("");
 
   useEffect(() => {
@@ -1086,7 +1072,7 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
   const deliveryFee =
     deliveryMethod === "delivery" && !hasSubscription ? 15 : 0;
 
-  // 👇 NOVO: Cálculo do desconto (apenas nos produtos, frete cheio)
+  // Cálculo do desconto (apenas nos produtos, frete cheio)
   const parsedDiscount = Number(discountPercent) || 0;
   const discountAmount = (subtotal * parsedDiscount) / 100;
   const finalSubtotal = subtotal - discountAmount;
@@ -1139,14 +1125,14 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
     const dayName = d.toLocaleDateString("pt-BR", { weekday: "long" });
     return dayName.charAt(0).toUpperCase() + dayName.slice(1);
   }
-   // ==========================================
+
+  // ==========================================
   // CÁLCULO DA PRÓXIMA RENOVAÇÃO (VERSÃO BLINDADA)
   // ==========================================
 
   function calculateNextRenewal(sub: Subscription): string {
     const d = new Date();
 
-    // Usa deliveries_per_month como fonte da verdade
     const deliveries = sub.deliveries_per_month;
 
     if (deliveries >= 4) {
@@ -1273,7 +1259,6 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
           payment_method: paymentMethod,
           payment_status: "paid",
           order_status: "confirmed",
-          // 👇 NOVO: Salvando o desconto no banco
           discount_percent: parsedDiscount,
           discount_amount: discountAmount,
         })
@@ -1310,9 +1295,9 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
           quantity: line.quantity,
           subtotal: (line.product.price + extraFromFlowers) * line.quantity,
           item_type: line.kind === "product" ? "product" : "subscription",
-           description: isCustomItem 
-      ? (line.product as Product).description || null 
-      : null, 
+          description: isCustomItem
+            ? (line.product as Product).description || null
+            : null,
           selected_flowers: line.selectedFlowers.map((f) => ({
             name: f.name,
             image: f.image,
@@ -1656,7 +1641,7 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
               marginBottom: 8,
             }}
           >
-           ✏️ Adicionar item manual
+            ✏️ Adicionar item manual
           </div>
 
           <input
@@ -1671,7 +1656,6 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
             }}
           />
 
-          {/* 👇 NOVO: Input de descrição */}
           <textarea
             value={customDescription}
             onChange={(e) => setCustomDescription(e.target.value)}
@@ -1804,7 +1788,6 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
                       )}
                     </div>
 
-                    {/* 👇 NOVO: Mostrar descrição do item manual */}
                     {line.product.description && (
                       <div
                         style={{
@@ -2236,7 +2219,6 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
             <strong>{formatPrice(subtotal)}</strong>
           </div>
 
-          {/* 👇 NOVO: Input de Desconto */}
           <div
             style={{
               display: "flex",
@@ -2270,7 +2252,6 @@ function NovoPedido({ onCreated }: { onCreated: () => void }) {
             />
           </div>
 
-          {/* 👇 NOVO: Linha do Desconto calculado */}
           {discountAmount > 0 && (
             <div
               style={{
