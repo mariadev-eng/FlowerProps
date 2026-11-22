@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { supabase } from "@/lib/supabase"; // 👈 IMPORTANDO O SUPABASE
 
 export default function EncomendasNatalPage() {
   const [nome, setNome] = useState("");
@@ -10,6 +11,7 @@ export default function EncomendasNatalPage() {
   const [detalhes, setDetalhes] = useState("");
   
   const [linkGerado, setLinkGerado] = useState("");
+  const [isLoading, setIsLoading] = useState(false); // 👈 Para evitar duplo clique
 
   function selecionarTamanho(tamanhoSelecionado: string) {
     setTamanho(tamanhoSelecionado);
@@ -17,32 +19,38 @@ export default function EncomendasNatalPage() {
     if (formElement) formElement.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  function gerarLinkEEnviar(e: React.FormEvent) {
+  async function gerarLinkEEnviar(e: React.FormEvent) {
     e.preventDefault();
+    setIsLoading(true);
 
-    // 1. Gera um ID único simples (baseado no tempo atual)
-    const idPedido = "nat" + Date.now().toString().slice(-8);
+    // Salva no banco de dados (Supabase)
+    const { data, error } = await supabase
+      .from("christmas_quotes")
+      .insert({
+        nome,
+        data_evento: dataEvento,
+        tipo_arranjo: tipoArranjo,
+        tamanho,
+        detalhes,
+      })
+      .select("id")
+      .single();
 
-    // 2. Monta o objeto do pedido
-    const novoPedido = { nome, dataEvento, tipoArranjo, tamanho, detalhes };
-
-    // 3. Salva no localStorage do cliente
-    try {
-      const salvos = localStorage.getItem("flower-natal-orcamentos");
-      const todosPedidos = salvos ? JSON.parse(salvos) : {};
-      
-      todosPedidos[idPedido] = novoPedido;
-      localStorage.setItem("flower-natal-orcamentos", JSON.stringify(todosPedidos));
-    } catch (err) {
-      console.error("Erro ao salvar no navegador", err);
+    if (error || !data) {
+      alert("Erro ao gerar orçamento. Tente novamente.");
+      console.error("Erro Supabase:", error);
+      setIsLoading(false);
+      return;
     }
 
-    // 4. Gera o link com base na URL atual (funciona em localhost e em produção)
+    const idPedido = data.id;
+
+    // Gera o link com base na URL atual (funciona em localhost e em produção)
     const baseUrl = window.location.origin;
     const linkOrcamento = `${baseUrl}/orcamento-natal/${idPedido}`;
     setLinkGerado(linkOrcamento);
 
-    // 5. Monta a mensagem do WhatsApp com o link
+    // Monta a mensagem do WhatsApp com o link
     const numeroWhatsApp = "5522992298475";
     const mensagem = `Olá! Acabei de gerar um orçamento para arranjo de Natal. 🎄✨
 
@@ -53,6 +61,8 @@ Pode dar uma olhada e me confirmar a disponibilidade?`;
 
     const url = `https://wa.me/${numeroWhatsApp}?text=${encodeURIComponent(mensagem)}`;
     window.open(url, "_blank");
+    
+    setIsLoading(false);
   }
 
   return (
@@ -135,8 +145,14 @@ Pode dar uma olhada e me confirmar a disponibilidade?`;
               <textarea required rows={4} value={detalhes} onChange={(e) => setDetalhes(e.target.value)} placeholder="Ex: Gostaria de um arranjo com flores vermelhas e detalhes dourados." style={{ padding: "14px", borderRadius: 4, border: "1px solid #d1d5db", resize: "vertical" }} />
             </label>
 
-            <button type="submit" style={{ marginTop: 10, padding: "16px", background: "#b88a44", color: "#fff", border: 0, borderRadius: 4, fontSize: 13, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", cursor: "pointer", transition: "background 0.2s" }} onMouseEnter={(e) => e.currentTarget.style.background = "#9a7133"} onMouseLeave={(e) => e.currentTarget.style.background = "#b88a44"}>
-              Gerar Orçamento e Enviar
+            <button 
+              type="submit" 
+              disabled={isLoading}
+              style={{ marginTop: 10, padding: "16px", background: isLoading ? "#d1d5db" : "#b88a44", color: "#fff", border: 0, borderRadius: 4, fontSize: 13, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", cursor: isLoading ? "wait" : "pointer", transition: "background 0.2s" }} 
+              onMouseEnter={(e) => !isLoading && (e.currentTarget.style.background = "#9a7133")} 
+              onMouseLeave={(e) => !isLoading && (e.currentTarget.style.background = "#b88a44")}
+            >
+              {isLoading ? "Gerando..." : "Gerar Orçamento e Enviar"}
             </button>
 
             {linkGerado && (
