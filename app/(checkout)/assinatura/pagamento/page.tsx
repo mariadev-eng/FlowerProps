@@ -478,11 +478,15 @@ export default function AssinaturaPagamentoPage() {
 
   return (
     <main className="payment-page">
+      {/* HEADER COM A LOGO NOVA */}
       <header className="payment-header">
         <div className="payment-header-inner">
-          <Link href="/" className="payment-logo">
-            FLOWER
-            <span>PROPS</span>
+          <Link href="/" className="payment-logo" style={{ display: "flex", alignItems: "center" }}>
+            <img 
+              src="/images/logonova.png" 
+              alt="FLOWER" 
+              style={{ height: "80px", width: "auto", objectFit: "contain" }} 
+            />
           </Link>
 
           <div className="payment-header-title">

@@ -306,10 +306,15 @@ export default function AssinaturaCheckoutPage() {
 
   return (
     <main className="checkout-page">
+      {/* HEADER COM A LOGO NOVA */}
       <header className="checkout-header">
         <div className="checkout-header-inner">
-          <Link href="/" className="checkout-logo">
-            FLOWER
+          <Link href="/" className="checkout-logo" style={{ display: "flex", alignItems: "center" }}>
+            <img 
+              src="/images/logonova.png" 
+              alt="FLOWER" 
+              style={{ height: "100px", width: "auto", objectFit: "contain" }} 
+            />
           </Link>
 
           <span className="checkout-header-title">
