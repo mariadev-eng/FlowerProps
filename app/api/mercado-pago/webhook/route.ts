@@ -13,7 +13,6 @@ function calculateNextDeliveryDate(
 ): Date {
   const result = new Date(baseDate);
 
-  // Soma os dias da frequência
   if (frequency === "weekly") {
     result.setDate(result.getDate() + 7);
   } else if (frequency === "biweekly") {
@@ -22,7 +21,6 @@ function calculateNextDeliveryDate(
     result.setMonth(result.getMonth() + 1);
   }
 
-  // Ajusta para o próximo sábado/domingo
   const targetDay = deliveryDay === "saturday" ? 6 : 0;
   while (result.getDay() !== targetDay) {
     result.setDate(result.getDate() + 1);
@@ -57,15 +55,12 @@ function verifySignature(
     const ts = tsPart.split("=")[1];
     const v1 = v1Part.split("=")[1];
 
-    // Manifest conforme documentação do Mercado Pago
     const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`;
 
-    // Gera HMAC-SHA256
     const hmac = createHmac("sha256", secret);
     hmac.update(manifest);
     const generatedHash = hmac.digest("hex");
 
-    // Compara de forma segura
     return timingSafeEqual(
       Buffer.from(generatedHash),
       Buffer.from(v1)
@@ -87,24 +82,19 @@ export async function POST(request: Request) {
     const xSignature = request.headers.get("x-signature");
     const xRequestId = request.headers.get("x-request-id");
 
-    // ID do pagamento pode estar em body.data.id
     const paymentId = body.data?.id || body.id;
 
-    // Validação básica
     if (!xSignature || !xRequestId || !paymentId) {
       return NextResponse.json({ received: true });
     }
 
-    // Valida a assinatura
     const isValid = verifySignature(xSignature, xRequestId, paymentId);
     if (!isValid) {
       console.warn("Assinatura de webhook inválida.");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Só processa eventos do tipo "payment"
     if (body.type === "payment") {
-      // Busca detalhes atualizados do pagamento
       const mpResponse = await fetch(
         `https://api.mercadopago.com/v1/payments/${paymentId}`,
         {
@@ -116,7 +106,6 @@ export async function POST(request: Request) {
 
       const paymentData = await mpResponse.json();
 
-      // Só processa se estiver aprovado
       if (paymentData.status === "approved") {
         const externalRef = paymentData.external_reference || "";
 
@@ -128,90 +117,86 @@ export async function POST(request: Request) {
         // CASO 1: ASSINATURA (external_reference = "SUBSCRIPTION-123")
         // =====================================================
 
-       if (externalRef.startsWith("SUBSCRIPTION-")) {
-  const orderId = externalRef.replace("SUBSCRIPTION-", "");
+        if (externalRef.startsWith("SUBSCRIPTION-")) {
+          const orderId = externalRef.replace("SUBSCRIPTION-", "");
 
-  if (orderId) {
-    // 1. Busca os dados atuais da assinatura
-    const { data: sub } = await supabase
-      .from("subscription_orders")
-      .select("*")
-      .eq("id", orderId)
-      .single();
+          if (orderId) {
+            const { data: sub } = await supabase
+              .from("subscription_orders")
+              .select("*")
+              .eq("id", orderId)
+              .single();
 
-    if (sub) {
-      // 2. Calcula a próxima entrega a partir da última entrega
-      const baseDate = sub.last_delivered_at
-        ? new Date(sub.last_delivered_at)
-        : new Date();
+            if (sub) {
+              const baseDate = sub.last_delivered_at
+                ? new Date(sub.last_delivered_at)
+                : new Date();
 
-      const deliveryDay =
-        sub.delivery_day === "sunday" ? "sunday" : "saturday";
+              const deliveryDay =
+                sub.delivery_day === "sunday" ? "sunday" : "saturday";
 
-      const nextDelivery = calculateNextDeliveryDate(
-        baseDate,
-        sub.plan_frequency,
-        deliveryDay
-      );
+              const nextDelivery = calculateNextDeliveryDate(
+                baseDate,
+                sub.plan_frequency,
+                deliveryDay
+              );
 
-      // 3. Atualiza a assinatura
-      const { error } = await supabase
-        .from("subscription_orders")
-        .update({
-          payment_status: "paid",
-          payment_id: String(paymentData.id),
-          last_payment_at: new Date().toISOString(),
-          next_renewal_at: nextDelivery.toISOString(),
-          last_delivered_at: null, // 👈 limpa pra sair de "Vencendo"
-          current_cycle_start: new Date().toISOString(),
-        })
-        .eq("id", orderId);
+              const { error } = await supabase
+                .from("subscription_orders")
+                .update({
+                  payment_status: "paid",
+                  payment_id: String(paymentData.id),
+                  last_payment_at: new Date().toISOString(),
+                  next_renewal_at: nextDelivery.toISOString(),
+                  last_delivered_at: null,
+                  current_cycle_start: new Date().toISOString(),
+                })
+                .eq("id", orderId);
 
-      if (error) {
-        console.error("ERRO ao atualizar assinatura:", error.message);
-      } else {
-        console.log(`✅ Assinatura ${orderId} renovada!`);
-        console.log(`   Próxima entrega: ${nextDelivery.toISOString()}`);
+              if (error) {
+                console.error("ERRO ao atualizar assinatura:", error.message);
+              } else {
+                console.log(`✅ Assinatura ${orderId} renovada!`);
+                console.log(`   Próxima entrega: ${nextDelivery.toISOString()}`);
 
-        // 4. Deleta as entregas antigas (do ciclo anterior)
-        await supabase
-          .from("subscription_deliveries")
-          .delete()
-          .eq("subscription_order_id", orderId);
+                await supabase
+                  .from("subscription_deliveries")
+                  .delete()
+                  .eq("subscription_order_id", orderId);
 
-        console.log(`🗑️ Entregas antigas removidas`);
-      }
-              // 4. Envia o e-mail de renovação chamando a Edge Function
-        if (sub.customer_email) {
-          try {
-            const response = await fetch(
-              `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/enviar-email-renovacao`,
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-                },
-                body: JSON.stringify({
-                  subscription_order_id: sub.id,
-                  next_delivery_date: nextDelivery.toISOString(),
-                }),
+                console.log(`🗑️ Entregas antigas removidas`);
               }
-            );
 
-            if (!response.ok) {
-              const errorData = await response.json();
-              console.error("❌ Erro na Edge Function de e-mail:", errorData);
-            } else {
-              console.log(`📧 E-mail de renovação enviado com sucesso!`);
+              if (sub.customer_email) {
+                try {
+                  const response = await fetch(
+                    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/enviar-email-renovacao`,
+                    {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+                      },
+                      body: JSON.stringify({
+                        subscription_order_id: sub.id,
+                        next_delivery_date: nextDelivery.toISOString(),
+                      }),
+                    }
+                  );
+
+                  if (!response.ok) {
+                    const errorData = await response.json();
+                    console.error("❌ Erro na Edge Function de e-mail:", errorData);
+                  } else {
+                    console.log(`📧 E-mail de renovação enviado com sucesso!`);
+                  }
+                } catch (emailErr) {
+                  console.error("❌ Erro de rede ao chamar a Edge Function:", emailErr);
+                }
+              }
             }
-          } catch (emailErr) {
-            console.error("❌ Erro de rede ao chamar a Edge Function:", emailErr);
           }
         }
-    }
-  }
-}
 
         // =====================================================
         // CASO 2: PEDIDO NORMAL (external_reference = "FLOWER-123")
@@ -239,11 +224,34 @@ export async function POST(request: Request) {
         }
 
         // =====================================================
-        // CASO 3: formato antigo (sem prefixo) — fallback
+        // CASO 3: ARRANJO DE NATAL (external_reference = "NATAL-123")
+        // =====================================================
+
+        else if (externalRef.startsWith("NATAL-")) {
+          const orderId = externalRef.replace("NATAL-", "");
+
+          if (orderId) {
+            const { error } = await supabase
+              .from("christmas_quotes")
+              .update({
+                payment_status: "paid",
+                payment_id: String(paymentData.id),
+              })
+              .eq("id", orderId);
+
+            if (error) {
+              console.error("ERRO ao atualizar pedido de Natal:", error.message);
+            } else {
+              console.log(`✅ Arranjo de Natal ${orderId} atualizado para PAGO.`);
+            }
+          }
+        }
+
+        // =====================================================
+        // CASO 4: formato antigo (sem prefixo) — fallback
         // =====================================================
 
         else {
-          // Tenta atualizar em orders primeiro
           const orderId = externalRef.replace("FLOWER-", "");
 
           if (orderId) {
@@ -257,17 +265,13 @@ export async function POST(request: Request) {
               .eq("id", orderId);
 
             if (error) {
-              console.error(
-                "ERRO ao atualizar (fallback):",
-                error.message
-              );
+              console.error("ERRO ao atualizar (fallback):", error.message);
             }
           }
         }
       }
     }
 
-    // Sempre retorna 200 OK pro Mercado Pago
     return NextResponse.json({ received: true });
   } catch (error) {
     console.error("Erro no processamento do webhook:", error);

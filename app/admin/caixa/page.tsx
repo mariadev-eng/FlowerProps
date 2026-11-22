@@ -51,6 +51,10 @@ type Order = {
   order_items?: OrderItem[];
   discount_percent?: number | null;
   discount_amount?: number | null;
+  isNatal?: boolean;
+  tamanho?: string;
+  tipo_arranjo?: string;
+  data_evento?: string;
 };
 
 type ProductColor = {
@@ -278,6 +282,7 @@ function FilaPedidos() {
       dateCondition = start.toISOString();
     }
 
+    // 1. Pedidos Normais
     let query = supabase
       .from("orders")
       .select(`*, order_items:order_items(*)`)
@@ -285,19 +290,49 @@ function FilaPedidos() {
       .eq("order_status", "confirmed")
       .order("created_at", { ascending: true });
 
-    if (dateCondition) {
-      query = query.gte("created_at", dateCondition);
-    }
+    if (dateCondition) query = query.gte("created_at", dateCondition);
+    const { data: normalOrders } = await query;
 
-    const { data, error } = await query;
+    // 2. Pedidos de Natal
+    let natalQuery = supabase
+      .from("christmas_quotes")
+      .select("*")
+      .eq("payment_status", "paid")
+      .order("created_at", { ascending: true });
 
-    if (error) {
-      console.error("Erro ao carregar pedidos:", error);
-      setOrders([]);
-    } else {
-      setOrders(data ?? []);
-    }
+    if (dateCondition) natalQuery = natalQuery.gte("created_at", dateCondition);
+    const { data: natalData } = await natalQuery;
 
+    // 3. Unifica os dois
+    const formattedNatal: Order[] = (natalData || []).map((n: any) => ({
+      id: n.id,
+      customer_name: n.nome,
+      customer_phone: "Via Site",
+      customer_email: "",
+      delivery_method: "delivery", 
+      delivery_day: null,
+      scheduled_date: n.data_evento, 
+      scheduled_time: null,
+      cep: null, street: null, number: null, complement: null, neighborhood: null, city: null,
+      observation: n.detalhes,
+      subtotal: n.valor || 0,
+      delivery_fee: 0,
+      total: n.valor || 0,
+      payment_method: n.payment_method || "pix",
+      payment_status: "paid",
+      order_status: "confirmed",
+      created_at: n.created_at,
+      isNatal: true,
+      tamanho: n.tamanho,
+      tipo_arranjo: n.tipo_arranjo,
+      data_evento: n.data_evento,
+    }));
+
+    const allOrders = [...formattedNatal, ...(normalOrders || [])].sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+
+    setOrders(allOrders);
     setIsLoading(false);
   }
 
@@ -312,48 +347,53 @@ function FilaPedidos() {
     return true;
   });
 
-  async function markAsDelivered(id: number) {
+   async function markAsDelivered(id: number, isNatal: boolean) {
     if (!confirm("Marcar esse pedido como ENTREGUE?")) return;
     setActionLoading(id);
 
-    const { error } = await supabase
-      .from("orders")
-      .update({
-        order_status: "delivered",
-        delivered_at: new Date().toISOString(),
-      })
-      .eq("id", id);
-
-    setActionLoading(null);
-
-    if (error) {
-      alert("Erro: " + error.message);
-      return;
+    if (isNatal) {
+      const { error } = await supabase
+        .from("christmas_quotes")
+        .update({ order_status: "delivered" })
+        .eq("id", id);
+      if (error) alert("Erro: " + error.message);
+    } else {
+      const { error } = await supabase
+        .from("orders")
+        .update({
+          order_status: "delivered",
+          delivered_at: new Date().toISOString(),
+        })
+        .eq("id", id);
+      if (error) alert("Erro: " + error.message);
     }
 
+    setActionLoading(null);
     setOrders((current) => current.filter((o) => o.id !== id));
   }
 
-  async function cancelOrder(id: number) {
-    if (!confirm("Cancelar esse pedido? Essa ação não pode ser desfeita."))
-      return;
+  async function cancelOrder(id: number, isNatal: boolean) {
+    if (!confirm("Cancelar esse pedido? Essa ação não pode ser desfeita.")) return;
     setActionLoading(id);
 
-    const { error } = await supabase
-      .from("orders")
-      .update({
-        order_status: "cancelled",
-        cancelled_at: new Date().toISOString(),
-      })
-      .eq("id", id);
-
-    setActionLoading(null);
-
-    if (error) {
-      alert("Erro: " + error.message);
-      return;
+    if (isNatal) {
+      const { error } = await supabase
+        .from("christmas_quotes")
+        .update({ order_status: "cancelled" })
+        .eq("id", id);
+      if (error) alert("Erro: " + error.message);
+    } else {
+      const { error } = await supabase
+        .from("orders")
+        .update({
+          order_status: "cancelled",
+          cancelled_at: new Date().toISOString(),
+        })
+        .eq("id", id);
+      if (error) alert("Erro: " + error.message);
     }
 
+    setActionLoading(null);
     setOrders((current) => current.filter((o) => o.id !== id));
   }
 
@@ -747,30 +787,36 @@ Qualquer dúvida, estamos à disposição!`;
                 </div>
               )}
 
-              <div
+                            <div
                 style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}
               >
-                <button
-                  type="button"
-                  onClick={() => handlePrint(order.id)}
-                  disabled={actionLoading === order.id}
-                  style={btnSecondaryStyle}
-                >
-                  🖨️ Imprimir
-                </button>
+                {!order.isNatal && (
+                  <button
+                    type="button"
+                    onClick={() => handlePrint(order.id)}
+                    disabled={actionLoading === order.id}
+                    style={btnSecondaryStyle}
+                  >
+                    🖨️ Imprimir
+                  </button>
+                )}
 
                 <button
                   type="button"
                   onClick={() => handleOrcamento(order)}
-                  disabled={actionLoading === order.id}
-                  style={btnWhatsAppStyle}
+                  disabled={actionLoading === order.id || !!order.isNatal}
+                  style={{
+                    ...btnWhatsAppStyle,
+                    display: order.isNatal ? "none" : "block",
+                  }}
                 >
                   📄 Enviar orçamento
                 </button>
 
+                {/* 👇 Passando o isNatal (booleano) para as funções */}
                 <button
                   type="button"
-                  onClick={() => cancelOrder(order.id)}
+                  onClick={() => cancelOrder(order.id, !!order.isNatal)}
                   disabled={actionLoading === order.id}
                   style={btnDangerStyle}
                 >
@@ -779,13 +825,14 @@ Qualquer dúvida, estamos à disposição!`;
 
                 <button
                   type="button"
-                  onClick={() => markAsDelivered(order.id)}
+                  onClick={() => markAsDelivered(order.id, !!order.isNatal)}
                   disabled={actionLoading === order.id}
                   style={btnSuccessStyle}
                 >
                   {actionLoading === order.id ? "..." : "✅ Entregue"}
                 </button>
               </div>
+                  
             </div>
           ))}
         </div>

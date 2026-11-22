@@ -1,17 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/lib/supabase"; // 👈 IMPORTANDO O SUPABASE
+import { useRouter } from "next/navigation";
 
 export default function EncomendasNatalPage() {
+  const router = useRouter();
+  
   const [nome, setNome] = useState("");
   const [dataEvento, setDataEvento] = useState("");
   const [tipoArranjo, setTipoArranjo] = useState("");
   const [tamanho, setTamanho] = useState("");
   const [detalhes, setDetalhes] = useState("");
   
-  const [linkGerado, setLinkGerado] = useState("");
-  const [isLoading, setIsLoading] = useState(false); // 👈 Para evitar duplo clique
+  const [isLoading, setIsLoading] = useState(false);
 
   function selecionarTamanho(tamanhoSelecionado: string) {
     setTamanho(tamanhoSelecionado);
@@ -19,50 +20,32 @@ export default function EncomendasNatalPage() {
     if (formElement) formElement.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  async function gerarLinkEEnviar(e: React.FormEvent) {
+  function irParaPagamento(e: React.FormEvent) {
     e.preventDefault();
     setIsLoading(true);
 
-    // Salva no banco de dados (Supabase)
-    const { data, error } = await supabase
-      .from("christmas_quotes")
-      .insert({
-        nome,
-        data_evento: dataEvento,
-        tipo_arranjo: tipoArranjo,
-        tamanho,
-        detalhes,
-      })
-      .select("id")
-      .single();
+    // 1. Define o valor baseado na opção de tamanho
+    let valorBase = 0;
+    if (tamanho.includes("PP")) valorBase = 160;
+    else if (tamanho.includes("Pequeno")) valorBase = 250;
+    else if (tamanho.includes("Médio")) valorBase = 360;
+    else if (tamanho.includes("Grande")) valorBase = 450;
 
-    if (error || !data) {
-      alert("Erro ao gerar orçamento. Tente novamente.");
-      console.error("Erro Supabase:", error);
-      setIsLoading(false);
-      return;
-    }
+    // 2. Monta o objeto com os dados do pedido
+    const dadosPedido = {
+      nome,
+      dataEvento,
+      tipoArranjo,
+      tamanho,
+      detalhes,
+      valor: valorBase, // 👈 Valor enviado para a tela de pagamento
+    };
 
-    const idPedido = data.id;
+    // 3. Salva temporariamente no navegador
+    localStorage.setItem("flower-natal-pedido", JSON.stringify(dadosPedido));
 
-    // Gera o link com base na URL atual (funciona em localhost e em produção)
-    const baseUrl = window.location.origin;
-    const linkOrcamento = `${baseUrl}/orcamento-natal/${idPedido}`;
-    setLinkGerado(linkOrcamento);
-
-    // Monta a mensagem do WhatsApp com o link
-    const numeroWhatsApp = "5522992298475";
-    const mensagem = `Olá! Acabei de gerar um orçamento para arranjo de Natal. 🎄✨
-
-*Nome:* ${nome}
-*Link do Orçamento:* ${linkOrcamento}
-
-Pode dar uma olhada e me confirmar a disponibilidade?`;
-
-    const url = `https://wa.me/${numeroWhatsApp}?text=${encodeURIComponent(mensagem)}`;
-    window.open(url, "_blank");
-    
-    setIsLoading(false);
+    // 4. Redireciona para a tela de pagamento
+    router.push("/encomendas-natal/pagamento");
   }
 
   return (
@@ -76,7 +59,7 @@ Pode dar uma olhada e me confirmar a disponibilidade?`;
         </h1>
       </section>
 
-      {/* CARDS */}
+      {/* CARDS DE TAMANHOS */}
       <section style={{ maxWidth: "1100px", margin: "-40px auto 40px", padding: "0 20px", position: "relative", zIndex: 10 }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "20px" }}>
           {[
@@ -101,10 +84,10 @@ Pode dar uma olhada e me confirmar a disponibilidade?`;
           
           <div style={{ textAlign: "center", marginBottom: 30 }}>
             <h2 style={{ fontFamily: "var(--serif)", color: "#1e3a29", fontSize: 32 }}>Faça sua encomenda</h2>
-            <p style={{ color: "#7a7a72", fontSize: 14 }}>Preencha os dados abaixo. Vamos gerar um link exclusivo com o seu orçamento.</p>
+            <p style={{ color: "#7a7a72", fontSize: 14 }}>Preencha os dados abaixo para ir para o pagamento.</p>
           </div>
 
-          <form onSubmit={gerarLinkEEnviar} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          <form onSubmit={irParaPagamento} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             
             <label style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 13, fontWeight: 600, color: "#3f493b" }}>
               Seu Nome Completo
@@ -148,21 +131,26 @@ Pode dar uma olhada e me confirmar a disponibilidade?`;
             <button 
               type="submit" 
               disabled={isLoading}
-              style={{ marginTop: 10, padding: "16px", background: isLoading ? "#d1d5db" : "#b88a44", color: "#fff", border: 0, borderRadius: 4, fontSize: 13, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", cursor: isLoading ? "wait" : "pointer", transition: "background 0.2s" }} 
+              style={{ 
+                marginTop: 10, 
+                padding: "16px", 
+                background: isLoading ? "#d1d5db" : "#b88a44", 
+                color: "#fff", 
+                border: 0, 
+                borderRadius: 4, 
+                fontSize: 13, 
+                fontWeight: 700, 
+                letterSpacing: "0.1em", 
+                textTransform: "uppercase", 
+                cursor: isLoading ? "wait" : "pointer", 
+                transition: "background 0.2s" 
+              }} 
               onMouseEnter={(e) => !isLoading && (e.currentTarget.style.background = "#9a7133")} 
               onMouseLeave={(e) => !isLoading && (e.currentTarget.style.background = "#b88a44")}
             >
-              {isLoading ? "Gerando..." : "Gerar Orçamento e Enviar"}
+              {isLoading ? "Processando..." : "Continuar para o Pagamento"}
             </button>
 
-            {linkGerado && (
-              <div style={{ marginTop: 15, padding: 15, background: "#e8f5e9", borderRadius: 8, textAlign: "center", border: "1px solid #c8e6c9" }}>
-                <p style={{ margin: "0 0 10px 0", fontSize: 13, color: "#2e7d32", fontWeight: 600 }}>Orçamento gerado com sucesso!</p>
-                <a href={linkGerado} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: "#1e3a29", textDecoration: "underline" }}>
-                  Clique aqui para ver o link do orçamento
-                </a>
-              </div>
-            )}
           </form>
         </div>
       </section>

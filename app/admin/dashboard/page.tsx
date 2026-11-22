@@ -35,19 +35,32 @@ type SubscriptionOrder = {
   last_payment_at: string | null;
 };
 
+// 👇 Tipo para os pedidos de Natal
+type ChristmasOrder = {
+  id: number;
+  nome: string;
+  data_evento: string;
+  tipo_arranjo: string;
+  tamanho: string;
+  valor: number;
+  payment_status: string;
+  created_at: string;
+};
+
 export default function DashboardPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [subscriptions, setSubscriptions] = useState<SubscriptionOrder[]>([]);
+  const [natalOrders, setNatalOrders] = useState<ChristmasOrder[]>([]); // 👈 Estado do Natal
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
       setIsLoading(true);
 
-      // Pedidos de hoje (pagos)
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
+      // 1. Pedidos normais (pagos hoje)
       const { data: ordersData } = await supabase
         .from("orders")
         .select("*, order_items:order_items(*)")
@@ -57,7 +70,7 @@ export default function DashboardPage() {
 
       setOrders(ordersData ?? []);
 
-      // Assinaturas pagas
+      // 2. Assinaturas pagas
       const { data: subsData } = await supabase
         .from("subscription_orders")
         .select("*")
@@ -65,6 +78,16 @@ export default function DashboardPage() {
         .order("created_at", { ascending: false });
 
       setSubscriptions(subsData ?? []);
+
+      // 3. 👇 Pedidos de Natal pagos hoje
+      const { data: natalData } = await supabase
+        .from("christmas_quotes")
+        .select("*")
+        .eq("payment_status", "paid")
+        .gte("created_at", today.toISOString())
+        .order("created_at", { ascending: false });
+
+      setNatalOrders(natalData ?? []);
 
       setIsLoading(false);
     }
@@ -76,7 +99,6 @@ export default function DashboardPage() {
   // CÁLCULOS
   // ==========================================
 
-  // Filtra: pedidos que têm PELO MENOS 1 produto (não são só assinatura)
   const ordersWithProducts = orders.filter((o) => {
     if (!o.order_items || o.order_items.length === 0) {
       return true;
@@ -84,12 +106,13 @@ export default function DashboardPage() {
     return o.order_items.some((item) => item.item_type === "product");
   });
 
-  const faturamentoHoje = ordersWithProducts.reduce(
-    (sum, o) => sum + Number(o.total),
-    0
-  );
+  // 👇 Soma do faturamento normal + faturamento de Natal
+  const faturamentoNormal = ordersWithProducts.reduce((sum, o) => sum + Number(o.total), 0);
+  const faturamentoNatal = natalOrders.reduce((sum, o) => sum + Number(o.valor || 0), 0);
+  const faturamentoHoje = faturamentoNormal + faturamentoNatal;
 
-  const pedidosHoje = ordersWithProducts.length;
+  // 👇 Contagem de pedidos normais + Natal
+  const pedidosHoje = ordersWithProducts.length + natalOrders.length;
 
   const assinaturasAtivas = subscriptions.length;
 
@@ -119,23 +142,20 @@ export default function DashboardPage() {
   }
 
   if (isLoading) {
-    return (
-      <div style={emptyStyle}>Carregando dashboard...</div>
-    );
+    return <div style={emptyStyle}>Carregando dashboard...</div>;
   }
+
+  // Junta os dois tipos de pedidos para listar
+  const todosPedidosRecentes = [
+    ...ordersWithProducts.map(o => ({ ...o, isNatal: false, nomeExibicao: o.customer_name, emailExibicao: o.customer_email, valorExibicao: o.total })),
+    ...natalOrders.map(n => ({ ...n, isNatal: true, nomeExibicao: n.nome, emailExibicao: `Arranjo: ${n.tamanho}`, valorExibicao: n.valor }))
+  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   return (
     <div>
       {/* HEADER */}
       <div style={{ marginBottom: 24 }}>
-        <h1
-          style={{
-            margin: "0 0 4px",
-            fontSize: 22,
-            fontWeight: 600,
-            color: "#2f2a26",
-          }}
-        >
+        <h1 style={{ margin: "0 0 4px", fontSize: 22, fontWeight: 600, color: "#2f2a26" }}>
           Dashboard
         </h1>
         <p style={{ margin: 0, color: "#7a7a72", fontSize: 13 }}>
@@ -144,135 +164,55 @@ export default function DashboardPage() {
       </div>
 
       {/* CARDS */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-          gap: 16,
-          marginBottom: 32,
-        }}
-      >
-        <DashboardCard
-          title="Faturamento hoje"
-          value={formatPrice(faturamentoHoje)}
-          color="#166534"
-          icon="💰"
-          href="/admin/contabil"
-        />
-
-        <DashboardCard
-          title="Pedidos hoje"
-          value={String(pedidosHoje)}
-          color="#1e40af"
-          icon="📦"
-          href="/admin/caixa"
-        />
-
-        <DashboardCard
-          title="Assinaturas ativas"
-          value={String(assinaturasAtivas)}
-          color="#7c3aed"
-          icon="📅"
-          href="/admin/assinaturas"
-        />
-
-        <DashboardCard
-          title="Vencendo em 7 dias"
-          value={String(vencendoEm7Dias)}
-          color={vencendoEm7Dias > 0 ? "#dc2626" : "#7a7a72"}
-          icon={vencendoEm7Dias > 0 ? "⚠️" : "✅"}
-          href="/admin/assinaturas"
-        />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, marginBottom: 32 }}>
+        <DashboardCard title="Faturamento hoje" value={formatPrice(faturamentoHoje)} color="#166534" icon="💰" href="/admin/contabil" />
+        <DashboardCard title="Pedidos hoje" value={String(pedidosHoje)} color="#1e40af" icon="📦" href="/admin/caixa" />
+        <DashboardCard title="Assinaturas ativas" value={String(assinaturasAtivas)} color="#7c3aed" icon="📅" href="/admin/assinaturas" />
+        <DashboardCard title="Vencendo em 7 dias" value={String(vencendoEm7Dias)} color={vencendoEm7Dias > 0 ? "#dc2626" : "#7a7a72"} icon={vencendoEm7Dias > 0 ? "⚠️" : "✅"} href="/admin/assinaturas" />
       </div>
 
       {/* ÚLTIMOS PEDIDOS */}
-      <div
-        style={{
-          background: "#fff",
-          border: "1px solid #e0e0dc",
-          borderRadius: 8,
-          overflow: "hidden",
-        }}
-      >
-        <div
-          style={{
-            padding: "16px 20px",
-            borderBottom: "1px solid #e0e0dc",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <h2
-            style={{
-              margin: 0,
-              fontSize: 14,
-              fontWeight: 600,
-              color: "#2f2a26",
-            }}
-          >
+      <div style={{ background: "#fff", border: "1px solid #e0e0dc", borderRadius: 8, overflow: "hidden" }}>
+        <div style={{ padding: "16px 20px", borderBottom: "1px solid #e0e0dc", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <h2 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#2f2a26" }}>
             Últimos pedidos de hoje
           </h2>
-
-          <Link
-            href="/admin/caixa"
-            style={{
-              fontSize: 12,
-              color: "#166534",
-              textDecoration: "none",
-              fontWeight: 600,
-            }}
-          >
+          <Link href="/admin/caixa" style={{ fontSize: 12, color: "#166534", textDecoration: "none", fontWeight: 600 }}>
             Ver todos →
           </Link>
         </div>
 
-        {ordersWithProducts.length === 0 ? (
+        {todosPedidosRecentes.length === 0 ? (
           <div style={emptyStyle}>Nenhum pedido hoje ainda.</div>
         ) : (
-          <table
-            style={{
-              width: "100%",
-              borderCollapse: "collapse",
-              fontSize: 13,
-            }}
-          >
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr style={{ background: "#f9f9f7" }}>
                 <th style={thStyle}>#</th>
-                <th style={thStyle}>Cliente</th>
+                <th style={thStyle}>Cliente / Tipo</th>
                 <th style={thStyle}>Data</th>
                 <th style={thStyle}>Total</th>
               </tr>
             </thead>
             <tbody>
-              {ordersWithProducts.slice(0, 5).map((order) => (
-                <tr
-                  key={order.id}
-                  style={{ borderTop: "1px solid #f0f0ec" }}
-                >
+              {todosPedidosRecentes.slice(0, 6).map((order: any) => (
+                <tr key={`${order.isNatal ? 'natal' : 'normal'}-${order.id}`} style={{ borderTop: "1px solid #f0f0ec" }}>
                   <td style={{ ...tdStyle, fontWeight: 600 }}>
-                    #{order.id}
+                    {order.isNatal ? `🎄 #${order.id}` : `#${order.id}`}
                   </td>
                   <td style={tdStyle}>
                     <div style={{ fontWeight: 500 }}>
-                      {order.customer_name}
+                      {order.nomeExibicao}
                     </div>
                     <div style={{ fontSize: 11, color: "#7a7a72" }}>
-                      {order.customer_email}
+                      {order.emailExibicao}
                     </div>
                   </td>
                   <td style={{ ...tdStyle, color: "#7a7a72" }}>
                     {formatDateTime(order.created_at)}
                   </td>
-                  <td
-                    style={{
-                      ...tdStyle,
-                      fontWeight: 600,
-                      color: "#166534",
-                    }}
-                  >
-                    {formatPrice(order.total)}
+                  <td style={{ ...tdStyle, fontWeight: 600, color: "#166534" }}>
+                    {formatPrice(order.valorExibicao)}
                   </td>
                 </tr>
               ))}
@@ -284,102 +224,18 @@ export default function DashboardPage() {
   );
 }
 
-// ==========================================
-// CARD DO DASHBOARD
-// ==========================================
-
-function DashboardCard({
-  title,
-  value,
-  color,
-  icon,
-  href,
-}: {
-  title: string;
-  value: string;
-  color: string;
-  icon: string;
-  href: string;
-}) {
+function DashboardCard({ title, value, color, icon, href }: { title: string; value: string; color: string; icon: string; href: string; }) {
   return (
-    <Link
-      href={href}
-      style={{
-        display: "block",
-        background: "#fff",
-        border: "1px solid #e0e0dc",
-        borderRadius: 8,
-        padding: 20,
-        textDecoration: "none",
-        transition: "all 0.15s",
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = "#2f2a26";
-        e.currentTarget.style.transform = "translateY(-2px)";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = "#e0e0dc";
-        e.currentTarget.style.transform = "translateY(0)";
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: 12,
-        }}
-      >
-        <span
-          style={{
-            fontSize: 11,
-            color: "#7a7a72",
-            textTransform: "uppercase",
-            letterSpacing: "0.05em",
-            fontWeight: 600,
-          }}
-        >
-          {title}
-        </span>
+    <Link href={href} style={{ display: "block", background: "#fff", border: "1px solid #e0e0dc", borderRadius: 8, padding: 20, textDecoration: "none", transition: "all 0.15s" }} onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#2f2a26"; e.currentTarget.style.transform = "translateY(-2px)"; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#e0e0dc"; e.currentTarget.style.transform = "translateY(0)"; }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <span style={{ fontSize: 11, color: "#7a7a72", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>{title}</span>
         <span style={{ fontSize: 20 }}>{icon}</span>
       </div>
-
-      <div
-        style={{
-          fontSize: 24,
-          fontWeight: 700,
-          color,
-          lineHeight: 1,
-        }}
-      >
-        {value}
-      </div>
+      <div style={{ fontSize: 24, fontWeight: 700, color, lineHeight: 1 }}>{value}</div>
     </Link>
   );
 }
 
-// ==========================================
-// ESTILOS
-// ==========================================
-
-const thStyle: React.CSSProperties = {
-  padding: "10px 16px",
-  textAlign: "left",
-  fontSize: 11,
-  fontWeight: 600,
-  color: "#7a7a72",
-  textTransform: "uppercase",
-  letterSpacing: "0.05em",
-};
-
-const tdStyle: React.CSSProperties = {
-  padding: "12px 16px",
-  color: "#2f2a26",
-};
-
-const emptyStyle: React.CSSProperties = {
-  padding: 40,
-  textAlign: "center",
-  color: "#7a7a72",
-  fontSize: 13,
-};
+const thStyle: React.CSSProperties = { padding: "10px 16px", textAlign: "left", fontSize: 11, fontWeight: 600, color: "#7a7a72", textTransform: "uppercase", letterSpacing: "0.05em" };
+const tdStyle: React.CSSProperties = { padding: "12px 16px", color: "#2f2a26" };
+const emptyStyle: React.CSSProperties = { padding: 40, textAlign: "center", color: "#7a7a72", fontSize: 13 };
