@@ -561,16 +561,16 @@ Qualquer dúvida, estamos à disposição!`;
                       flexWrap: "wrap",
                     }}
                   >
-                    <span
+                                        <span
                       style={{
                         fontSize: 11,
                         fontWeight: 700,
-                        color: "#7a7a72",
+                        color: order.isNatal ? "#166534" : "#7a7a72",
                         textTransform: "uppercase",
                         letterSpacing: "0.05em",
                       }}
                     >
-                      Pedido #{order.id}
+                      {order.isNatal ? `🎄 Natal #${order.id}` : `Pedido #${order.id}`}
                     </span>
                     <span
                       style={{
@@ -665,131 +665,84 @@ Qualquer dúvida, estamos à disposição!`;
                   </div>
                 </div>
               </div>
-
-              {order.order_items && order.order_items.length > 0 && (
+              {order.isNatal ? (
                 <div
                   style={{
-                    padding: "8px 12px",
-                    background: "#f9f9f7",
+                    padding: "12px",
+                    background: "#f0fdf4",
+                    border: "1px solid #bbf7d0",
                     borderRadius: 6,
                     marginBottom: 12,
-                    fontSize: 12,
-                    color: "#2f2a26",
+                    fontSize: 13,
+                    color: "#166534",
                   }}
                 >
-                  {order.order_items.map((item, i) => (
-                    <div
-                      key={item.id}
-                      style={{
-                        paddingTop: i > 0 ? 8 : 0,
-                        marginTop: i > 0 ? 8 : 0,
-                        borderTop: i > 0 ? "1px solid #e0e0dc" : "none",
-                      }}
-                    >
-                      {/* 👇 Corrigido: Removida a duplicação do nome aqui */}
-                      <strong>{item.quantity}x</strong> {item.product_name}
-                      {item.item_type === "subscription" && (
-                        <span
-                          style={{
-                            marginLeft: 6,
-                            padding: "1px 6px",
-                            borderRadius: 3,
-                            fontSize: 10,
-                            fontWeight: 600,
-                            background: "#ede9fe",
-                            color: "#6d28d9",
-                          }}
-                        >
-                          🌸 Assinatura
-                        </span>
-                      )}
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                    <strong>🎄 Arranjo {order.tamanho || "Não informado"}</strong>
+                    <span style={{ fontSize: 11, background: "#dcfce7", padding: "2px 6px", borderRadius: 4 }}>
+                      {order.tipo_arranjo || "Natal"}
+                    </span>
+                  </div>
+                  
+                  <div style={{ fontSize: 12, marginBottom: 4 }}>
+                    <strong>Data do Evento:</strong> {order.scheduled_date ? new Date(order.scheduled_date + "T12:00:00").toLocaleDateString("pt-BR") : "Não informada"}
+                  </div>
 
-                      {item.description && (
-                        <div
-                          style={{
-                            fontSize: 11,
-                            color: "#7a7a72",
-                            fontStyle: "italic",
-                            marginTop: 4,
-                            paddingLeft: 12,
-                          }}
-                        >
-                          {item.description}
-                        </div>
-                      )}
-
-                      {item.selected_color && (
-                        <div
-                          style={{
-                            fontSize: 11,
-                            color: "#7a7a72",
-                            marginTop: 4,
-                            paddingLeft: 12,
-                          }}
-                        >
-                          🎨 Cor: {item.selected_color}
-                        </div>
-                      )}
-
-                      {item.selected_flowers &&
-                        item.selected_flowers.length > 0 && (
-                          <div
+                  <div style={{ fontStyle: "italic", marginTop: 8, borderLeft: "2px solid #bbf7d0", paddingLeft: 8 }}>
+                    <span style={{ fontSize: 11, opacity: 0.8 }}>Detalhes: </span>
+                    &ldquo;{order.observation || "Sem detalhes"}&rdquo;
+                  </div>
+                </div>
+              ) : (
+                (order.order_items && order.order_items.length > 0) && (
+                  <div
+                    style={{
+                      padding: "8px 12px",
+                      background: "#f9f9f7",
+                      borderRadius: 6,
+                      marginBottom: 12,
+                      fontSize: 12,
+                      color: "#2f2a26",
+                    }}
+                  >
+                    {order.order_items?.map((item, i) => (
+                      <div
+                        key={item.id}
+                        style={{
+                          paddingTop: i > 0 ? 8 : 0,
+                          marginTop: i > 0 ? 8 : 0,
+                          borderTop: i > 0 ? "1px solid #e0e0dc" : "none",
+                        }}
+                      >
+                        <strong>{item.quantity}x</strong> {item.product_name}
+                        {item.item_type === "subscription" && (
+                          <span
                             style={{
-                              fontSize: 11,
-                              color: "#7a7a72",
-                              marginTop: 4,
-                              paddingLeft: 12,
+                              marginLeft: 6,
+                              padding: "1px 6px",
+                              borderRadius: 3,
+                              fontSize: 10,
+                              fontWeight: 600,
+                              background: "#ede9fe",
+                              color: "#6d28d9",
                             }}
                           >
-                            {item.selected_flowers.map(
-                              (f: any, fi: number) => {
-                                const extra = Number(f.extra_price) || 0;
-                                return (
-                                  <div key={fi}>
-                                    🌸 {f.name}
-                                    {extra > 0 && (
-                                      <span
-                                        style={{
-                                          fontWeight: 700,
-                                          color: "#166534",
-                                          marginLeft: 6,
-                                        }}
-                                      >
-                                        +{formatPrice(extra)}
-                                      </span>
-                                    )}
-                                  </div>
-                                );
-                              }
-                            )}
+                            🌸 Assinatura
+                          </span>
+                        )}
+                        {item.custom_message && (
+                          <div style={{ fontSize: 11, fontStyle: "italic", color: "#7a7a72", marginTop: 2 }}>
+                            💌 &ldquo;{item.custom_message}&rdquo;
                           </div>
                         )}
-
-                      {item.custom_message && (
-                        <div
-                          style={{
-                            fontSize: 11,
-                            color: "#7a7a72",
-                            marginTop: 6,
-                            paddingLeft: 12,
-                            fontStyle: "italic",
-                            borderLeft: "2px solid #d1d5db",
-                            paddingTop: 2,
-                            paddingBottom: 2,
-                            whiteSpace: "pre-line",
-                          }}
-                        >
-                          💌 &ldquo;{item.custom_message}&rdquo;
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                      </div>
+                    ))}
+                  </div>
+                )
               )}
+               
 
-                            <div
-                style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}
-              >
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                 {!order.isNatal && (
                   <button
                     type="button"
@@ -801,19 +754,17 @@ Qualquer dúvida, estamos à disposição!`;
                   </button>
                 )}
 
-                <button
-                  type="button"
-                  onClick={() => handleOrcamento(order)}
-                  disabled={actionLoading === order.id || !!order.isNatal}
-                  style={{
-                    ...btnWhatsAppStyle,
-                    display: order.isNatal ? "none" : "block",
-                  }}
-                >
-                  📄 Enviar orçamento
-                </button>
+                {!order.isNatal && (
+                  <button
+                    type="button"
+                    onClick={() => handleOrcamento(order)}
+                    disabled={actionLoading === order.id}
+                    style={btnWhatsAppStyle}
+                  >
+                    📄 Enviar orçamento
+                  </button>
+                )}
 
-                {/* 👇 Passando o isNatal (booleano) para as funções */}
                 <button
                   type="button"
                   onClick={() => cancelOrder(order.id, !!order.isNatal)}
@@ -832,7 +783,6 @@ Qualquer dúvida, estamos à disposição!`;
                   {actionLoading === order.id ? "..." : "✅ Entregue"}
                 </button>
               </div>
-                  
             </div>
           ))}
         </div>
@@ -3224,3 +3174,4 @@ const qtyBtnStyle: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
 };
+
