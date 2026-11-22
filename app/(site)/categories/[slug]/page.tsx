@@ -118,7 +118,6 @@ export default function CategoriaPage() {
               <ProductCard
                 key={product.id}
                 product={product}
-                onAddToCart={() => addToCart({ ...product, quantity: 1 })}
               />
             ))}
           </div>
