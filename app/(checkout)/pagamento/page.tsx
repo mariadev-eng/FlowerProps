@@ -15,6 +15,7 @@ type CartItem = {
   id: number;
   name: string;
   price: number;
+  black_friday_price?: number | null;
   image: string;
   quantity: number;
   type?: string;
@@ -22,6 +23,7 @@ type CartItem = {
   selected_flowers?: Array<{ name: string; image: string; extra_price?: number }>;
   selected_color?: string;
   custom_message?: string;
+  [key: string]: any;
 };
 
 type CustomerData = {
@@ -45,7 +47,7 @@ export default function PaymentPage() {
 
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [customerData, setCustomerData] = useState<CustomerData | null>(null);
-  const [appliedCoupon, setAppliedCoupon] = useState<any>(null); // 👈 NOVO
+  const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
 
   const [isFinishing, setIsFinishing] = useState(false);
   const [error, setError] = useState("");
@@ -60,7 +62,7 @@ export default function PaymentPage() {
   useEffect(() => {
     const savedCart = localStorage.getItem("flower-cart");
     const savedCheckout = localStorage.getItem("flower-checkout");
-    const savedCoupon = localStorage.getItem("flower-applied-coupon"); // 👈 NOVO
+    const savedCoupon = localStorage.getItem("flower-applied-coupon");
 
     if (savedCart) {
       try {
@@ -87,12 +89,19 @@ export default function PaymentPage() {
     }
   }, []);
 
+  // 👇 FUNÇÃO QUE RESOLVE O PREÇO CORRETO (BLACK FRIDAY OU NORMAL)
+  function getItemPrice(item: CartItem) {
+    if (item.black_friday_price && item.black_friday_price > 0) {
+      return item.black_friday_price;
+    }
+    return item.price;
+  }
+
   const subtotal = cartItems.reduce(
-    (total, item) => total + item.price * item.quantity,
+    (total, item) => total + getItemPrice(item) * item.quantity,
     0
   );
 
-  // 👇 NOVO: Cálculo do desconto
   let discountAmount = 0;
   if (appliedCoupon) {
     if (appliedCoupon.discount_type === "percentage") {
@@ -106,7 +115,7 @@ export default function PaymentPage() {
   const deliveryFee =
     customerData?.deliveryMethod === "delivery" ? DELIVERY_FEE : 0;
 
-  const total = subtotal - finalDiscount + deliveryFee; // 👈 TOTAL COM DESCONTO
+  const total = subtotal - finalDiscount + deliveryFee;
 
   function formatPrice(value: number) {
     return value.toLocaleString("pt-BR", {
@@ -123,10 +132,6 @@ export default function PaymentPage() {
   function goBack() {
     router.push("/revisao");
   }
-
-  // ==========================================
-  // SALVA PEDIDO NO SUPABASE (pending)
-  // ==========================================
 
   async function saveOrderToSupabase(paymentMethodType: string) {
     if (!customerData) {
@@ -152,9 +157,9 @@ export default function PaymentPage() {
         observation: customerData.observation,
         subtotal,
         delivery_fee: deliveryFee,
-        total, // 👈 Total já com desconto
-        discount_percent: appliedCoupon?.discount_type === "percentage" ? appliedCoupon.discount_value : 0, // 👈 Novo campo
-        discount_amount: finalDiscount, // 👈 Novo campo
+        total,
+        discount_percent: appliedCoupon?.discount_type === "percentage" ? appliedCoupon.discount_value : 0,
+        discount_amount: finalDiscount,
         payment_method: paymentMethodType,
         payment_status: "pending",
         order_status: "pending",
@@ -171,9 +176,9 @@ export default function PaymentPage() {
       order_id: order.id,
       product_id: item.type === "subscription" ? null : item.id,
       product_name: item.name,
-      product_price: item.price,
+      product_price: getItemPrice(item),
       quantity: item.quantity,
-      subtotal: item.price * item.quantity,
+      subtotal: getItemPrice(item) * item.quantity,
       item_type: item.type === "subscription" ? "subscription" : "product",
       selected_flowers: item.selected_flowers || [],
       selected_color: item.selected_color || null,
@@ -191,10 +196,6 @@ export default function PaymentPage() {
 
     return order.id;
   }
-
-  // ==========================================
-  // PAGAMENTO COM PIX
-  // ==========================================
 
   async function handlePixPayment() {
     setIsFinishing(true);
@@ -216,7 +217,7 @@ export default function PaymentPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           payment_method_id: "pix",
-          transaction_amount: total, // 👈 Envia o valor com desconto pro Mercado Pago
+          transaction_amount: total,
           device_id: deviceId,
           payer: {
             email: customerData.email,
@@ -250,10 +251,6 @@ export default function PaymentPage() {
       setIsFinishing(false);
     }
   }
-
-  // ==========================================
-  // CARTÃO DE CRÉDITO VIA WHATSAPP
-  // ==========================================
 
   async function handleCardWhatsApp() {
     setIsFinishing(true);
@@ -305,9 +302,8 @@ Aguardo o link de pagamento. Obrigado!`;
   }
 
   // ==========================================
-  // POLLING DO PIX
+  // POLLING (Verificação automática do pagamento)
   // ==========================================
-
   useEffect(() => {
     if (!pixData) return;
 
@@ -320,11 +316,11 @@ Aguardo o link de pagamento. Obrigado!`;
           .single();
 
         if (error) {
-          console.error("Erro no polling:", error);
+          console.error("Erro ao verificar pagamento:", error);
           return;
         }
 
-        if (data?.payment_status === "paid") {
+        if (data?.payment_status === "paid" || data?.payment_status === "approved") {
           clearInterval(interval);
 
           localStorage.setItem("flower-order-id", String(pixData.orderId));
@@ -335,19 +331,22 @@ Aguardo o link de pagamento. Obrigado!`;
       } catch (err) {
         console.error("Erro no polling:", err);
       }
-    }, 3000);
+    }, 3000); // Verifica a cada 3 segundos
 
     return () => clearInterval(interval);
   }, [pixData, router]);
 
   return (
     <main className="payment-page">
-      {/* HEADER */}
+      {/* HEADER CORRIGIDO */}
       <header className="payment-header">
         <div className="payment-header-inner">
-          <a href="/" className="payment-logo">
-            FLOWER
-            <span>PROPS</span>
+          <a href="/" className="payment-logo" style={{ display: "flex", alignItems: "center" }}>
+            <img 
+              src="/images/logonova.png" 
+              alt="FLOWER" 
+              style={{ height: "80px", width: "auto", objectFit: "contain" }} 
+            />
           </a>
 
           <div className="payment-header-title">Pagamento</div>
@@ -358,62 +357,48 @@ Aguardo o link de pagamento. Obrigado!`;
         </div>
       </header>
 
-      {/* ETAPAS */}
       <div className="payment-steps">
         <div className="payment-step completed">
           <span>✓</span>
           <p>Carrinho</p>
         </div>
-
         <div className="payment-line completed" />
-
         <div className="payment-step completed">
           <span>✓</span>
           <p>Dados</p>
         </div>
-
         <div className="payment-line completed" />
-
         <div className="payment-step completed">
           <span>✓</span>
           <p>Revisão</p>
         </div>
-
         <div className="payment-line active" />
-
         <div className="payment-step current">
           <span>4</span>
           <p>Pagamento</p>
         </div>
       </div>
 
-      {/* CONTEÚDO */}
       <div className="payment-container">
         <section className="payment-main">
           <div className="payment-intro">
             <span className="payment-eyebrow">FINALIZAÇÃO</span>
-
             <h1>
               Escolha como
               <br />
               <em>pagar.</em>
             </h1>
-
             <p>Selecione a forma de pagamento para concluir seu pedido.</p>
           </div>
 
           {error && (
-            <div
-              className="account-message error"
-              style={{ marginBottom: 20 }}
-            >
+            <div className="account-message error" style={{ marginBottom: 20 }}>
               {error}
             </div>
           )}
 
           {!pixData && (
             <>
-              {/* 01 — PIX */}
               <section className="payment-card payment-instructions">
                 <div className="payment-card-heading">
                   <span>01</span>
@@ -446,7 +431,6 @@ Aguardo o link de pagamento. Obrigado!`;
                 </button>
               </section>
 
-              {/* 02 — CARTÃO DE CRÉDITO VIA WHATSAPP */}
               <section className="payment-card payment-instructions">
                 <div className="payment-card-heading">
                   <span>02</span>
@@ -456,17 +440,8 @@ Aguardo o link de pagamento. Obrigado!`;
                   </div>
                 </div>
 
-                <div
-                  className="pix-information"
-                  style={{ background: "#dbeafe" }}
-                >
-                  <div
-                    className="pix-symbol"
-                    style={{
-                      background: "#1e40af",
-                      fontSize: 22,
-                    }}
-                  >
+                <div className="pix-information" style={{ background: "#dbeafe" }}>
+                  <div className="pix-symbol" style={{ background: "#1e40af", fontSize: 22 }}>
                     💳
                   </div>
                   <div>
@@ -483,14 +458,9 @@ Aguardo o link de pagamento. Obrigado!`;
                   className="finish-payment-button"
                   onClick={handleCardWhatsApp}
                   disabled={isFinishing}
-                  style={{
-                    marginTop: 16,
-                    background: "#1e40af",
-                  }}
+                  style={{ marginTop: 16, background: "#1e40af" }}
                 >
-                  {isFinishing
-                    ? "Aguarde..."
-                    : "Pagar com crédito via WhatsApp"}
+                  {isFinishing ? "Aguarde..." : "Pagar com crédito via WhatsApp"}
                   {!isFinishing && <span>→</span>}
                 </button>
               </section>
@@ -503,7 +473,7 @@ Aguardo o link de pagamento. Obrigado!`;
             </>
           )}
 
-          {/* QR CODE PIX ATIVO */}
+          {/* QR CODE PIX ATIVO - SEM BOTÃO "JÁ PAGUEI" */}
           {pixData && (
             <>
               <section className="payment-card payment-instructions">
@@ -517,18 +487,11 @@ Aguardo o link de pagamento. Obrigado!`;
                   </div>
                 </div>
 
-                <div
-                  className="pix-qrcode-container"
-                  style={{ textAlign: "center", padding: "30px 0" }}
-                >
+                <div className="pix-qrcode-container" style={{ textAlign: "center", padding: "30px 0" }}>
                   <img
                     src={`data:image/png;base64,${pixData.qrCodeBase64}`}
                     alt="QR Code Pix"
-                    style={{
-                      maxWidth: 260,
-                      margin: "0 auto 20px",
-                      display: "block",
-                    }}
+                    style={{ maxWidth: 260, margin: "0 auto 20px", display: "block" }}
                   />
 
                   <button
@@ -540,31 +503,35 @@ Aguardo o link de pagamento. Obrigado!`;
                     Copiar código Pix
                   </button>
 
-                  <p
-                    style={{
-                      marginTop: 20,
-                      fontSize: 12,
-                      color: "#68735a",
-                      lineHeight: 1.6,
-                    }}
-                  >
-                    Após o pagamento, seu pedido será confirmado
-                    automaticamente.
-                  </p>
+                  {/* INDICADOR DE ESPERA */}
+                  <div style={{ 
+                    marginTop: 30, 
+                    padding: 20, 
+                    background: "#f0fdf4", 
+                    border: "1px solid #bbf7d0",
+                    borderRadius: 8,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 12
+                  }}>
+                    <div style={{ 
+                      width: 24, 
+                      height: 24, 
+                      border: "3px solid #166534", 
+                      borderTopColor: "transparent", 
+                      borderRadius: "50%",
+                      animation: "spin 1s linear infinite"
+                    }} />
+                    <p style={{ color: "#166534", fontWeight: 600, margin: 0 }}>
+                      Aguardando confirmação do pagamento...
+                    </p>
+                    <p style={{ fontSize: 12, color: "#166534", margin: 0, opacity: 0.8 }}>
+                      A página vai mudar automaticamente assim que o Pix for identificado.
+                    </p>
+                  </div>
                 </div>
               </section>
-
-              <button
-                type="button"
-                className="finish-payment-button"
-                onClick={() => {
-                  localStorage.removeItem("flower-cart");
-                  router.push("/pedido-confirmado");
-                }}
-              >
-                Já paguei, continuar
-                <span>→</span>
-              </button>
             </>
           )}
         </section>
@@ -586,7 +553,7 @@ Aguardo o link de pagamento. Obrigado!`;
 
                 <div>
                   <strong>{item.name}</strong>
-                  <p>{formatPrice(item.price)}</p>
+                  <p>{formatPrice(getItemPrice(item))}</p>
                 </div>
               </div>
             ))}
@@ -598,7 +565,6 @@ Aguardo o link de pagamento. Obrigado!`;
               <strong>{formatPrice(subtotal)}</strong>
             </div>
 
-            {/* 👇 NOVO: Desconto */}
             {appliedCoupon && (
               <div style={{ color: "#166534" }}>
                 <span>Desconto ({appliedCoupon.code})</span>

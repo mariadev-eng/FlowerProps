@@ -22,31 +22,7 @@ export default function EncomendasPage() {
 
   return (
     <main>
-      <header className="site-header">
-        <div className="header-content">
-          <Link href="/" className="brand" aria-label="FLOWER">
-            <img
-              src="/images/logoflowerprops.png"
-              alt="FLOWER"
-              className="brand-logo"
-            />
-          </Link>
-
-          <nav className="desktop-nav">
-            <Link href="/">Início</Link>
-            <Link href="/encomendas">Encomendas</Link>
-            <Link href="/#categorias">Categorias</Link>
-            <Link href="/#assinaturas">Assinaturas</Link>
-            <Link href="/#sobre">Sobre nós</Link>
-          </nav>
-
-          <div className="header-actions">
-            <Link href="/" aria-label="Voltar">
-              ←
-            </Link>
-          </div>
-        </div>
-      </header>
+      {/* HEADER ANTIGO REMOVIDO */}
 
       <section className="encomendas-hero">
         <div className="encomendas-hero-content">
@@ -134,22 +110,8 @@ export default function EncomendasPage() {
         </div>
 
         <div className="footer-links">
-          <a
-            href="https://instagram.com/_flowerprops_"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Instagram
-          </a>
-
-          <a
-            href="https://wa.me/5522992298475"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            WhatsApp
-          </a>
-
+          <a href="https://instagram.com/_flowerprops_" target="_blank" rel="noopener noreferrer">Instagram</a>
+          <a href="https://wa.me/5522992298475" target="_blank" rel="noopener noreferrer">WhatsApp</a>
           <a href="#">Contato</a>
           <a href="#">Política de privacidade</a>
         </div>

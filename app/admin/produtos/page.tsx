@@ -19,6 +19,7 @@ type Product = {
   name: string;
   description: string;
   price: number;
+  old_price?: number | null; // 👈 NOVO
   category_id: number;
   image: string | null;
   available: boolean;
@@ -280,6 +281,7 @@ function ProdutosTab() {
                 };
 
                 const activeColors = (p.colors || []).filter((c) => c.active);
+                const isOnSale = p.old_price && p.old_price > p.price;
 
                 return (
                   <tr
@@ -329,7 +331,20 @@ function ProdutosTab() {
                       </span>
                     </td>
                     <td style={{ ...tdStyle, fontWeight: 500 }}>
-                      {formatPrice(p.price)}
+                      {isOnSale && (
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: "#9ca3af",
+                            textDecoration: "line-through",
+                          }}
+                        >
+                          {formatPrice(p.old_price!)}
+                        </div>
+                      )}
+                      <div style={{ color: isOnSale ? "#8a2323" : "inherit" }}>
+                        {formatPrice(p.price)}
+                      </div>
                     </td>
                     <td style={tdStyle}>
                       <div style={{ display: "flex", gap: 4 }}>
@@ -440,6 +455,7 @@ function ProductEditor({
         name: form.name,
         description: form.description,
         price: Number(form.price),
+        old_price: form.old_price ? Number(form.old_price) : null, // 👈 NOVO
         category_id: Number(form.category_id),
         image: form.image,
         available: form.available,
@@ -561,6 +577,13 @@ function ProductEditor({
             label="Preço (R$)"
             value={String(form.price)}
             onChange={(v) => updateField("price", Number(v) || 0)}
+            type="number"
+          />
+
+          <InputField
+            label="Preço Antigo (R$) - Promoção"
+            value={form.old_price ? String(form.old_price) : ""}
+            onChange={(v) => updateField("old_price", v ? Number(v) : null)}
             type="number"
           />
 
@@ -2383,6 +2406,7 @@ function AddProductModal({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
+  const [oldPrice, setOldPrice] = useState(""); // 👈 NOVO
   const [categoryId, setCategoryId] = useState(1);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [available, setAvailable] = useState(true);
@@ -2445,6 +2469,7 @@ function AddProductModal({
       name: name.trim(),
       description: description.trim(),
       price: Number(price),
+      old_price: oldPrice ? Number(oldPrice) : null, // 👈 NOVO
       category_id: Number(categoryId),
       image: imageUrl,
       available,
@@ -2687,6 +2712,30 @@ function AddProductModal({
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
                 placeholder="60,00"
+                style={formInputStyle}
+              />
+            </div>
+
+            <div style={{ flex: 1 }}>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: "#7a7a72",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                  marginBottom: 6,
+                }}
+              >
+                Preço Antigo (R$) 
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={oldPrice}
+                onChange={(e) => setOldPrice(e.target.value)}
+                placeholder="80,00"
                 style={formInputStyle}
               />
             </div>

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import UserMenu from "@/app/components/UserMenu";
+import { useCart, CartItem } from "@/app/contexts/CartContext";
 
 // ==========================================
 // TIPOS
@@ -22,6 +22,7 @@ type Product = {
   name: string;
   description: string;
   price: number;
+  black_friday_price?: number | null;
   category_id: number;
   image: string | null;
   available: boolean;
@@ -54,25 +55,6 @@ type Product = {
   flower_10_image: string | null;
 };
 
-type CartItem = Product & {
-  quantity: number;
-  selected_flowers?: Array<{ name: string; image: string; extra_price?: number }>;
-  selected_color?: string;
-  extra_from_flowers?: number;
-  custom_message?: string;
-  selected_papers?: Array<{
-    id: string;
-    name: string;
-    model: string | null;
-    image: string | null;
-  }>;
-  selected_ribbon?: {
-    id: string;
-    name: string;
-    image: string | null;
-  } | null;
-};
-
 type Flower = {
   name: string;
   image: string;
@@ -99,6 +81,7 @@ export default function ProdutoPage() {
   const params = useParams();
   const router = useRouter();
   const productId = Number(params?.id);
+  const { addToCart: addToGlobalCart } = useCart();
 
   const [product, setProduct] = useState<Product | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -112,8 +95,6 @@ export default function ProdutoPage() {
 
   const [complements, setComplements] = useState<Product[]>([]);
   const [weeklyFlowers, setWeeklyFlowers] = useState<Flower[]>([]);
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [isLoaded, setIsLoaded] = useState(false);
 
   // Finalização
   const [packagingPapers, setPackagingPapers] = useState<PackagingOption[]>([]);
@@ -150,7 +131,6 @@ export default function ProdutoPage() {
 
       setProduct(data);
 
-      // 🎨 CORES — seleciona a primeira ativa por padrão
       const activeColors = (data.colors || []).filter(
         (c: ProductColor) => c.active
       );
@@ -162,7 +142,6 @@ export default function ProdutoPage() {
         setCurrentImage(data.image || "");
       }
 
-      // 🌸 FLORES DA SEMANA
       const { data: flowersData } = await supabase
         .from("weekly_flowers")
         .select("*")
@@ -184,7 +163,6 @@ export default function ProdutoPage() {
         );
       }
 
-      // 🎀 FINALIZAÇÃO — papelaria + fitas
       if (data.requires_packaging) {
         const { data: packagingData } = await supabase
           .from("packaging_options")
@@ -198,7 +176,6 @@ export default function ProdutoPage() {
         }
       }
 
-      // 🎁 COMPLEMENTOS
       if (data.category_id !== 4) {
         const { data: complementsData, error: complementsError } = await supabase
           .from("products")
@@ -229,29 +206,6 @@ export default function ProdutoPage() {
 
     loadProduct();
   }, [productId, router]);
-
-  // ==========================================
-  // CARRINHO — localStorage
-  // ==========================================
-
-  useEffect(() => {
-    const savedCart = localStorage.getItem("flower-cart");
-
-    if (savedCart) {
-      try {
-        setCartItems(JSON.parse(savedCart));
-      } catch {
-        localStorage.removeItem("flower-cart");
-      }
-    }
-
-    setIsLoaded(true);
-  }, []);
-
-  useEffect(() => {
-    if (!isLoaded) return;
-    localStorage.setItem("flower-cart", JSON.stringify(cartItems));
-  }, [cartItems, isLoaded]);
 
   // ==========================================
   // HELPERS
@@ -355,7 +309,6 @@ export default function ProdutoPage() {
 
     const shareText = `Olha esse ${product.name} da FLOWER — ${productUrl}`;
 
-    // Se o navegador suporta compartilhamento nativo (mobile)
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
         await navigator.share({
@@ -365,13 +318,11 @@ export default function ProdutoPage() {
         });
         return;
       } catch (err: any) {
-        // Se o usuário cancelou, não faz nada
         if (err?.name === "AbortError") return;
         console.error("Erro ao compartilhar:", err);
       }
     }
 
-    // Fallback desktop: WhatsApp Web
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
     window.open(whatsappUrl, "_blank");
   }
@@ -381,32 +332,24 @@ export default function ProdutoPage() {
   // ==========================================
 
   function addComplementToCart(complement: Product) {
+    const hasPromo = complement.black_friday_price && complement.black_friday_price > 0;
+    const complementPrice = hasPromo ? complement.black_friday_price! : complement.price;
+
     const cartItem: CartItem = {
       ...complement,
+      price: complementPrice,
       quantity: 1,
       image: complement.image,
     };
 
-    setCartItems((current) => {
-      const existingIndex = current.findIndex(
-        (item) => item.id === complement.id && !item.selected_flowers
-      );
-
-      if (existingIndex >= 0) {
-        return current.map((item, i) =>
-          i === existingIndex ? { ...item, quantity: item.quantity + 1 } : item
-        );
-      }
-
-      return [...current, cartItem];
-    });
+    addToGlobalCart(cartItem);
   }
 
   // ==========================================
-  // ADICIONAR AO CARRINHO
+  // ADICIONAR AO CARRINHO GLOBAL
   // ==========================================
 
-  function addToCart() {
+  function handleAddToCart() {
     if (!product) return;
 
     const activeColors = getActiveColors();
@@ -436,11 +379,15 @@ export default function ProdutoPage() {
     }
 
     const extraFromFlowers = getFlowersExtra();
+    const hasPromo = product.black_friday_price && product.black_friday_price > 0;
+    const basePrice = hasPromo ? product.black_friday_price! : product.price;
+    const finalPrice = basePrice + extraFromFlowers;
 
     const cartItem: CartItem = {
       ...product,
       quantity: 1,
-      price: product.price + extraFromFlowers,
+      price: finalPrice,
+      black_friday_price: product.black_friday_price,
       selected_flowers: selectedFlowers.length > 0 ? selectedFlowers : undefined,
       selected_color: selectedColor?.name,
       image: currentImage || product.image,
@@ -464,25 +411,7 @@ export default function ProdutoPage() {
         : null,
     };
 
-    setCartItems((current) => {
-      const existingIndex = current.findIndex(
-        (item) =>
-          item.id === product.id &&
-          item.selected_color === cartItem.selected_color &&
-          JSON.stringify(item.selected_flowers) ===
-            JSON.stringify(cartItem.selected_flowers)
-      );
-
-      if (existingIndex >= 0) {
-        return current.map((item, i) =>
-          i === existingIndex ? { ...item, quantity: item.quantity + 1 } : item
-        );
-      }
-
-      return [...current, cartItem];
-    });
-
-    router.push("/checkout");
+    addToGlobalCart(cartItem);
   }
 
   function formatPrice(value: number) {
@@ -511,7 +440,11 @@ export default function ProdutoPage() {
   const activeColors = getActiveColors();
   const hasColors = activeColors.length > 0;
   const flowersExtra = getFlowersExtra();
-  const finalPrice = product.price + flowersExtra;
+
+  const hasPromo = product.black_friday_price && product.black_friday_price > 0;
+  const displayOriginalPrice = hasPromo ? product.price : 0;
+  const displayBasePrice = hasPromo ? product.black_friday_price! : product.price;
+  const finalPrice = displayBasePrice + flowersExtra;
 
   // ==========================================
   // RENDER
@@ -519,29 +452,7 @@ export default function ProdutoPage() {
 
   return (
     <main className="product-page">
-      <header className="site-header">
-        <div className="header-content">
-          <Link href="/" className="brand" aria-label="FLOWER">
-            <img
-              src="/images/logoflowerprops.png"
-              alt="FLOWER"
-              className="brand-logo"
-            />
-          </Link>
-
-          <nav className="desktop-nav">
-            <Link href="/">Início</Link>
-            <Link href="/#produtos">Buquês</Link>
-            <Link href="/#categorias">Categorias</Link>
-            <Link href="/#assinaturas">Assinaturas</Link>
-            <Link href="/#sobre">Sobre nós</Link>
-          </nav>
-
-          <div className="header-actions">
-            <UserMenu />
-          </div>
-        </div>
-      </header>
+      {/* HEADER ANTIGO REMOVIDO */}
 
       <section className="product-detail section">
         <Link href="/" className="product-back">
@@ -552,7 +463,17 @@ export default function ProdutoPage() {
           <div className="product-detail-top">
             <span className="eyebrow">FLOWER PROPS</span>
             <h1>{product.name}</h1>
-            <div className="product-detail-price">{formatPrice(finalPrice)}</div>
+            
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+              {hasPromo && (
+                <span style={{ fontSize: 14, color: "#9ca3af", textDecoration: "line-through" }}>
+                  {formatPrice(displayOriginalPrice)}
+                </span>
+              )}
+              <div className="product-detail-price" style={{ color: hasPromo ? "#b88a44" : "inherit" }}>
+                {formatPrice(finalPrice)}
+              </div>
+            </div>
           </div>
 
           {/* 🖼️ IMAGEM + MENSAGEM */}
@@ -669,8 +590,31 @@ export default function ProdutoPage() {
 
             <p className="product-detail-description">{product.description}</p>
 
-            <div className="product-detail-price">
-              {formatPrice(finalPrice)}
+            {/* 👇 Preço Antigo e Selo Black Friday no Desktop */}
+            <div className="product-detail-price" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {hasPromo && (
+                <span style={{ fontSize: 18, color: "#9ca3af", textDecoration: "line-through" }}>
+                  {formatPrice(displayOriginalPrice)}
+                </span>
+              )}
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <span style={{ color: hasPromo ? "#b88a44" : "inherit", fontWeight: hasPromo ? "bold" : "normal" }}>
+                  {formatPrice(finalPrice)}
+                </span>
+                {hasPromo && (
+                  <span style={{
+                    background: "linear-gradient(135deg, #1e3a29 0%, #0f1f15 100%)",
+                    color: "#f4e6d3",
+                    padding: "4px 8px",
+                    borderRadius: "4px",
+                    fontSize: "12px",
+                    fontWeight: "bold",
+                    letterSpacing: "0.1em",
+                  }}>
+                    BLACK FRIDAY
+                  </span>
+                )}
+              </div>
               {flowersExtra > 0 && (
                 <span
                   style={{
@@ -858,35 +802,40 @@ export default function ProdutoPage() {
             </div>
 
             <div className="product-complements-carousel">
-              {complements.map((complement) => (
-                <div key={complement.id} className="product-complement-card">
-                  <div className="product-complement-image">
-                    {complement.image ? (
-                      <img src={complement.image} alt={complement.name} />
-                    ) : (
-                      <span>🎁</span>
-                    )}
-                  </div>
+              {complements.map((complement) => {
+                const compHasPromo = complement.black_friday_price && complement.black_friday_price > 0;
+                const compPrice = compHasPromo ? complement.black_friday_price! : complement.price;
 
-                  <div className="product-complement-info">
-                    <span className="product-complement-name">
-                      {complement.name}
-                    </span>
-                    <strong className="product-complement-price">
-                      {formatPrice(complement.price)}
-                    </strong>
-                  </div>
+                return (
+                  <div key={complement.id} className="product-complement-card">
+                    <div className="product-complement-image">
+                      {complement.image ? (
+                        <img src={complement.image} alt={complement.name} />
+                      ) : (
+                        <span>🎁</span>
+                      )}
+                    </div>
 
-                  <button
-                    type="button"
-                    className="product-complement-add"
-                    onClick={() => addComplementToCart(complement)}
-                    aria-label={`Adicionar ${complement.name} ao carrinho`}
-                  >
-                    +
-                  </button>
-                </div>
-              ))}
+                    <div className="product-complement-info">
+                      <span className="product-complement-name">
+                        {complement.name}
+                      </span>
+                      <strong className="product-complement-price">
+                        {formatPrice(compPrice)}
+                      </strong>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="product-complement-add"
+                      onClick={() => addComplementToCart(complement)}
+                      aria-label={`Adicionar ${complement.name} ao carrinho`}
+                    >
+                      +
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -895,7 +844,7 @@ export default function ProdutoPage() {
           <button
             type="button"
             className="product-detail-button"
-            onClick={addToCart}
+            onClick={handleAddToCart}
             disabled={product.requires_flower_selection && !hasFlowers}
           >
             Adicionar ao carrinho

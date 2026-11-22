@@ -8,8 +8,10 @@ type CartItem = {
   id: number;
   name: string;
   price: number;
+  black_friday_price?: number | null;
   image: string;
   quantity: number;
+  [key: string]: any;
 };
 
 type FormData = {
@@ -102,8 +104,16 @@ export default function CheckoutPage() {
     }
   }, []);
 
+  // 👇 FUNÇÃO QUE RESOLVE O PREÇO CORRETO (BLACK FRIDAY OU NORMAL)
+  function getItemPrice(item: CartItem) {
+    if (item.black_friday_price && item.black_friday_price > 0) {
+      return item.black_friday_price;
+    }
+    return item.price;
+  }
+
   const subtotal = cartItems.reduce(
-    (total, item) => total + item.price * item.quantity,
+    (total, item) => total + getItemPrice(item) * item.quantity,
     0
   );
 
@@ -359,11 +369,12 @@ export default function CheckoutPage() {
       return;
     }
 
-    // Salva o cupom aplicado no localStorage
     if (appliedCoupon) {
       localStorage.setItem("flower-applied-coupon", JSON.stringify(appliedCoupon));
+      localStorage.setItem("flower-discount-amount", String(finalDiscount));
     } else {
       localStorage.removeItem("flower-applied-coupon");
+      localStorage.removeItem("flower-discount-amount");
     }
 
     const checkoutData = {
@@ -378,11 +389,15 @@ export default function CheckoutPage() {
 
   return (
     <main className="checkout-page">
-      {/* HEADER */}
+      {/* HEADER COM A LOGO NO TAMANHO CORRETO */}
       <header className="checkout-header">
         <div className="checkout-header-inner">
-          <a href="/" className="checkout-logo">
-            FLOWER
+          <a href="/" className="checkout-logo" style={{ display: "flex", alignItems: "center" }}>
+            <img 
+              src="/images/logonova.png" 
+              alt="FLOWER" 
+              style={{ height: "100px", width: "auto", objectFit: "contain" }} 
+            />
           </a>
 
           <span className="checkout-header-title">
@@ -708,16 +723,14 @@ export default function CheckoutPage() {
                   </div>
 
                   <strong>
-                    {formatPrice(item.price * item.quantity)}
+                    {formatPrice(getItemPrice(item) * item.quantity)}
                   </strong>
                 </div>
               ))}
             </div>
           )}
 
-          {/* ========================================== */}
-          {/* CAMPO DE CUPOM ESTILIZADO */}
-          {/* ========================================== */}
+          {/* CAMPO DE CUPOM */}
           <div style={{ 
             marginTop: 24, 
             marginBottom: 24, 
@@ -800,7 +813,7 @@ export default function CheckoutPage() {
               )}
             </div>
             {couponError && <p style={{ color: "#dc2626", fontSize: 11, marginTop: 8 }}>{couponError}</p>}
-            {appliedCoupon && <p style={{ color: "#166534", fontSize: 12, marginTop: 8, fontWeight: 600 }}> Cupom "{appliedCoupon.code}" aplicado!</p>}
+            {appliedCoupon && <p style={{ color: "#166534", fontSize: 12, marginTop: 8, fontWeight: 600 }}>✅ Cupom "{appliedCoupon.code}" aplicado!</p>}
           </div>
 
           <div className="summary-line">
@@ -811,7 +824,7 @@ export default function CheckoutPage() {
             <strong>{formatPrice(subtotal)}</strong>
           </div>
 
-          {/* 👇 LINHA DE DESCONTO */}
+          {/* LINHA DE DESCONTO */}
           {appliedCoupon && (
             <div className="summary-line" style={{ color: "#166534" }}>
               <span>Desconto ({appliedCoupon.code})</span>

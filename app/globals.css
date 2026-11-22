@@ -13,12 +13,12 @@
   --green: #68735a;
   --green-light: #9ba58b;
   --green-pale: #eef0e9;
-  --cream: #f8f8f4;
+  --cream: #f9f6f0;
   --white: #ffffff;
   --text: #30382e;
   --text-light: #73796d;
   --border: #e2e5dc;
-  --gold: #ad9562;
+  --gold: #c9a867;
 
   --flower-bg: #f7f8f4;
   --flower-white: #ffffff;
@@ -162,7 +162,7 @@ em {
 .header-content {
   position: relative;
   width: min(1800px, calc(100% - 60px));
-  height: 88px;
+  height: 120px;
   margin: 0 auto;
   display: flex;
   align-items: center;
@@ -177,17 +177,17 @@ em {
 }
 
 .brand img {
-  width: 300px;
+  width: auto;
   height: auto;
-  max-height: 80px;
+  max-height: 100px;
   object-fit: contain;
 }
 
 .brand-logo {
   display: block;
-  width: 400px;
-  height: 150px;
-  max-width: none;
+  width: auto;
+  height: 110px;
+  max-width: 600px;
   max-height: none;
   object-fit: contain;
   object-position: left center;
@@ -321,7 +321,7 @@ em {
   display: flex;
   align-items: center;
   overflow: hidden;
-  background: var(--green-dark);
+  background: #1e3a29;
 }
 
 .hero-image {
@@ -349,7 +349,7 @@ em {
 }
 
 .hero .eyebrow {
-  color: #d8c99f;
+  color: var(--gold); /* Dourado */
 }
 
 .hero h1 {
@@ -593,7 +593,7 @@ em {
 
 .products {
   padding-top: 80px;
-  background: white;
+  background: #fdfcfb;
 }
 
 .product-grid {
@@ -845,8 +845,9 @@ em {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 35px 60px;
-  background: #30382e;
-  color: white;
+  background: #1e3a29; /* Verde musgo natalino */
+  color: white; /* Muda o texto para escuro para dar contraste */
+  border-top: 1px solid rgba(63, 73, 59, 0.08); /* Linha sutil igual ao header */
 }
 
 .footer h3 {
@@ -873,17 +874,16 @@ em {
   gap: 26px;
   flex-wrap: wrap;
 }
-
 .footer-links a {
-  color: #d8ddd3;
-  font-size: 9px;
+ color: #68735a;
+ font-size: 9px;
   font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .footer-links a:hover {
-  color: white;
+color: var(--green-dark); 
 }
 
 .footer p {
@@ -903,7 +903,7 @@ em {
 
 .footer-logo {
   display: block;
-  width: 190px;
+  width: 260px;
   height: auto;
   object-fit: contain;
 }
@@ -5949,5 +5949,216 @@ body:has(.cart-drawer.active) {
 
   .encomenda-split-overlay {
     padding: 32px 28px;
+  }
+}
+/* =========================================================
+   BARRA DE ANÚNCIO (BLACK FLOWER / NATAL)
+   ========================================================= */
+.announcement-bar {
+  background-color: #1e3a29; /* Verde pinheiro profundo */
+  color: var(--gold); /* Texto dourado */
+  text-align: center;
+  padding: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  width: 100%;
+}
+/* =========================================================
+   EFEITO DE NEVE
+   ========================================================= */
+
+.snow-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none; /* Deixa clicar nos botões normalmente */
+  z-index: 9999; /* Fica na frente de tudo */
+  overflow: hidden;
+}
+
+.snowflake {
+  position: absolute;
+  top: -10px;
+  background-color: #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 4px rgba(255, 255, 255, 0.8);
+  animation-name: fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+@keyframes fall {
+  0% {
+    transform: translateY(0) translateX(0);
+  }
+  25% {
+    transform: translateY(25vh) translateX(15px);
+  }
+  50% {
+    transform: translateY(50vh) translateX(-15px);
+  }
+  75% {
+    transform: translateY(75vh) translateX(15px);
+  }
+  100% {
+    transform: translateY(105vh) translateX(0);
+  }
+}
+/* =========================================================
+   CAMPANHA NATAL & BLACK FRIDAY
+   ========================================================= */
+
+/* Barra de Anúncio Fixa */
+.announcement-bar {
+  background: #1e3a29; /* Verde escuro natalino */
+  color: #d7cba9; /* Dourado claro */
+  text-align: center;
+  padding: 10px 20px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  position: relative;
+  z-index: 101;
+  border-bottom: 1px solid rgba(215, 203, 169, 0.2);
+}
+
+/* Seção de Natal (substituindo os estilos inline) */
+.christmas-section {
+  background-color: #f2ece6;
+  border-radius: 12px;
+  padding: 60px 40px;
+  text-align: center;
+  margin: 40px auto;
+  border: 1px solid rgba(184, 138, 68, 0.2);
+  position: relative;
+  overflow: hidden;
+}
+
+.christmas-section .eyebrow {
+  color: #b88a44; /* Dourado */
+}
+
+.christmas-section h2 {
+  font-family: var(--serif);
+  color: #1e3a29;
+  margin: 16px 0 24px;
+  font-size: 42px;
+  line-height: 1.1;
+}
+
+.christmas-section p {
+  color: #7a7a72;
+  max-width: 500px;
+  margin: 0 auto 32px;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* Botão Dourado (Black Friday / Natal) */
+.button-gold {
+  background: transparent;
+  border: 1px solid #b88a44;
+  color: #b88a44;
+  opacity: 0.8;
+  cursor: not-allowed;
+  transition: all 0.3s ease;
+}
+
+.button-gold:hover {
+  background: #b88a44;
+  color: white;
+  opacity: 1;
+}
+
+/* Título de Produtos com detalhe dourado */
+.products-heading-gold {
+  position: relative;
+  padding-top: 40px;
+}
+
+
+
+.products-heading-gold .eyebrow {
+  color: #b88a44;
+}
+
+.products-heading-gold h2 {
+  font-family: var(--serif);
+  color: #1e3a29;
+}
+/* =========================================================
+   ESCONDER BARRA DE ROLAGEM DO CARROSSEL
+   ========================================================= */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+/* =========================================================
+   CARROSSEL DE CHOCOLATES (ANIMADO E INFINITO)
+   ========================================================= */
+
+.carousel-wrapper {
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+  padding: 20px 0;
+}
+
+.carousel-track {
+  display: flex;
+  gap: 20px;
+  width: max-content; 
+  animation: scroll 25s linear infinite; /* 25 segundos para dar a volta */
+}
+
+/* Pausa a animação se o cliente passar o mouse em cima */
+.carousel-track:hover {
+  animation-play-state: paused;
+}
+
+@keyframes scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(calc(-280px * 7 - 20px * 7)); } 
+}
+
+.carousel-card {
+  flex: 0 0 280px; 
+  width: 280px;
+  height: 100%;
+}
+
+/* Ajuste para o carrossel ficar mais rápido e menor no celular */
+@media (max-width: 760px) {
+  .carousel-card {
+    flex: 0 0 220px;
+    width: 220px;
+  }
+  @keyframes scroll {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(calc(-220px * 7 - 20px * 7)); }
+  }
+}
+/* Botão Black Friday Premium */
+.button-light[style*="background: rgb(184, 138, 68)"]:hover {
+  background: #a67c3d !important;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(184, 138, 68, 0.3);
+}
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
   }
 }

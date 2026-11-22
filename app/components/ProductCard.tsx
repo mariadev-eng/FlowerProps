@@ -3,12 +3,14 @@
 import { useRouter } from "next/navigation";
 import { Heart } from "lucide-react";
 import { useFavorites } from "@/hooks/useFavorites";
+import { useCart } from "../contexts/CartContext";
 
 type Product = {
   id: number;
   name: string;
   description: string;
   price: number;
+  black_friday_price?: number | null;
   category_id: number;
   image: string | null;
   available: boolean;
@@ -16,14 +18,18 @@ type Product = {
 
 type ProductCardProps = {
   product: Product;
-  onAddToCart?: (product: Product) => void;
 };
 
 export default function ProductCard({ product }: ProductCardProps) {
   const router = useRouter();
   const { toggleFavorite, isFavorite } = useFavorites();
+  // 👇 Removemos o openCart daqui
+  const { addToCart } = useCart(); 
 
   const favorited = isFavorite(product.id);
+
+  const hasPromo = product.black_friday_price && product.black_friday_price > 0;
+  const finalPrice = hasPromo ? product.black_friday_price! : product.price;
 
   function formatPrice(value: number) {
     return value.toLocaleString("pt-BR", {
@@ -54,7 +60,6 @@ export default function ProductCard({ product }: ProductCardProps) {
           FLOWER · {product.name}
         </span>
 
-        {/* 🆕 CORAÇÃO DE FAVORITOS */}
         <button
           type="button"
           className={`favorite ${favorited ? "active" : ""}`}
@@ -78,21 +83,41 @@ export default function ProductCard({ product }: ProductCardProps) {
       </div>
 
       <div className="product-info">
-        <span>{product.description}</span>
-
         <h3>{product.name}</h3>
-
+        
         <div className="product-bottom">
-          <strong>{formatPrice(product.price)}</strong>
-
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {hasPromo && (
+              <span
+                style={{
+                  textDecoration: "line-through",
+                  color: "#999",
+                  fontSize: "12px",
+                  marginBottom: "2px",
+                }}
+              >
+                {formatPrice(product.price)}
+              </span>
+            )}
+            <strong
+              style={hasPromo ? { color: "#b88a44", fontSize: "16px" } : {}}
+            >
+              {formatPrice(finalPrice)}
+            </strong>
+          </div>
           <button
             type="button"
             className="add-button"
             onClick={(e) => {
               e.stopPropagation();
-              goToProduct();
+              // 👇 Apenas adiciona ao carrinho, sem abrir a gaveta lateral
+              addToCart({
+                ...product,
+                quantity: 1,
+                price: finalPrice,
+                black_friday_price: product.black_friday_price,
+              });
             }}
-            aria-label={`Ver ${product.name}`}
           >
             +
           </button>

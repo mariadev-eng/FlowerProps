@@ -7,8 +7,10 @@ type CartItem = {
   id: number;
   name: string;
   price: number;
+  black_friday_price?: number | null; // 👈 AQUI
   image: string;
   quantity: number;
+  [key: string]: any;
 };
 
 type CustomerData = {
@@ -32,12 +34,12 @@ export default function ReviewPage() {
 
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [customerData, setCustomerData] = useState<CustomerData | null>(null);
-  const [appliedCoupon, setAppliedCoupon] = useState<any>(null); // 👈 NOVO
+  const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
 
   useEffect(() => {
     const savedCart = localStorage.getItem("flower-cart");
     const savedCheckout = localStorage.getItem("flower-checkout");
-    const savedCoupon = localStorage.getItem("flower-applied-coupon"); // 👈 NOVO
+    const savedCoupon = localStorage.getItem("flower-applied-coupon");
 
     if (savedCart) {
       try {
@@ -64,12 +66,19 @@ export default function ReviewPage() {
     }
   }, []);
 
+  // 👇 AQUI ESTÁ A CORREÇÃO DO PREÇO DA BLACK FRIDAY
+  function getItemPrice(item: CartItem) {
+    if (item.black_friday_price && item.black_friday_price > 0) {
+      return item.black_friday_price;
+    }
+    return item.price;
+  }
+
   const subtotal = cartItems.reduce(
-    (total, item) => total + item.price * item.quantity,
+    (total, item) => total + getItemPrice(item) * item.quantity,
     0
   );
 
-  // Calcula o desconto
   let discountAmount = 0;
   if (appliedCoupon) {
     if (appliedCoupon.discount_type === "percentage") {
@@ -79,18 +88,11 @@ export default function ReviewPage() {
     }
   }
 
-  // Garante que não passe do subtotal
   const finalDiscount = Math.min(discountAmount, subtotal);
+  const deliveryFee = customerData?.deliveryMethod === "delivery" ? DELIVERY_FEE : 0;
+  const total = subtotal - finalDiscount + deliveryFee;
 
-  const deliveryFee =
-    customerData?.deliveryMethod === "delivery" ? DELIVERY_FEE : 0;
-
-  const total = subtotal - finalDiscount + deliveryFee; // 👈 NOVO CÁLCULO
-
-  const totalItems = cartItems.reduce(
-    (total, item) => total + item.quantity,
-    0
-  );
+  const totalItems = cartItems.reduce((total, item) => total + item.quantity, 0);
 
   function formatPrice(value: number) {
     return value.toLocaleString("pt-BR", {
@@ -109,14 +111,15 @@ export default function ReviewPage() {
 
   return (
     <main className="review-page">
-      {/* =================================
-          HEADER
-      ================================= */}
-
+      {/* HEADER NOVO */}
       <header className="checkout-header">
         <div className="checkout-header-inner">
-          <a href="/" className="checkout-logo">
-            FLOWER
+          <a href="/" className="checkout-logo" style={{ display: "flex", alignItems: "center" }}>
+            <img 
+              src="/images/logonova.png" 
+              alt="FLOWER" 
+              style={{ height: "100px", width: "auto", objectFit: "contain" }} 
+            />
           </a>
 
           <div className="checkout-header-title">
@@ -129,87 +132,46 @@ export default function ReviewPage() {
         </div>
       </header>
 
-      {/* =================================
-          ETAPAS
-      ================================= */}
-
       <div className="checkout-steps">
         <div className="checkout-step completed">
           <span>✓</span>
           <p>Carrinho</p>
         </div>
-
         <div className="step-line active" />
-
         <div className="checkout-step completed">
           <span>✓</span>
           <p>Dados</p>
         </div>
-
         <div className="step-line active" />
-
         <div className="checkout-step current">
           <span>3</span>
           <p>Revisão</p>
         </div>
-
         <div className="step-line" />
-
         <div className="checkout-step">
           <span>4</span>
           <p>Pagamento</p>
         </div>
       </div>
 
-      {/* =================================
-          CONTEÚDO
-      ================================= */}
-
       <div className="review-container">
-        {/* =================================
-            COLUNA PRINCIPAL
-        ================================= */}
-
         <div className="review-main">
-          {/* TÍTULO */}
-
           <div className="review-intro">
             <span className="eyebrow">FLOWER PROPS</span>
-
             <h1>Confira tudo antes de finalizar</h1>
-
-            <p>
-              Revise seu pedido e confirme se todas as informações estão
-              corretas.
-            </p>
+            <p>Revise seu pedido e confirme se todas as informações estão corretas.</p>
           </div>
-
-          {/* =================================
-              PRODUTOS
-          ================================= */}
 
           <section className="review-card">
             <div className="review-card-header">
               <div>
                 <span className="review-number">01</span>
-
                 <div>
                   <h2>Seu pedido</h2>
-
-                  <p>
-                    {totalItems}{" "}
-                    {totalItems === 1
-                      ? "item selecionado"
-                      : "itens selecionados"}
-                  </p>
+                  <p>{totalItems} {totalItems === 1 ? "item selecionado" : "itens selecionados"}</p>
                 </div>
               </div>
-
-              <button
-                type="button"
-                onClick={goToCheckout}
-                className="review-edit"
-              >
+              <button type="button" onClick={goToCheckout} className="review-edit">
                 Editar pedido
               </button>
             </div>
@@ -228,58 +190,39 @@ export default function ReviewPage() {
                       <img src={item.image} alt={item.name} />
                       <span>{item.quantity}</span>
                     </div>
-
                     <div className="review-product-details">
                       <span>FLOWER</span>
                       <h3>{item.name}</h3>
-                      <p>
-                        {item.quantity}{" "}
-                        {item.quantity === 1 ? "unidade" : "unidades"}
-                      </p>
+                      <p>{item.quantity} {item.quantity === 1 ? "unidade" : "unidades"}</p>
                     </div>
-
-                    <strong>{formatPrice(item.price * item.quantity)}</strong>
+                    {/* PREÇO CORRIGIDO AQUI */}
+                    <strong>{formatPrice(getItemPrice(item) * item.quantity)}</strong>
                   </div>
                 ))
               )}
             </div>
           </section>
 
-          {/* =================================
-              CLIENTE
-          ================================= */}
-
           <section className="review-card">
             <div className="review-card-header">
               <div>
                 <span className="review-number">02</span>
-
                 <div>
                   <h2>Seus dados</h2>
                   <p>Informações para o pedido</p>
                 </div>
               </div>
-
-              <button
-                type="button"
-                onClick={goToCheckout}
-                className="review-edit"
-              >
-                Editar
-              </button>
+              <button type="button" onClick={goToCheckout} className="review-edit">Editar</button>
             </div>
-
             <div className="review-data-grid">
               <div className="review-data">
                 <span>Nome</span>
                 <strong>{customerData?.name || "Não informado"}</strong>
               </div>
-
               <div className="review-data">
                 <span>Telefone</span>
                 <strong>{customerData?.phone || "Não informado"}</strong>
               </div>
-
               <div className="review-data">
                 <span>E-mail</span>
                 <strong>{customerData?.email || "Não informado"}</strong>
@@ -287,67 +230,45 @@ export default function ReviewPage() {
             </div>
           </section>
 
-          {/* =================================
-              ENTREGA
-          ================================= */}
-
           <section className="review-card">
             <div className="review-card-header">
               <div>
                 <span className="review-number">03</span>
-
                 <div>
                   <h2>Recebimento</h2>
                   <p>Como você receberá suas flores</p>
                 </div>
               </div>
-
-              <button
-                type="button"
-                onClick={goToCheckout}
-                className="review-edit"
-              >
-                Alterar
-              </button>
+              <button type="button" onClick={goToCheckout} className="review-edit">Alterar</button>
             </div>
 
             {customerData?.deliveryMethod === "pickup" ? (
               <div className="review-method">
                 <div className="review-method-icon">✿</div>
-
                 <div className="review-method-content">
                   <span>RETIRADA</span>
                   <h3>Retirar no ateliê</h3>
-                  <p>
-                    Seu pedido ficará disponível para retirada no ateliê
-                    FLOWER.
-                  </p>
+                  <p>Seu pedido ficará disponível para retirada no ateliê FLOWER.</p>
                 </div>
-
                 <strong>Grátis</strong>
               </div>
             ) : (
               <div>
                 <div className="review-method">
                   <div className="review-method-icon">♧</div>
-
                   <div className="review-method-content">
                     <span>ENTREGA</span>
                     <h3>Receber em casa</h3>
                     <p>Entrega fixa de R$ 15,00.</p>
                   </div>
-
                   <strong>R$ 15,00</strong>
                 </div>
-
                 <div className="review-address">
                   <span>ENDEREÇO</span>
                   <p>
                     {customerData?.street || "Rua não informada"}
                     {customerData?.number ? `, ${customerData.number}` : ""}
-                    {customerData?.complement
-                      ? ` — ${customerData.complement}`
-                      : ""}
+                    {customerData?.complement ? ` — ${customerData.complement}` : ""}
                     <br />
                     {customerData?.neighborhood || "Bairro não informado"}
                     {customerData?.city ? ` · ${customerData.city}` : ""}
@@ -358,23 +279,17 @@ export default function ReviewPage() {
             )}
           </section>
 
-          {/* =================================
-              OBSERVAÇÕES
-          ================================= */}
-
           {customerData?.observation && (
             <section className="review-card">
               <div className="review-card-header">
                 <div>
                   <span className="review-number">04</span>
-
                   <div>
                     <h2>Observações</h2>
                     <p>Informações adicionais</p>
                   </div>
                 </div>
               </div>
-
               <div className="review-note">
                 <span>“</span>
                 <p>{customerData.observation}</p>
@@ -383,17 +298,11 @@ export default function ReviewPage() {
           )}
         </div>
 
-        {/* =================================
-            RESUMO
-        ================================= */}
-
         <aside className="review-summary">
           <div className="review-summary-top">
             <span className="eyebrow">RESUMO</span>
             <h2>Seu pedido</h2>
           </div>
-
-          {/* MINI PRODUTOS */}
 
           <div className="summary-mini-products">
             {cartItems.map((item) => (
@@ -402,16 +311,14 @@ export default function ReviewPage() {
                   <img src={item.image} alt={item.name} />
                   <span>{item.quantity}</span>
                 </div>
-
                 <div>
                   <strong>{item.name}</strong>
-                  <span>{formatPrice(item.price)}</span>
+                  {/* PREÇO CORRIGIDO AQUI */}
+                  <span>{formatPrice(getItemPrice(item))}</span>
                 </div>
               </div>
             ))}
           </div>
-
-          {/* VALORES */}
 
           <div className="summary-prices">
             <div>
@@ -419,7 +326,6 @@ export default function ReviewPage() {
               <strong>{formatPrice(subtotal)}</strong>
             </div>
 
-            {/* 👇 NOVO: Linha de desconto */}
             {appliedCoupon && (
               <div style={{ color: "#166534" }}>
                 <span>Desconto ({appliedCoupon.code})</span>
@@ -428,43 +334,24 @@ export default function ReviewPage() {
             )}
 
             <div>
-              <span>
-                {customerData?.deliveryMethod === "pickup"
-                  ? "Retirada no ateliê"
-                  : "Entrega"}
-              </span>
-
-              <strong>
-                {deliveryFee === 0 ? "Grátis" : formatPrice(deliveryFee)}
-              </strong>
+              <span>{customerData?.deliveryMethod === "pickup" ? "Retirada no ateliê" : "Entrega"}</span>
+              <strong>{deliveryFee === 0 ? "Grátis" : formatPrice(deliveryFee)}</strong>
             </div>
           </div>
-
-          {/* TOTAL */}
 
           <div className="summary-final-total">
             <span>Total</span>
             <strong>{formatPrice(total)}</strong>
           </div>
 
-          {/* PAGAMENTO */}
-
-          <button
-            type="button"
-            className="review-payment-button"
-            onClick={continueToPayment}
-          >
+          <button type="button" className="review-payment-button" onClick={continueToPayment}>
             Continuar para pagamento
             <span>→</span>
           </button>
 
-          {/* SEGURANÇA */}
-
           <div className="review-trust">
             <span>✓</span>
-            <p>
-              Compra segura e atendimento personalizado pelo ateliê FLOWER.
-            </p>
+            <p>Compra segura e atendimento personalizado pelo ateliê FLOWER.</p>
           </div>
 
           <div className="review-back">

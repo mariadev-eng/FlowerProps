@@ -3,10 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { UserRound } from "lucide-react";
-import { supabase } from "../../../lib/supabase";
-import ProductCard from "../../components/ProductCard";
-import UserMenu from "../../components/UserMenu";
+import { supabase } from "@/lib/supabase";
+import ProductCard from "@/app/components/ProductCard";
+import { useCart } from "@/app/contexts/CartContext";
 
 type Product = {
   id: number;
@@ -45,13 +44,12 @@ const SLUG_TO_CATEGORY: Record<string, CategoryInfo> = {
 export default function CategoriaPage() {
   const params = useParams();
   const router = useRouter();
+  const { addToCart } = useCart();
 
   const slug = String(params?.slug || "").toLowerCase();
   const category = SLUG_TO_CATEGORY[slug];
 
   const [products, setProducts] = useState<Product[]>([]);
-  const [cartItems, setCartItems] = useState<any[]>([]);
-  const [isLoaded, setIsLoaded] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -86,73 +84,12 @@ export default function CategoriaPage() {
     loadProducts();
   }, [category]);
 
-  useEffect(() => {
-    const savedCart = localStorage.getItem("flower-cart");
-
-    if (savedCart) {
-      try {
-        setCartItems(JSON.parse(savedCart));
-      } catch {
-        localStorage.removeItem("flower-cart");
-      }
-    }
-
-    setIsLoaded(true);
-  }, []);
-
-  useEffect(() => {
-    if (!isLoaded) return;
-    localStorage.setItem("flower-cart", JSON.stringify(cartItems));
-  }, [cartItems, isLoaded]);
-
-  function addToCart(product: Product) {
-    setCartItems((currentItems) => {
-      const existingItem = currentItems.find(
-        (item) => item.id === product.id
-      );
-
-      if (existingItem) {
-        return currentItems.map((item) =>
-          item.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
-      }
-
-      return [...currentItems, { ...product, quantity: 1 }];
-    });
-
-    router.push("/checkout");
-  }
-
   if (!category) return null;
 
   return (
     <main className="category-page">
-      <header className="site-header">
-        <div className="header-content">
-          <Link href="/" className="brand">
-            <img
-              src="/images/logoflowerprops.png"
-              alt="FLOWER"
-              className="brand-logo"
-            />
-          </Link>
-
-          <nav className="desktop-nav">
-            <Link href="/">Início</Link>
-            <Link href="/#produtos">Buquês</Link>
-            <Link href="/#categorias">Categorias</Link>
-            <Link href="/#assinaturas">Assinaturas</Link>
-            <Link href="/#sobre">Sobre nós</Link>
-          </nav>
-
-          <div className="header-actions">
-            <UserMenu />
-          </div>
-        </div>
-      </header>
-
+      {/* HEADER ANTIGO REMOVIDO */}
+      
       <section className="category-intro section">
         <Link href="/" className="category-back">
           ← Voltar
@@ -181,7 +118,7 @@ export default function CategoriaPage() {
               <ProductCard
                 key={product.id}
                 product={product}
-                onAddToCart={addToCart}
+                onAddToCart={() => addToCart({ ...product, quantity: 1 })}
               />
             ))}
           </div>

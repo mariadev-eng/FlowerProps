@@ -7,6 +7,7 @@ type Product = {
   name: string;
   description: string;
   price: number;
+  black_friday_price?: number | null;
   category_id: number;
   image: string | null;
   available: boolean;
@@ -36,8 +37,15 @@ export default function Cart({
 }: CartProps) {
   const router = useRouter();
 
+  function getItemPrice(item: CartItem) {
+    if (item.black_friday_price && item.black_friday_price > 0) {
+      return item.black_friday_price;
+    }
+    return item.price;
+  }
+
   const total = items.reduce(
-    (sum, item) => sum + item.price * item.quantity,
+    (sum, item) => sum + getItemPrice(item) * item.quantity,
     0
   );
 
@@ -45,6 +53,8 @@ export default function Cart({
     (sum, item) => sum + item.quantity,
     0
   );
+
+  const hasUnavailableItem = items.some((item) => !item.available);
 
   function formatPrice(price: number) {
     return price.toLocaleString("pt-BR", {
@@ -54,7 +64,7 @@ export default function Cart({
   }
 
   function handleCheckout() {
-    if (items.length === 0) return;
+    if (items.length === 0 || hasUnavailableItem) return;
 
     onClose();
     router.push("/checkout");
@@ -138,6 +148,23 @@ export default function Cart({
                         </span>
 
                         <h3>{item.name}</h3>
+
+                        {/* 👇 Aviso de indisponível */}
+                        {!item.available && (
+                          <span
+                            style={{
+                              display: "inline-block",
+                              marginTop: 4,
+                              color: "#b91c1c",
+                              fontSize: "10px",
+                              fontWeight: 700,
+                              textTransform: "uppercase",
+                              letterSpacing: "0.08em",
+                            }}
+                          >
+                            Indisponível
+                          </span>
+                        )}
                       </div>
 
                       <button
@@ -150,7 +177,28 @@ export default function Cart({
                       </button>
                     </div>
 
-                    <strong>{formatPrice(item.price)}</strong>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                      {item.black_friday_price && item.black_friday_price > 0 && (
+                        <span
+                          style={{
+                            textDecoration: "line-through",
+                            color: "#999",
+                            fontSize: "11px",
+                          }}
+                        >
+                          {formatPrice(item.price)}
+                        </span>
+                      )}
+                      <strong
+                        style={
+                          item.black_friday_price && item.black_friday_price > 0
+                            ? { color: "#b88a44" }
+                            : {}
+                        }
+                      >
+                        {formatPrice(getItemPrice(item))}
+                      </strong>
+                    </div>
 
                     {item.type === "subscription" ? (
                       <span className="cart-subscription-note">
@@ -192,12 +240,24 @@ export default function Cart({
                 <p>
                   O valor da entrega será calculado na próxima etapa.
                 </p>
+
+                {hasUnavailableItem && (
+                  <p style={{ color: "#b91c1c", fontSize: "11px" }}>
+                    Remova os itens indisponíveis para finalizar.
+                  </p>
+                )}
               </div>
 
               <button
                 type="button"
                 className="button cart-checkout"
                 onClick={handleCheckout}
+                disabled={hasUnavailableItem}
+                style={
+                  hasUnavailableItem
+                    ? { opacity: 0.5, cursor: "not-allowed" }
+                    : {}
+                }
               >
                 <span>Finalizar pedido</span>
                 <span>→</span>
