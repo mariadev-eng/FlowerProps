@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { initMercadoPago, CardPayment } from "@mercadopago/sdk-react";
-import { supabase } from "../../../lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 initMercadoPago(process.env.NEXT_PUBLIC_MERCADO_PAGO_PUBLIC_KEY!, {
   locale: "pt-BR",
