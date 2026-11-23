@@ -19,36 +19,64 @@ export default function PedidosNatalAdmin() {
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandido, setExpandido] = useState<number | null>(null);
+  const [debugError, setDebugError] = useState<string | null>(null);
 
   useEffect(() => {
     async function carregarPedidos() {
-      const { data, error } = await supabase
-        .from("christmas_quotes")
-        .select("*")
-        .order("created_at", { ascending: false });
+      try {
+        console.log("Buscando pedidos...");
+        const { data, error } = await supabase
+          .from("christmas_quotes")
+          .select("*")
+          .order("created_at", { ascending: false });
 
-      if (error) {
-        console.error("Erro ao buscar encomendas de Natal:", error);
-      } else if (data) {
-        setPedidos(data);
+        if (error) {
+          console.error("ERRO SUPABASE:", error);
+          setDebugError(`Erro Supabase: ${error.message} (Code: ${error.code})`);
+          setLoading(false);
+          return;
+        }
+
+        console.log("Pedidos recebidos:", data);
+        setPedidos(data || []);
+      } catch (err: any) {
+        console.error("ERRO INESPERADO:", err);
+        setDebugError(`Erro inesperado: ${err.message}`);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     carregarPedidos();
   }, []);
 
-  function formatPrice(value: number) {
-    return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  function formatPrice(value: number | null) {
+    if (value === null || value === undefined) return "R$ 0,00";
+    return Number(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   }
 
   function formatDate(dateString: string) {
     if (!dateString) return "";
-    return new Date(dateString).toLocaleDateString("pt-BR", {
-      day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit"
-    });
+    try {
+      return new Date(dateString).toLocaleDateString("pt-BR", {
+        day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit"
+      });
+    } catch {
+      return dateString;
+    }
   }
 
   if (loading) return <div style={{ padding: "40px", textAlign: "center", color: "#7a7a72" }}>Carregando encomendas...</div>;
+
+  if (debugError) {
+    return (
+      <div style={{ padding: "40px", background: "#fee", color: "#900", border: "1px solid #fcc", borderRadius: 8, margin: 20 }}>
+        <h3>Erro ao carregar pedidos:</h3>
+        <p>{debugError}</p>
+        <p>Verifique o console (F12) para mais detalhes.</p>
+      </div>
+    );
+  }
+
   if (pedidos.length === 0) return <div style={{ padding: "40px", textAlign: "center", color: "#7a7a72" }}>Nenhuma encomenda de Natal recebida ainda.</div>;
 
   return (
