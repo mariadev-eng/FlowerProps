@@ -66,8 +66,8 @@ export default function BlackFridayPage() {
     if (categoryId === 3) {
       if (lowerName.includes("cristal flower")) return 1;
       if (lowerName.includes("box") && lowerName.includes("romance")) return 2;
-      if (lowerName.includes("bloom") && lowerName.includes("rouge")) return 3;
       if (lowerName.includes("box") && lowerName.includes("bloom")) return 4;
+      if (lowerName.includes("bloom") && lowerName.includes("rouge")) return 3;
       if (lowerName.includes("love") || lowerName.includes("unitaria")) return 5;
     }
 
