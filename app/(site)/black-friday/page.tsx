@@ -10,7 +10,7 @@ type Product = {
   name: string;
   description: string;
   price: number;
-  old_price?: number | null; // 👈 Trocado de black_friday_price para old_price
+  old_price?: number | null;
   category_id: number;
   image: string | null;
   available: boolean;
@@ -23,20 +23,36 @@ export default function BlackFridayPage() {
   useEffect(() => {
     async function loadProducts() {
       setLoading(true);
+
+      // Busca TODOS os produtos (sem filtrar old_price na query)
       const { data, error } = await supabase
         .from("products")
         .select("*")
-        .not("old_price", "is", null) // 👈 Busca pela nova coluna
-        .gt("old_price", 0) // 👈 Só pega os que têm promoção
-        // 👇 EXCLUINDO OS CHOCOLATES DA CACAU SHOW 👇
         .not("name", "ilike", "%panetone%")
         .not("name", "ilike", "%mini show%")
         .not("name", "ilike", "%caixa de bombons%");
 
       if (error) {
         console.error("Erro ao carregar produtos em oferta:", error);
+        setProducts([]);
       } else {
-        setProducts((data as Product[]) ?? []);
+        // Filtra no client: só produtos com old_price válido
+        const all = (data as Product[]) ?? [];
+        const withPromo = all.filter(
+          (p) => p.old_price !== null && p.old_price !== undefined && Number(p.old_price) > 0
+        );
+
+        console.log("TODOS os produtos:", all);
+        console.log("Com old_price > 0:", withPromo);
+        console.log(
+          "Por categoria:",
+          withPromo.reduce((acc, p) => {
+            acc[p.category_id] = (acc[p.category_id] || 0) + 1;
+            return acc;
+          }, {} as Record<number, number>)
+        );
+
+        setProducts(withPromo);
       }
       setLoading(false);
     }
@@ -46,8 +62,7 @@ export default function BlackFridayPage() {
 
   function getPriority(name: string, categoryId: number) {
     const lowerName = name.toLowerCase();
-    
-    // Regras para BUQUÊS (Categoria 1)
+
     if (categoryId === 1) {
       if (lowerName.includes("grande")) return 1;
       if (lowerName.includes("médio") || lowerName.includes("medio")) return 2;
@@ -56,7 +71,6 @@ export default function BlackFridayPage() {
       if (lowerName.includes("little")) return 5;
     }
 
-    // Regras para PRESENTES (Categoria 3)
     if (categoryId === 3) {
       if (lowerName.includes("cristal flower")) return 1;
       if (lowerName.includes("box") && lowerName.includes("romance")) return 2;
@@ -65,14 +79,13 @@ export default function BlackFridayPage() {
       if (lowerName.includes("love") || lowerName.includes("unitaria")) return 5;
     }
 
-    // Regras para ACESSÓRIOS (Categoria 4)
     if (categoryId === 4) {
       if (lowerName.includes("urso")) return 1;
       if (lowerName.includes("vela")) return 2;
       if (lowerName.includes("vinho")) return 3;
     }
-    
-    return 99; // Qualquer outro produto vai para o final da sua categoria
+
+    return 99;
   }
 
   const groupedProducts = products.reduce((acc, product) => {
@@ -93,9 +106,12 @@ export default function BlackFridayPage() {
     }
   }
 
+  // Ordem fixa das categorias na página
+  const CATEGORY_ORDER = [1, 3, 4];
+
   return (
     <main style={{ background: "#fdfcfb", minHeight: "100vh" }}>
-      
+
       <section style={{ background: "#1e3a29", padding: "80px 20px", textAlign: "center" }}>
         <span className="eyebrow" style={{ color: "#b88a44", letterSpacing: "0.2em" }}>
           OFERTAS IMPERDÍVEIS
@@ -122,23 +138,25 @@ export default function BlackFridayPage() {
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "60px" }}>
-            {Object.entries(groupedProducts).map(([categoryId, categoryProducts]) => {
-              
+            {CATEGORY_ORDER.map((categoryId) => {
+              const categoryProducts = groupedProducts[categoryId];
+              if (!categoryProducts || categoryProducts.length === 0) return null;
+
               const sortedProducts = [...categoryProducts].sort((a, b) => {
-                return getPriority(a.name, Number(categoryId)) - getPriority(b.name, Number(categoryId));
+                return getPriority(a.name, categoryId) - getPriority(b.name, categoryId);
               });
 
               return (
                 <div key={categoryId}>
                   <div style={{ marginBottom: "30px", borderBottom: "1px solid #e2e5dc", paddingBottom: "15px" }}>
                     <h2 style={{ fontFamily: "var(--serif)", color: "#1e3a29", fontSize: "32px", display: "flex", alignItems: "center", gap: "10px" }}>
-                      {getCategoryName(Number(categoryId))}
+                      {getCategoryName(categoryId)}
                       <span style={{ fontSize: "14px", color: "#b88a44", fontWeight: 500, fontFamily: "var(--sans)", letterSpacing: "0.1em", textTransform: "uppercase" }}>
                         Ofertas
                       </span>
                     </h2>
                   </div>
-                  
+
                   <div className="product-grid">
                     {sortedProducts.map((product) => (
                       <ProductCard key={product.id} product={product} />
