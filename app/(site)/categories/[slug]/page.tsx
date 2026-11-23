@@ -7,11 +7,13 @@ import { supabase } from "@/lib/supabase";
 import ProductCard from "@/app/components/ProductCard";
 import { useCart } from "@/app/contexts/CartContext";
 
+// Troque o type Product por este:
 type Product = {
   id: number;
   name: string;
   description: string;
   price: number;
+  old_price?: number | null; // 👈 Adicione esta linha
   category_id: number;
   image: string | null;
   available: boolean;

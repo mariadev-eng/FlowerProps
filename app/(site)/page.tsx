@@ -12,7 +12,7 @@ type Product = {
   name: string;
   description: string;
   price: number;
-  black_friday_price?: number | null;
+  old_price?: number | null; // 👈 Alterado de black_friday_price para old_price
   category_id: number;
   image: string | null;
   available: boolean;
@@ -33,14 +33,10 @@ type Subscription = {
 
 function getCategoryName(categoryId: number) {
   switch (categoryId) {
-    case 1:
-      return "Buquês";
-    case 3:
-      return "Presentes";
-    case 4:
-      return "Acessórios";
-    default:
-      return "FLOWER";
+    case 1: return "Buquês";
+    case 3: return "Presentes";
+    case 4: return "Acessórios";
+    default: return "FLOWER";
   }
 }
 
@@ -86,8 +82,7 @@ export default function Home() {
     loadSubscriptions();
   }, []);
 
-  const fallbackImage =
-    "https://images.unsplash.com/photo-1490750967868-88aa4486c946?auto=format&fit=crop&w=800&q=85";
+  const fallbackImage = "https://images.unsplash.com/photo-1490750967868-88aa4486c946?auto=format&fit=crop&w=800&q=85";
 
   function formatPrice(value: number) {
     return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -98,50 +93,40 @@ export default function Home() {
       <Snow />
 
       <div className="announcement-bar">
-        ✨ Black Friday: Descontos exclusivos em toda a loja. Aproveite!
+        ✨ Ofertas especiais: Descontos exclusivos em toda a loja. Aproveite!
       </div>
 
-      {/* ==================== HERO ==================== */}
       <section className="hero" id="inicio">
         <div className="hero-image" />
         <div className="hero-content">
           <span className="eyebrow">BUQUÊS & ACESSÓRIOS</span>
-          <h1>
-            Flores que<br /><em>contam histórias.</em>
-          </h1>
+          <h1>Flores que<br /><em>contam histórias.</em></h1>
           <p>Encontre o buquê perfeito para transformar momentos especiais em memórias inesquecíveis.</p>
           <div className="hero-buttons">
-            <Link href="/black-friday" className="button button-primary">
-              Ver Ofertas Black Friday
-            </Link>
+            <a href="#produtos" className="button button-primary">Ver Ofertas</a>
             <a href="#assinaturas" className="button button-outline">Conhecer assinaturas</a>
           </div>
         </div>
       </section>
 
-      {/* ==================== DESTAQUE BLACK FRIDAY ==================== */}
-      <section className="categories section" id="black-friday">
+      {/* ==================== DESTAQUE OFERTAS (AGORA PEÇA QUALQUER PRODUTO COM PROMOÇÃO) ==================== */}
+      <section className="categories section" id="ofertas">
         <div className="section-heading">
           <div>
             <span className="eyebrow" style={{ color: "#b88a44" }}>OFERTAS IMPERDÍVEIS</span>
-            <h2 style={{ fontFamily: "var(--serif)", color: "#1e3a29" }}>BLACK <em>FRIDAY</em></h2>
+            <h2 style={{ fontFamily: "var(--serif)", color: "#1e3a29" }}>OFERTAS <em>ESPECIAIS</em></h2>
             <p style={{ color: "#7a7a72", marginTop: "10px" }}>Aproveite descontos exclusivos em nossos produtos selecionados.</p>
           </div>
-          <Link href="/black-friday" className="text-link">
+          <Link href="/produtos" className="text-link">
             Ver todos →
           </Link>
         </div>
 
         <div className="product-grid">
           {(() => {
+            // 👇 A MÁGICA: Pega qualquer produto que tenha old_price e esteja disponível
             const selectedProducts = products.filter((p) => {
-              if (!p.black_friday_price || p.black_friday_price <= 0) return false;
-              const name = p.name.toLowerCase();
-              const isBoxRomance = name.includes("box") && name.includes("romance");
-              const isCristalFlower = name.includes("cristal") && name.includes("flower");
-              const isBuqueGrande = name.includes("buqu") && name.includes("grande");
-              const isBoxBloomRouge = name.includes("bloom") && name.includes("rouge");
-              return isBoxRomance || isCristalFlower || isBuqueGrande || isBoxBloomRouge;
+              return p.available && p.old_price && p.old_price > p.price;
             });
 
             if (selectedProducts.length > 0) {
@@ -151,19 +136,19 @@ export default function Home() {
             }
             return (
               <p style={{ width: "100%", textAlign: "center", color: "#7a7a72", padding: "40px 0", gridColumn: "1 / -1" }}>
-                Configure os preços da Black Friday no painel administrativo para exibir as ofertas.
+                Nenhuma oferta ativa no momento. Volte em breve!
               </p>
             );
           })()}
         </div>
       </section>
 
-      {/* ==================== ASSINATURAS NA HOME ==================== */}
+      {/* ==================== ASSINATURAS ==================== */}
       <section className="section" id="assinaturas" style={{ background: "#f2ece6", padding: "80px 20px", borderRadius: 12, margin: "40px auto", maxWidth: "1240px" }}>
         <div className="section-heading centered" style={{ marginBottom: 40 }}>
-          <span className="eyebrow" style={{ color: "#b88a44" }}>FLOWER EM CASA · BLACK FRIDAY</span>
+          <span className="eyebrow" style={{ color: "#b88a44" }}>FLOWER EM CASA</span>
           <h2 style={{ fontFamily: "var(--serif)", color: "#1e3a29" }}>Assine e receba flores <em style={{ color: "#b88a44" }}>sempre.</em></h2>
-          <p style={{ color: "#7a7a72", marginTop: 10 }}>Escolha a frequência e garanta condições especiais de Black Friday.</p>
+          <p style={{ color: "#7a7a72", marginTop: 10 }}>Escolha a frequência e garanta condições especiais.</p>
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "20px" }}>
@@ -198,22 +183,7 @@ export default function Home() {
                       <span style={{ color: "#7a7a72", fontSize: "12px", marginLeft: 5 }}>/mês</span>
                     </div>
 
-                    <Link
-                      href="/assinaturas"
-                      style={{
-                        display: "block",
-                        textAlign: "center",
-                        marginTop: "20px",
-                        padding: "12px",
-                        background: hasPromo ? "#b88a44" : "#1e3a29",
-                        color: "#fff",
-                        borderRadius: "4px",
-                        fontSize: "11px",
-                        fontWeight: 600,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.1em"
-                      }}
-                    >
+                    <Link href="/assinaturas" style={{ display: "block", textAlign: "center", marginTop: "20px", padding: "12px", background: hasPromo ? "#b88a44" : "#1e3a29", color: "#fff", borderRadius: "4px", fontSize: "11px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em" }}>
                       Assinar agora
                     </Link>
                   </div>
@@ -224,7 +194,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ==================== SEÇÃO NATAL ==================== */}
       <section className="christmas-section" id="natal">
         <span className="eyebrow">ESPÍRITO DE NATAL</span>
         <h2>O Natal merece flores.<br />E o seu amor merece a Flower.</h2>
@@ -234,7 +203,6 @@ export default function Home() {
         </Link>
       </section>
 
-      {/* ==================== COMPLEMENTE SEU PRESENTE (CHOCOLATES) ==================== */}
       <section id="produtos" style={{ padding: "80px 0", background: "#fdfcfb", width: "100%", overflow: "hidden" }}>
         <div className="section-heading centered" style={{ padding: "0 20px", marginBottom: 40, maxWidth: "1240px", margin: "0 auto 40px" }}>
           <span className="eyebrow" style={{ color: "#b88a44" }}>UM TOQUE ESPECIAL</span>
@@ -263,14 +231,12 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ==================== SOBRE ==================== */}
       <section className="about section" id="sobre">
         <span className="eyebrow">O ATELIÊ FLOWER</span>
         <h2>Mais do que flores.<br /><em>Momentos.</em></h2>
         <p>No Ateliê FLOWER, cada composição é pensada para transmitir sentimentos, celebrar pessoas e transformar pequenos momentos em grandes lembranças.</p>
       </section>
 
-      {/* ==================== FOOTER ==================== */}
       <footer className="footer">
         <div className="footer-brand">
           <img src="/images/logofooternew.png" alt="FLOWER Buquês & Acessórios" className="footer-logo" style={{ width: "200px" }} />
