@@ -31,15 +31,6 @@ type Subscription = {
   available: boolean;
 };
 
-function getCategoryName(categoryId: number) {
-  switch (categoryId) {
-    case 1: return "Buquês";
-    case 3: return "Presentes";
-    case 4: return "Acessórios";
-    default: return "FLOWER";
-  }
-}
-
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
@@ -109,7 +100,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ==================== DESTAQUE OFERTAS (4 PRODUTOS) ==================== */}
+      {/* ==================== DESTAQUE OFERTAS ==================== */}
       <section className="categories section" id="ofertas">
         <div className="section-heading">
           <div>
@@ -124,20 +115,37 @@ export default function Home() {
 
         <div className="product-grid">
           {(() => {
-            // 👇 FILTRO COM REGRA MAIS FLEXÍVEL PARA PEGAR OS 4 PRODUTOS
-            const selectedProducts = products.filter((p) => {
-              if (!p.available || !p.black_friday_price || p.black_friday_price <= 0) return false;
-              
-              const name = p.name.toLowerCase();
-              const isBoxRomance = name.includes("box") && name.includes("romance");
-              const isCristalFlower = name.includes("cristal") && name.includes("flower");
-              // Mudamos de "buqu" para "buquê" ou "buque" e flexibilizamos o "grande"
-              const isBuqueGrande = (name.includes("buquê") || name.includes("buque")) && name.includes("grande");
-              const isBoxBloomRouge = name.includes("bloom") && name.includes("rouge");
-              
-              // Também aceita se for o produto exato caso tenha mudado o nome
-              return isBoxRomance || isCristalFlower || isBuqueGrande || isBoxBloomRouge;
-            });
+            // 👇 A MÁGICA DEFINITIVA: Pega os 4 produtos com black_friday_price e ordena igual à Black Friday
+            const selectedProducts = products
+              .filter((p) => p.available && p.black_friday_price && p.black_friday_price > 0)
+              .sort((a, b) => {
+                // Essa é a mesma regra de prioridade que está na página Black Friday
+                const getPriority = (name: string, categoryId: number) => {
+                  const lowerName = name.toLowerCase();
+                  if (categoryId === 1) {
+                    if (lowerName.includes("grande")) return 1;
+                    if (lowerName.includes("médio") || lowerName.includes("medio")) return 2;
+                    if (lowerName.includes("pequeno")) return 3;
+                    if (lowerName.includes("mini")) return 4;
+                    if (lowerName.includes("little")) return 5;
+                  }
+                  if (categoryId === 3) {
+                    if (lowerName.includes("cristal flower")) return 1;
+                    if (lowerName.includes("box") && lowerName.includes("romance")) return 2;
+                    if (lowerName.includes("bloom") && lowerName.includes("rouge")) return 3;
+                    if (lowerName.includes("box") && lowerName.includes("bloom")) return 4;
+                    if (lowerName.includes("love") || lowerName.includes("unitaria")) return 5;
+                  }
+                  if (categoryId === 4) {
+                    if (lowerName.includes("urso")) return 1;
+                    if (lowerName.includes("vela")) return 2;
+                    if (lowerName.includes("vinho")) return 3;
+                  }
+                  return 99;
+                };
+                return getPriority(a.name, a.category_id) - getPriority(b.name, b.category_id);
+              })
+              .slice(0, 4); // 👈 Mostra estritamente os 4 primeiros da lista
 
             if (selectedProducts.length > 0) {
               return selectedProducts.map((product) => (
