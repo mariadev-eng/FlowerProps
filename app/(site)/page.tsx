@@ -109,7 +109,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ==================== DESTAQUE OFERTAS ==================== */}
+      {/* ==================== DESTAQUE OFERTAS (4 PRODUTOS) ==================== */}
       <section className="categories section" id="ofertas">
         <div className="section-heading">
           <div>
@@ -117,21 +117,25 @@ export default function Home() {
             <h2 style={{ fontFamily: "var(--serif)", color: "#1e3a29" }}>OFERTAS <em>ESPECIAIS</em></h2>
             <p style={{ color: "#7a7a72", marginTop: "10px" }}>Aproveite descontos exclusivos em nossos produtos selecionados.</p>
           </div>
-          <Link href="/produtos" className="text-link">
+          <Link href="/black-friday" className="text-link">
             Ver todos →
           </Link>
         </div>
 
         <div className="product-grid">
           {(() => {
-            // 👇 FILTRO PARA APARECER APENAS OS 4 PRODUTOS ESPECÍFICOS DA BLACK FRIDAY
+            // 👇 FILTRO COM REGRA MAIS FLEXÍVEL PARA PEGAR OS 4 PRODUTOS
             const selectedProducts = products.filter((p) => {
               if (!p.available || !p.black_friday_price || p.black_friday_price <= 0) return false;
+              
               const name = p.name.toLowerCase();
               const isBoxRomance = name.includes("box") && name.includes("romance");
               const isCristalFlower = name.includes("cristal") && name.includes("flower");
-              const isBuqueGrande = name.includes("buqu") && name.includes("grande");
+              // Mudamos de "buqu" para "buquê" ou "buque" e flexibilizamos o "grande"
+              const isBuqueGrande = (name.includes("buquê") || name.includes("buque")) && name.includes("grande");
               const isBoxBloomRouge = name.includes("bloom") && name.includes("rouge");
+              
+              // Também aceita se for o produto exato caso tenha mudado o nome
               return isBoxRomance || isCristalFlower || isBuqueGrande || isBoxBloomRouge;
             });
 
