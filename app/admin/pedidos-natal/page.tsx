@@ -3,49 +3,119 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
+type Pedido = {
+  id: number;
+  nome: string;
+  data_evento: string;
+  tipo_arranjo: string;
+  tamanho: string;
+  detalhes: string;
+  valor: number;
+  created_at: string;
+};
+
 export default function PedidosNatalAdmin() {
-  const [pedidos, setPedidos] = useState<any[]>([]);
+  const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [loading, setLoading] = useState(true);
-  const [msg, setMsg] = useState("Iniciando...");
+  const [expandido, setExpandido] = useState<number | null>(null);
 
   useEffect(() => {
-    async function load() {
-      setMsg("Buscando no banco...");
-      const { data, error } = await supabase.from("christmas_quotes").select("*");
-      
+    async function carregarPedidos() {
+      const { data, error } = await supabase
+        .from("christmas_quotes")
+        .select("*")
+        .order("created_at", { ascending: false });
+
       if (error) {
-        setMsg(`Erro do Supabase: ${error.message} (Code: ${error.code})`);
-      } else {
-        setMsg(`Sucesso! Encontrados ${data?.length || 0} pedidos no banco.`);
-        setPedidos(data || []);
+        console.error("Erro ao buscar encomendas de Natal:", error);
+      } else if (data) {
+        setPedidos(data);
       }
       setLoading(false);
     }
-    load();
+    carregarPedidos();
   }, []);
 
+  function formatPrice(value: number | null) {
+    if (value === null || value === undefined) return "A combinar";
+    return Number(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  }
+
+  function formatDate(dateString: string) {
+    if (!dateString) return "";
+    return new Date(dateString).toLocaleDateString("pt-BR", {
+      day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit"
+    });
+  }
+
+  if (loading) return <div style={{ padding: "40px", textAlign: "center", color: "#7a7a72" }}>Carregando encomendas...</div>;
+  if (pedidos.length === 0) return <div style={{ padding: "40px", textAlign: "center", color: "#7a7a72" }}>Nenhuma encomenda de Natal recebida ainda.</div>;
+
   return (
-    <div style={{ padding: "50px", background: "#fff", minHeight: "100vh" }}>
-      <h1 style={{ color: "red", fontSize: "24px", marginBottom: "20px" }}>TESTE DO ADMIN</h1>
+    <div style={{ padding: "40px 20px", maxWidth: "1000px", margin: "0 auto", background: "#fdfcfb", minHeight: "100vh" }}>
       
-      <div style={{ padding: "20px", background: "#e0ffe0", border: "2px solid green", marginBottom: "20px" }}>
-        <strong>Status:</strong> {msg}
+      <div style={{ marginBottom: "30px" }}>
+        <h1 style={{ fontFamily: "var(--serif)", color: "#1e3a29", fontSize: "32px", margin: 0 }}>Encomendas de Natal</h1>
+        <p style={{ color: "#7a7a72", marginTop: "10px" }}>Gerencie os arranjos e pedidos de final de ano feitos pelos clientes.</p>
       </div>
 
-      {loading ? (
-        <p>Carregando...</p>
-      ) : (
-        <div>
-          <h3>Pedidos no banco: {pedidos.length}</h3>
-          {pedidos.map((p) => (
-            <div key={p.id} style={{ border: "1px solid #ccc", padding: "10px", marginBottom: "10px" }}>
-              <strong>ID: {p.id} - {p.nome}</strong>
-              <p>Valor: {p.valor}</p>
-              <p>Detalhes: {p.detalhes}</p>
+      <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+        {pedidos.map((pedido) => {
+          const isOpen = expandido === pedido.id;
+
+          return (
+            <div 
+              key={pedido.id} 
+              style={{ border: "1px solid #e2e5dc", borderRadius: 8, background: "#fff", overflow: "hidden", boxShadow: "0 4px 15px rgba(0,0,0,0.03)" }}
+            >
+              <div 
+                onClick={() => setExpandido(isOpen ? null : pedido.id)}
+                style={{ padding: "20px", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", background: isOpen ? "#f8f9fa" : "#fff", transition: "background 0.2s" }}
+              >
+                <div>
+                  <strong style={{ color: "#1e3a29", fontSize: 18 }}>{pedido.nome}</strong>
+                  <p style={{ margin: "5px 0 0 0", fontSize: 13, color: "#7a7a72" }}>
+                    Realizado em: {formatDate(pedido.created_at)} | Valor: {formatPrice(pedido.valor)}
+                  </p>
+                </div>
+                <div style={{ color: "#b88a44", fontWeight: 600, fontSize: 14 }}>
+                  {isOpen ? "Ocultar Detalhes ▲" : "Ver Detalhes ▼"}
+                </div>
+              </div>
+
+              {isOpen && (
+                <div style={{ padding: "20px", borderTop: "1px solid #e2e5dc", background: "#fdfcfb" }}>
+                  <h4 style={{ color: "#1e3a29", marginBottom: 15, fontSize: 16, marginTop: 0 }}>Informações do Arranjo</h4>
+                  
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "15px", marginBottom: 15 }}>
+                    <div style={{ background: "#fff", padding: 15, borderRadius: 6, border: "1px solid #e2e5dc" }}>
+                      <span style={{ fontSize: 11, color: "#7a7a72", textTransform: "uppercase", fontWeight: 700 }}>Tamanho / Hastes</span>
+                      <p style={{ margin: "5px 0 0 0", fontWeight: 600, color: "#1e3a29" }}>{pedido.tamanho || "Não informado"}</p>
+                    </div>
+                    
+                    <div style={{ background: "#fff", padding: 15, borderRadius: 6, border: "1px solid #e2e5dc" }}>
+                      <span style={{ fontSize: 11, color: "#7a7a72", textTransform: "uppercase", fontWeight: 700 }}>Tipo de Arranjo (Ocasião)</span>
+                      <p style={{ margin: "5px 0 0 0", fontWeight: 600, color: "#1e3a29" }}>{pedido.tipo_arranjo || "Não informado"}</p>
+                    </div>
+
+                    <div style={{ background: "#fff", padding: 15, borderRadius: 6, border: "1px solid #e2e5dc", gridColumn: "1 / -1" }}>
+                      <span style={{ fontSize: 11, color: "#7a7a72", textTransform: "uppercase", fontWeight: 700 }}>Data do Evento</span>
+                      <p style={{ margin: "5px 0 0 0", fontWeight: 600, color: "#1e3a29" }}>
+                        {pedido.data_evento ? new Date(pedido.data_evento + "T12:00:00").toLocaleDateString("pt-BR") : "Não informada"}
+                      </p>
+                    </div>
+
+                    <div style={{ background: "#fff", padding: 15, borderRadius: 6, border: "1px solid #e2e5dc", gridColumn: "1 / -1" }}>
+                      <span style={{ fontSize: 11, color: "#7a7a72", textTransform: "uppercase", fontWeight: 700 }}>Detalhes (Cores, flores, etc)</span>
+                      <p style={{ margin: "5px 0 0 0", color: "#1e3a29", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{pedido.detalhes || "Nenhum detalhe informado."}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          ))}
-        </div>
-      )}
+          );
+        })}
+      </div>
     </div>
   );
 }
