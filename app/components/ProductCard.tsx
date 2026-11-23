@@ -10,7 +10,7 @@ type Product = {
   name: string;
   description: string;
   price: number;
-  black_friday_price?: number | null;
+  old_price?: number | null; // 👈 Alterado
   category_id: number;
   image: string | null;
   available: boolean;
@@ -23,13 +23,13 @@ type ProductCardProps = {
 export default function ProductCard({ product }: ProductCardProps) {
   const router = useRouter();
   const { toggleFavorite, isFavorite } = useFavorites();
-  // 👇 Removemos o openCart daqui
   const { addToCart } = useCart(); 
 
   const favorited = isFavorite(product.id);
 
-  const hasPromo = product.black_friday_price && product.black_friday_price > 0;
-  const finalPrice = hasPromo ? product.black_friday_price! : product.price;
+  // 👇 Nova lógica de promoção
+  const hasPromo = product.old_price && product.old_price > 0;
+  const finalPrice = product.price; // O preço principal é sempre o campo `price`
 
   function formatPrice(value: number) {
     return value.toLocaleString("pt-BR", {
@@ -87,6 +87,7 @@ export default function ProductCard({ product }: ProductCardProps) {
         
         <div className="product-bottom">
           <div style={{ display: "flex", flexDirection: "column" }}>
+            {/* 👇 Mostra o preço antigo riscado */}
             {hasPromo && (
               <span
                 style={{
@@ -96,26 +97,28 @@ export default function ProductCard({ product }: ProductCardProps) {
                   marginBottom: "2px",
                 }}
               >
-                {formatPrice(product.price)}
+                {formatPrice(product.old_price!)}
               </span>
             )}
+            
+            {/* Preço principal */}
             <strong
               style={hasPromo ? { color: "#b88a44", fontSize: "16px" } : {}}
             >
               {formatPrice(finalPrice)}
             </strong>
           </div>
+          
           <button
             type="button"
             className="add-button"
             onClick={(e) => {
               e.stopPropagation();
-              // 👇 Apenas adiciona ao carrinho, sem abrir a gaveta lateral
               addToCart({
                 ...product,
                 quantity: 1,
                 price: finalPrice,
-                black_friday_price: product.black_friday_price,
+                old_price: product.old_price, // 👈 Passa o old_price para o carrinho
               });
             }}
           >

@@ -8,7 +8,7 @@ type Product = {
   name: string;
   description: string;
   price: number;
-  black_friday_price?: number | null;
+  old_price?: number | null; // 👈 Alterado
   category_id: number;
   image: string | null;
   available: boolean;
@@ -71,7 +71,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const ids = cartItems.map((item) => item.id);
       const { data, error } = await supabase
         .from("products")
-        .select("id, price, black_friday_price, available, name, image")
+        .select("id, price, old_price, available, name, image") // 👈 Alterado
         .in("id", ids);
 
       if (error || !data) return;
@@ -83,7 +83,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           return {
             ...item,
             price: fresh.price,
-            black_friday_price: fresh.black_friday_price,
+            old_price: fresh.old_price, // 👈 Alterado
             available: fresh.available,
             name: fresh.name,
             image: fresh.image,

@@ -14,9 +14,8 @@ export default function CartToast() {
     });
   }
 
-  const itemPrice = (lastAddedItem.black_friday_price && lastAddedItem.black_friday_price > 0) 
-    ? lastAddedItem.black_friday_price 
-    : lastAddedItem.price;
+  // 👇 Agora ele usa o `price` (que já é o valor com desconto)
+  const itemPrice = lastAddedItem.price;
 
   return (
     <div

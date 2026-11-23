@@ -10,7 +10,7 @@ type Product = {
   name: string;
   description: string;
   price: number;
-  black_friday_price?: number | null;
+  old_price?: number | null; // 👈 Trocado de black_friday_price para old_price
   category_id: number;
   image: string | null;
   available: boolean;
@@ -26,15 +26,15 @@ export default function BlackFridayPage() {
       const { data, error } = await supabase
         .from("products")
         .select("*")
-        .not("black_friday_price", "is", null)
-        .gt("black_friday_price", 0)
+        .not("old_price", "is", null) // 👈 Busca pela nova coluna
+        .gt("old_price", 0) // 👈 Só pega os que têm promoção
         // 👇 EXCLUINDO OS CHOCOLATES DA CACAU SHOW 👇
         .not("name", "ilike", "%panetone%")
         .not("name", "ilike", "%mini show%")
         .not("name", "ilike", "%caixa de bombons%");
 
       if (error) {
-        console.error("Erro ao carregar produtos da Black Friday:", error);
+        console.error("Erro ao carregar produtos em oferta:", error);
       } else {
         setProducts((data as Product[]) ?? []);
       }
@@ -96,14 +96,12 @@ export default function BlackFridayPage() {
   return (
     <main style={{ background: "#fdfcfb", minHeight: "100vh" }}>
       
-      {/* HEADER REMOVIDO — AGORA VEM DO LAYOUT GLOBAL */}
-
       <section style={{ background: "#1e3a29", padding: "80px 20px", textAlign: "center" }}>
         <span className="eyebrow" style={{ color: "#b88a44", letterSpacing: "0.2em" }}>
           OFERTAS IMPERDÍVEIS
         </span>
         <h1 style={{ fontFamily: "var(--serif)", color: "#fff", fontSize: "clamp(42px, 6vw, 72px)", margin: "10px 0" }}>
-          BLACK <em style={{ color: "#b88a44", fontStyle: "italic" }}>FRIDAY</em>
+          OFERTAS <em style={{ color: "#b88a44", fontStyle: "italic" }}>ESPECIAIS</em>
         </h1>
         <p style={{ color: "rgba(255,255,255,0.8)", maxWidth: 600, margin: "0 auto", fontSize: 15 }}>
           Aproveite nossos descontos exclusivos em produtos selecionados. Estoques limitados!
