@@ -12,7 +12,6 @@ export default function EncomendasNatalPage() {
   const [tipoArranjo, setTipoArranjo] = useState("");
   const [tamanho, setTamanho] = useState("");
   const [detalhes, setDetalhes] = useState("");
-  
   const [isLoading, setIsLoading] = useState(false);
 
   function selecionarTamanho(tamanhoSelecionado: string) {
@@ -25,66 +24,44 @@ export default function EncomendasNatalPage() {
     e.preventDefault();
     setIsLoading(true);
 
-    // 1. Define o valor baseado na opção de tamanho
     let valorBase = 0;
     if (tamanho.includes("PP")) valorBase = 160;
     else if (tamanho.includes("Pequeno")) valorBase = 250;
     else if (tamanho.includes("Médio")) valorBase = 360;
     else if (tamanho.includes("Grande")) valorBase = 450;
 
-    // 2. Monta o objeto com os dados do pedido
-    const dadosPedido = {
-      nome,
-      dataEvento,
-      tipoArranjo,
-      tamanho,
-      detalhes,
-      valor: valorBase,
-    };
-
-    // 3. Salva temporariamente no navegador (para a tela de pagamento usar)
+    const dadosPedido = { nome, dataEvento, tipoArranjo, tamanho, detalhes, valor: valorBase };
     localStorage.setItem("flower-natal-pedido", JSON.stringify(dadosPedido));
 
     try {
-      // 4. Salva o pedido no banco de dados para aparecer no Admin
-      const { error } = await supabase.from("orders").insert([{
-        customer_name: nome,
-        total: valorBase,
-        status: "pendente",
-        payment_method: "encomenda_natal",
-        order_items: [{
-          name: `Arranjo de Natal - ${tamanho}`,
-          quantity: 1,
-          price: valorBase,
-          details: {
-            dataEvento,
-            tipoArranjo,
-            detalhes
-          }
-        }]
+      // Salvando na tabela christmas_quotes
+      const { error } = await supabase.from("christmas_quotes").insert([{
+        nome: nome,
+        data_evento: dataEvento,
+        tipo_arranjo: tipoArranjo,
+        tamanho: tamanho,
+        detalhes: detalhes,
+        valor: valorBase,
+        payment_status: "pendente",
+        payment_method: "pix"
       }]);
 
       if (error) {
-        console.error("Erro ao salvar pedido no banco:", error);
+        console.error("Erro ao salvar pedido:", error);
         alert("Houve um erro ao registrar seu pedido. Tente novamente.");
         setIsLoading(false);
         return;
       }
 
-      // 5. Redireciona para a tela de pagamento
       router.push("/encomendas-natal/pagamento");
-      
     } catch (err) {
-      console.error("Erro inesperado:", err);
-      alert("Ocorreu um erro. Tente novamente.");
+      console.error(err);
       setIsLoading(false);
     }
   }
 
   return (
     <main style={{ background: "#f7f8f4", minHeight: "100vh", paddingBottom: "80px" }}>
-      
-      {/* CABEÇALHO */}
       <section style={{ background: "#1e3a29", padding: "100px 20px", textAlign: "center" }}>
         <span className="eyebrow" style={{ color: "#b88a44", letterSpacing: "0.2em" }}>ENCOMENDAS ESPECIAIS</span>
         <h1 style={{ fontFamily: "var(--serif)", color: "#fff", fontSize: "clamp(42px, 6vw, 72px)", margin: "10px 0" }}>
@@ -92,7 +69,6 @@ export default function EncomendasNatalPage() {
         </h1>
       </section>
 
-      {/* CARDS DE TAMANHOS */}
       <section style={{ maxWidth: "1100px", margin: "-40px auto 40px", padding: "0 20px", position: "relative", zIndex: 10 }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "20px" }}>
           {[
@@ -111,17 +87,14 @@ export default function EncomendasNatalPage() {
         </div>
       </section>
 
-      {/* FORMULÁRIO */}
       <section id="formulario-encomenda" style={{ maxWidth: "800px", margin: "0 auto", padding: "0 20px", position: "relative", zIndex: 10 }}>
         <div style={{ background: "#fff", padding: "40px", borderRadius: 8, boxShadow: "0 20px 60px rgba(0,0,0,0.05)" }}>
-          
           <div style={{ textAlign: "center", marginBottom: 30 }}>
             <h2 style={{ fontFamily: "var(--serif)", color: "#1e3a29", fontSize: 32 }}>Faça sua encomenda</h2>
             <p style={{ color: "#7a7a72", fontSize: 14 }}>Preencha os dados abaixo para ir para o pagamento.</p>
           </div>
 
           <form onSubmit={irParaPagamento} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            
             <label style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 13, fontWeight: 600, color: "#3f493b" }}>
               Seu Nome Completo
               <input type="text" required value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex: Maria Silva" style={{ padding: "14px", borderRadius: 4, border: "1px solid #d1d5db" }} />
@@ -161,29 +134,9 @@ export default function EncomendasNatalPage() {
               <textarea required rows={4} value={detalhes} onChange={(e) => setDetalhes(e.target.value)} placeholder="Ex: Gostaria de um arranjo com flores vermelhas e detalhes dourados." style={{ padding: "14px", borderRadius: 4, border: "1px solid #d1d5db", resize: "vertical" }} />
             </label>
 
-            <button 
-              type="submit" 
-              disabled={isLoading}
-              style={{ 
-                marginTop: 10, 
-                padding: "16px", 
-                background: isLoading ? "#d1d5db" : "#b88a44", 
-                color: "#fff", 
-                border: 0, 
-                borderRadius: 4, 
-                fontSize: 13, 
-                fontWeight: 700, 
-                letterSpacing: "0.1em", 
-                textTransform: "uppercase", 
-                cursor: isLoading ? "wait" : "pointer", 
-                transition: "background 0.2s" 
-              }} 
-              onMouseEnter={(e) => !isLoading && (e.currentTarget.style.background = "#9a7133")} 
-              onMouseLeave={(e) => !isLoading && (e.currentTarget.style.background = "#b88a44")}
-            >
+            <button type="submit" disabled={isLoading} style={{ marginTop: 10, padding: "16px", background: isLoading ? "#d1d5db" : "#b88a44", color: "#fff", border: 0, borderRadius: 4, fontSize: 13, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", cursor: isLoading ? "wait" : "pointer", transition: "background 0.2s" }} onMouseEnter={(e) => !isLoading && (e.currentTarget.style.background = "#9a7133")} onMouseLeave={(e) => !isLoading && (e.currentTarget.style.background = "#b88a44")}>
               {isLoading ? "Processando..." : "Continuar para o Pagamento"}
             </button>
-
           </form>
         </div>
       </section>
