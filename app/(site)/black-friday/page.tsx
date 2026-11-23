@@ -11,6 +11,7 @@ type Product = {
   description: string;
   price: number;
   old_price?: number | null;
+  black_friday_price?: number | null; // Adicionado caso seu admin use este campo
   category_id: number;
   image: string | null;
   available: boolean;
@@ -23,8 +24,7 @@ export default function BlackFridayPage() {
   useEffect(() => {
     async function loadProducts() {
       setLoading(true);
-
-      // Busca TODOS os produtos (sem filtrar old_price na query)
+      // Busca todos os produtos sem filtro de preço no banco
       const { data, error } = await supabase
         .from("products")
         .select("*")
@@ -33,26 +33,18 @@ export default function BlackFridayPage() {
         .not("name", "ilike", "%caixa de bombons%");
 
       if (error) {
-        console.error("Erro ao carregar produtos em oferta:", error);
+        console.error("Erro ao carregar produtos:", error);
         setProducts([]);
       } else {
-        // Filtra no client: só produtos com old_price válido
-        const all = (data as Product[]) ?? [];
-        const withPromo = all.filter(
-          (p) => p.old_price !== null && p.old_price !== undefined && Number(p.old_price) > 0
-        );
+        const allProducts = (data as Product[]) ?? [];
+        
+        // FILTRO INTELIGENTE: Aceita tanto old_price quanto black_friday_price como o "preço promocional"
+        const promoProducts = allProducts.filter((p) => {
+          const promoPrice = p.old_price || p.black_friday_price;
+          return promoPrice !== null && promoPrice !== undefined && Number(promoPrice) > 0;
+        });
 
-        console.log("TODOS os produtos:", all);
-        console.log("Com old_price > 0:", withPromo);
-        console.log(
-          "Por categoria:",
-          withPromo.reduce((acc, p) => {
-            acc[p.category_id] = (acc[p.category_id] || 0) + 1;
-            return acc;
-          }, {} as Record<number, number>)
-        );
-
-        setProducts(withPromo);
+        setProducts(promoProducts);
       }
       setLoading(false);
     }
@@ -83,6 +75,7 @@ export default function BlackFridayPage() {
       if (lowerName.includes("urso")) return 1;
       if (lowerName.includes("vela")) return 2;
       if (lowerName.includes("vinho")) return 3;
+      if (lowerName.includes("caneca")) return 4;
     }
 
     return 99;
@@ -111,7 +104,6 @@ export default function BlackFridayPage() {
 
   return (
     <main style={{ background: "#fdfcfb", minHeight: "100vh" }}>
-
       <section style={{ background: "#1e3a29", padding: "80px 20px", textAlign: "center" }}>
         <span className="eyebrow" style={{ color: "#b88a44", letterSpacing: "0.2em" }}>
           OFERTAS IMPERDÍVEIS
