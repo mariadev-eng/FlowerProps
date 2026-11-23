@@ -12,7 +12,7 @@ type Product = {
   name: string;
   description: string;
   price: number;
-  old_price?: number | null; // 👈 Alterado de black_friday_price para old_price
+  black_friday_price?: number | null; // 👈 Voltamos para o nome do banco
   category_id: number;
   image: string | null;
   available: boolean;
@@ -109,7 +109,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ==================== DESTAQUE OFERTAS (AGORA PEÇA QUALQUER PRODUTO COM PROMOÇÃO) ==================== */}
+      {/* ==================== DESTAQUE OFERTAS ==================== */}
       <section className="categories section" id="ofertas">
         <div className="section-heading">
           <div>
@@ -124,9 +124,9 @@ export default function Home() {
 
         <div className="product-grid">
           {(() => {
-            // 👇 A MÁGICA: Pega qualquer produto que tenha old_price e esteja disponível
+            // 👇 CORRIGIDO: Pega quem tem black_friday_price e está disponível
             const selectedProducts = products.filter((p) => {
-              return p.available && p.old_price && p.old_price > p.price;
+              return p.available && p.black_friday_price && p.black_friday_price > 0;
             });
 
             if (selectedProducts.length > 0) {
