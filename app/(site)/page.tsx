@@ -12,7 +12,7 @@ type Product = {
   name: string;
   description: string;
   price: number;
-  black_friday_price?: number | null; // 👈 Voltamos para o nome do banco
+  black_friday_price?: number | null;
   category_id: number;
   image: string | null;
   available: boolean;
@@ -124,9 +124,15 @@ export default function Home() {
 
         <div className="product-grid">
           {(() => {
-            // 👇 CORRIGIDO: Pega quem tem black_friday_price e está disponível
+            // 👇 FILTRO PARA APARECER APENAS OS 4 PRODUTOS ESPECÍFICOS DA BLACK FRIDAY
             const selectedProducts = products.filter((p) => {
-              return p.available && p.black_friday_price && p.black_friday_price > 0;
+              if (!p.available || !p.black_friday_price || p.black_friday_price <= 0) return false;
+              const name = p.name.toLowerCase();
+              const isBoxRomance = name.includes("box") && name.includes("romance");
+              const isCristalFlower = name.includes("cristal") && name.includes("flower");
+              const isBuqueGrande = name.includes("buqu") && name.includes("grande");
+              const isBoxBloomRouge = name.includes("bloom") && name.includes("rouge");
+              return isBoxRomance || isCristalFlower || isBuqueGrande || isBoxBloomRouge;
             });
 
             if (selectedProducts.length > 0) {
@@ -136,7 +142,7 @@ export default function Home() {
             }
             return (
               <p style={{ width: "100%", textAlign: "center", color: "#7a7a72", padding: "40px 0", gridColumn: "1 / -1" }}>
-                Nenhuma oferta ativa no momento. Volte em breve!
+                Configure os preços da Black Friday no painel administrativo para exibir as ofertas.
               </p>
             );
           })()}
