@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase"; 
 
 export default function EncomendasNatalPage() {
   const router = useRouter();
@@ -20,7 +21,7 @@ export default function EncomendasNatalPage() {
     if (formElement) formElement.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  function irParaPagamento(e: React.FormEvent) {
+  async function irParaPagamento(e: React.FormEvent) {
     e.preventDefault();
     setIsLoading(true);
 
@@ -38,14 +39,46 @@ export default function EncomendasNatalPage() {
       tipoArranjo,
       tamanho,
       detalhes,
-      valor: valorBase, // 👈 Valor enviado para a tela de pagamento
+      valor: valorBase,
     };
 
-    // 3. Salva temporariamente no navegador
+    // 3. Salva temporariamente no navegador (para a tela de pagamento usar)
     localStorage.setItem("flower-natal-pedido", JSON.stringify(dadosPedido));
 
-    // 4. Redireciona para a tela de pagamento
-    router.push("/encomendas-natal/pagamento");
+    try {
+      // 4. Salva o pedido no banco de dados para aparecer no Admin
+      const { error } = await supabase.from("orders").insert([{
+        customer_name: nome,
+        total: valorBase,
+        status: "pendente",
+        payment_method: "encomenda_natal",
+        order_items: [{
+          name: `Arranjo de Natal - ${tamanho}`,
+          quantity: 1,
+          price: valorBase,
+          details: {
+            dataEvento,
+            tipoArranjo,
+            detalhes
+          }
+        }]
+      }]);
+
+      if (error) {
+        console.error("Erro ao salvar pedido no banco:", error);
+        alert("Houve um erro ao registrar seu pedido. Tente novamente.");
+        setIsLoading(false);
+        return;
+      }
+
+      // 5. Redireciona para a tela de pagamento
+      router.push("/encomendas-natal/pagamento");
+      
+    } catch (err) {
+      console.error("Erro inesperado:", err);
+      alert("Ocorreu um erro. Tente novamente.");
+      setIsLoading(false);
+    }
   }
 
   return (
