@@ -205,13 +205,21 @@ function ProdutosTab() {
           flexWrap: "wrap",
         }}
       >
-        <input
-          type="search"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Buscar por nome..."
-          style={inputStyle}
-        />
+           <input
+  type="search"
+  value={searchTerm}
+  onChange={(e) => setSearchTerm(e.target.value)}
+  placeholder="Buscar flor por nome..."
+  style={{
+    height: 38,
+    padding: "0 12px",
+    border: "1px solid #d1d5db",
+    borderRadius: 6,
+    fontSize: 13,
+    outline: "none",
+    width: 250,
+  }}
+/>
 
         <select
           value={categoryFilter}
@@ -1494,13 +1502,13 @@ function FloresTab() {
         />
       </div>
 
-      {isLoading ? (
+           {isLoading ? (
         <div style={emptyStyle}>Carregando flores...</div>
-      ) : flowers.length === 0 ? (
-        <div style={emptyStyle}>Nenhuma flor cadastrada.</div>
+      ) : filteredFlowers.length === 0 ? ( 
+        <div style={emptyStyle}>Nenhuma flor encontrada.</div> 
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {flowers.map((flower) => {
+          {filteredFlowers.map((flower) => {
             const isExpanded = expandedFlowerId === flower.id;
             const count = countProducts(flower);
 
