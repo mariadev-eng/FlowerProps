@@ -114,7 +114,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ==================== DESTAQUE BLACK FRIDAY ==================== */}
+            {/* ==================== DESTAQUE BLACK FRIDAY (CARROSSEL DA HOME) ==================== */}
       <section className="categories section" id="black-friday">
         <div className="section-heading">
           <div>
@@ -129,54 +129,19 @@ export default function Home() {
 
         <div className="product-grid">
           {(() => {
-            // Normaliza nome: minúsculo e sem acentos
-            const normalize = (s: string) =>
-              s
-                .toLowerCase()
-                .normalize("NFD")
-                .replace(/[\u0300-\u036f]/g, "");
-
-            // Regras precisas para cada um dos 4 produtos desejados
-            const rules: { key: string; match: (n: string) => boolean }[] = [
-              {
-                key: "bloom-rouge",
-                match: (n) => n.includes("bloom") && n.includes("rouge"),
-              },
-              {
-                key: "cristal-flower",
-                match: (n) => n.includes("cristal") && n.includes("flower"),
-              },
-              {
-                key: "buque-grande",
-                match: (n) => n.includes("buque") && n.includes("grande"),
-              },
-              {
-                key: "box-romance",
-                match: (n) => n.includes("box") && n.includes("romance"),
-              },
-            ];
-
-            // Para cada regra, pega o primeiro produto disponível com preço de Black Friday
-            const selectedProducts = rules
-              .map((rule) => {
-                return products.find((p) => {
-                  if (!p.available) return false;
-                  if (!p.black_friday_price || p.black_friday_price <= 0) return false;
-                  return rule.match(normalize(p.name));
-                });
-              })
-              .filter((p): p is Product => Boolean(p))
-              .slice(0, 4);
+            // 👇 BUSCA OS PRODUTOS MARCADOS COMO "DESTAQUE NA HOME" NO ADMIN
+            const selectedProducts = products.filter((p) => {
+              return p.available && p.featured === true;
+            });
 
             if (selectedProducts.length > 0) {
               return selectedProducts.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ));
             }
-
             return (
               <p style={{ width: "100%", textAlign: "center", color: "#7a7a72", padding: "40px 0", gridColumn: "1 / -1" }}>
-                Configure os preços da Black Friday no painel administrativo para exibir as ofertas.
+                Marque produtos como "Destaque na Home" no painel administrativo para exibi-los aqui.
               </p>
             );
           })()}
