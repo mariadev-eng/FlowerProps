@@ -1313,6 +1313,8 @@ function FloresTab() {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [expandedFlowerId, setExpandedFlowerId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+
 
   async function loadData() {
     setIsLoading(true);
@@ -1437,6 +1439,9 @@ function FloresTab() {
   function countProducts(flower: WeeklyFlower): number {
     return (flower.allowed_products || []).length;
   }
+    const filteredFlowers = flowers.filter((flower) =>
+    flower.name.toLowerCase().includes(searchTerm.toLowerCase().trim())
+  );
 
   return (
     <>
@@ -1472,6 +1477,21 @@ function FloresTab() {
         >
           ➕ Adicionar flor
         </button>
+         <input
+          type="search"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Buscar flor por nome..."
+          style={{
+            height: 38,
+            padding: "0 12px",
+            border: "1px solid #d1d5db",
+            borderRadius: 6,
+            fontSize: 13,
+            outline: "none",
+            width: 250,
+          }}
+        />
       </div>
 
       {isLoading ? (
